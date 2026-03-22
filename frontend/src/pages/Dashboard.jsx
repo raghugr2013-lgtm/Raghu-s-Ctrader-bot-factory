@@ -162,6 +162,28 @@ function ValidationStatusCard({ title, status, isValid, score, icon: Icon, detai
   );
 }
 
+// Professional Navigation Button Component
+function NavButton({ onClick, icon: Icon, label, variant = 'default', testId }) {
+  const baseStyles = "flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono uppercase transition-all duration-200 rounded-md h-9";
+  
+  const variantStyles = {
+    default: "bg-transparent text-zinc-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10",
+    secondary: "bg-zinc-800/50 text-zinc-400 hover:text-white hover:bg-zinc-700/50 border border-white/5",
+    accent: "bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 hover:border-emerald-500/50",
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${baseStyles} ${variantStyles[variant]}`}
+      data-testid={testId}
+    >
+      <Icon className="w-4 h-4" />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
 export default function Dashboard() {
   const [strategyPrompt, setStrategyPrompt] = useState('');
   const [aiMode, setAiMode] = useState('single');
@@ -661,91 +683,119 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen w-screen bg-[#050505] overflow-hidden grid grid-cols-12 grid-rows-[auto_1fr_220px] gap-2 p-2">
-      {/* Header */}
-      <div className="col-span-12 bg-[#0A0A0A] border border-white/5 px-4 py-3 flex items-center justify-between" data-testid="app-header">
-        <div>
-          <h1 className="text-2xl font-extrabold uppercase tracking-tight text-white" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            Raghu's BOT Factory
-          </h1>
-          <p className="text-xs text-zinc-500 uppercase tracking-widest mt-0.5" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
-            Multi-AI Collaboration Engine
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Execution Mode Toggle */}
-          <div className="flex bg-[#18181B] rounded-sm border border-white/10 p-0.5" data-testid="execution-mode-toggle">
-            {[
-              { value: 'backtest', label: 'Backtest' },
-              { value: 'forward_test', label: 'Forward' },
-              { value: 'live', label: 'Live' }
-            ].map(mode => (
-              <button
-                key={mode.value}
-                onClick={() => setExecutionMode(mode.value)}
-                className={`px-2 py-1 text-[9px] font-mono uppercase transition-colors rounded-sm ${
-                  executionMode === mode.value
-                    ? mode.value === 'live' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
+      {/* Header - Professional SaaS Navigation */}
+      <div className="col-span-12 bg-[#0A0A0A] border border-white/5 sticky top-0 z-50" data-testid="app-header">
+        <div className="flex items-center justify-between h-14 px-4">
+          {/* Left: Logo & Branding */}
+          <div className="flex items-center gap-4 min-w-[200px]">
+            <div>
+              <h1 className="text-xl font-extrabold uppercase tracking-tight text-white leading-none" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
+                Raghu's BOT Factory
+              </h1>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-widest" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+                Multi-AI Engine
+              </p>
+            </div>
           </div>
-          
-          {/* Navigation Buttons */}
-          <Button
-            onClick={() => navigate('/analyze-bot')}
-            className="bg-cyan-700 hover:bg-cyan-600 text-white font-mono uppercase text-[10px] h-7 px-3"
-            data-testid="analyze-nav-btn"
-          >
-            <Search className="w-3 h-3 mr-1.5" /> ANALYZE
-          </Button>
-          <Button
-            onClick={() => navigate('/discovery')}
-            className="bg-violet-700 hover:bg-violet-600 text-white font-mono uppercase text-[10px] h-7 px-3"
-            data-testid="discovery-nav-btn"
-          >
-            <Globe className="w-3 h-3 mr-1.5" /> DISCOVER
-          </Button>
-          <Button
-            onClick={() => navigate('/library')}
-            className="bg-amber-700 hover:bg-amber-600 text-white font-mono uppercase text-[10px] h-7 px-3"
-            data-testid="library-nav-btn"
-          >
-            <Database className="w-3 h-3 mr-1.5" /> LIBRARY
-          </Button>
-          <Button
-            onClick={() => navigate('/bot-config')}
-            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono uppercase text-[10px] h-7 px-3"
-            data-testid="config-nav-btn"
-          >
-            <Settings className="w-3 h-3 mr-1.5" /> CONFIG
-          </Button>
-          <Button
-            onClick={() => navigate('/live')}
-            className="bg-emerald-700 hover:bg-emerald-600 text-white font-mono uppercase text-[10px] h-7 px-3"
-            data-testid="live-nav-btn"
-          >
-            <Activity className="w-3 h-3 mr-1.5" /> LIVE
-          </Button>
-          <Button
-            onClick={() => navigate('/portfolio')}
-            className="bg-violet-700 hover:bg-violet-600 text-white font-mono uppercase text-[10px] h-7 px-3"
-            data-testid="portfolio-nav-btn"
-          >
-            <Briefcase className="w-3 h-3 mr-1.5" /> PORTFOLIO
-          </Button>
-          {metadata && (
-            <span className="text-[10px] font-mono text-zinc-500" data-testid="execution-time">
-              {metadata.total_ai_calls} AI calls | {metadata.execution_time_seconds}s
-            </span>
-          )}
-          <div className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-mono font-bold" data-testid="build-version">
-            v2.1-PROP-SCORE
+
+          {/* Center: Main Navigation */}
+          <nav className="flex items-center gap-1" data-testid="main-navigation">
+            {/* Mode Selection Group */}
+            <div className="flex items-center bg-[#18181B] rounded-md border border-white/10 p-1 mr-3" data-testid="execution-mode-toggle">
+              {[
+                { value: 'backtest', label: 'Backtest', icon: BarChart3 },
+                { value: 'forward_test', label: 'Forward', icon: TrendingUp },
+                { value: 'live', label: 'Live Trading', icon: Activity }
+              ].map(mode => {
+                const Icon = mode.icon;
+                return (
+                  <button
+                    key={mode.value}
+                    onClick={() => setExecutionMode(mode.value)}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono uppercase transition-all duration-200 rounded-md ${
+                      executionMode === mode.value
+                        ? mode.value === 'live' 
+                          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
+                          : 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    }`}
+                    data-testid={`mode-${mode.value}`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {mode.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-white/10 mx-2" />
+
+            {/* Core Features Group */}
+            <div className="flex items-center gap-1">
+              <NavButton 
+                onClick={() => navigate('/analyze-bot')} 
+                icon={Search} 
+                label="Analyze" 
+                testId="analyze-nav-btn"
+              />
+              <NavButton 
+                onClick={() => navigate('/discovery')} 
+                icon={Globe} 
+                label="Discover" 
+                testId="discovery-nav-btn"
+              />
+              <NavButton 
+                onClick={() => navigate('/library')} 
+                icon={Database} 
+                label="Library" 
+                testId="library-nav-btn"
+              />
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-6 bg-white/10 mx-2" />
+
+            {/* System / Management Group */}
+            <div className="flex items-center gap-1">
+              <NavButton 
+                onClick={() => navigate('/bot-config')} 
+                icon={Settings} 
+                label="Config" 
+                variant="secondary"
+                testId="config-nav-btn"
+              />
+              <NavButton 
+                onClick={() => navigate('/portfolio')} 
+                icon={Briefcase} 
+                label="Portfolio" 
+                testId="portfolio-nav-btn"
+              />
+              <NavButton 
+                onClick={() => navigate('/live')} 
+                icon={Activity} 
+                label="Monitor" 
+                variant="accent"
+                testId="live-nav-btn"
+              />
+            </div>
+          </nav>
+
+          {/* Right: Status & Meta Info */}
+          <div className="flex items-center gap-3 min-w-[200px] justify-end">
+            {metadata && (
+              <span className="text-[10px] font-mono text-zinc-500 hidden lg:block" data-testid="execution-time">
+                {metadata.total_ai_calls} calls • {metadata.execution_time_seconds}s
+              </span>
+            )}
+            <div className="flex items-center gap-2 bg-[#18181B] rounded-md px-3 py-1.5 border border-white/10">
+              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" data-testid="status-indicator" />
+              <span className="text-[10px] text-zinc-300 uppercase font-mono tracking-wide">Online</span>
+            </div>
+            <div className="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold border border-emerald-500/20" data-testid="build-version">
+              v2.1
+            </div>
           </div>
-          <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" data-testid="status-indicator" />
-          <span className="text-xs text-zinc-400 uppercase font-mono">ONLINE</span>
         </div>
       </div>
 
