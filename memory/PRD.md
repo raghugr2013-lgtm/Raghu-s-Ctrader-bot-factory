@@ -7,14 +7,14 @@ Merge multiple uploaded ZIP files containing different parts/versions of a compl
 A comprehensive AI-powered trading bot generation and validation platform for cTrader Automate. The system enables users to generate, validate, backtest, and optimize trading bots with prop firm compliance checking.
 
 ## Architecture
-- **Frontend**: React.js with Tailwind CSS, Monaco Editor
+- **Frontend**: React.js with Tailwind CSS, Monaco Editor, react-resizable-panels
 - **Backend**: FastAPI (Python)
 - **Database**: MongoDB
 - **AI Integration**: Emergent LLM (OpenAI GPT-5.2, Claude, DeepSeek)
 
 ## Core Modules Implemented
 
-### Backend (86 Python files)
+### Backend (89 Python files)
 1. **Multi-AI Engine** - Bot generation via multiple AI models
 2. **Safety Injection** - Auto-inject safety code into bots
 3. **Compile Gate** - C# compilation verification
@@ -29,7 +29,7 @@ A comprehensive AI-powered trading bot generation and validation platform for cT
 12. **Execution Layer** - Trade logging, WebSocket, Telegram alerts
 
 ### Frontend Pages (11 Pages)
-1. Dashboard - Main bot builder interface
+1. Dashboard - Main bot builder interface (RESIZABLE PANELS)
 2. PortfolioPage - Portfolio management
 3. DiscoveryPage - Bot discovery and ranking
 4. StrategyLibraryPage - Strategy templates
@@ -54,29 +54,27 @@ Response includes:
 - `grade`: A/B/C/D/F
 - `decision`: PROP_FIRM_READY | NEEDS_IMPROVEMENT | NOT_READY
 
-### Other Critical Endpoints
-- POST /api/bot/generate - Generate bot code
-- POST /api/code/validate - Validate C# code
-- POST /api/bot/validate - Full bot validation
-- POST /api/bot/inject-safety - Inject safety code
-- POST /api/backtest/simulate - Run backtest
-- GET /api/compliance/profiles - Get prop firm profiles
-
 ## What's Been Implemented (March 2026)
 
 ### Completed
-- [x] Merged all ZIP files into clean structure
-- [x] Backend: 86 Python modules integrated
-- [x] Frontend: 11 pages, all navigation working
-- [x] Full validation pipeline endpoint
-- [x] Multi-AI bot generation
+- [x] Merged all 9 ZIP files into clean structure (89 backend, 76 frontend files)
+- [x] Full validation pipeline endpoint working
+- [x] Multi-AI bot generation (GPT-5.2, Claude, DeepSeek)
 - [x] Compile gate verification
 - [x] Compliance engine (FTMO, MFF, etc.)
 - [x] Mock backtest simulation
 - [x] Monte Carlo analysis
 - [x] Walk-forward validation
-- [x] Database integration
-- [x] EMERGENT_LLM_KEY configured
+- [x] Professional Navigation UI (March 22, 2026)
+  - Flexbox layout with logical grouping
+  - Mode selection (Backtest/Forward/Live Trading)
+  - Consistent button styling
+- [x] RESIZABLE PANEL LAYOUT (March 22, 2026)
+  - Horizontal resizing (Left/Center/Right panels)
+  - Vertical resizing (Top section/Bottom section)
+  - react-resizable-panels library integration
+  - Layout persistence via autoSaveId
+  - Professional resize handles with hover states
 
 ### Working Features
 - Bot generation with AI
@@ -88,6 +86,7 @@ Response includes:
 - Monte Carlo analysis
 - Walk-forward validation
 - Final scoring with PROP_FIRM_READY decision
+- Resizable workspace panels
 
 ## Prioritized Backlog
 
@@ -109,10 +108,11 @@ Response includes:
 - FastAPI + MongoDB + React
 - Emergent LLM Integration
 - Monaco Editor for code
+- react-resizable-panels for layout
 - Recharts for visualizations
 
 ## Next Tasks
-1. Test bot generation with AI
+1. Test bot generation with AI end-to-end
 2. Connect real market data providers
 3. Implement live trading execution
 4. Add user authentication
