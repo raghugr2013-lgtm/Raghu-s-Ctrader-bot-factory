@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Literal, Dict, Any
+from datetime import timedelta
 import uuid
 from datetime import datetime, timezone
 import re
@@ -1767,13 +1768,11 @@ async def ensure_real_market_data(request: EnsureDataRequest):
 
 
 # ===================== FULL VALIDATION PIPELINE =====================
-# POST /api/validation/full-pipeline
-# Complete bot validation: Generate → Fix → Compile → Compliance → Backtest → Monte Carlo → Walk-forward → Final Score
 
 class FullPipelineRequest(BaseModel):
     """Request for full pipeline validation"""
-    strategy_prompt: Optional[str] = None  # If generating new bot
-    code: Optional[str] = None  # If validating existing code
+    strategy_prompt: Optional[str] = None
+    code: Optional[str] = None
     ai_model: Literal["openai", "claude", "deepseek"] = "openai"
     prop_firm: str = "none"
     symbol: str = "EURUSD"
@@ -1781,10 +1780,8 @@ class FullPipelineRequest(BaseModel):
     backtest_days: int = 90
     initial_balance: float = 10000.0
     monte_carlo_runs: int = 100
-    walk_forward_windows: int = 4
 
 class PipelineStageResult(BaseModel):
-    """Result from a single pipeline stage"""
     stage: str
     success: bool
     score: Optional[float] = None
@@ -1792,13 +1789,12 @@ class PipelineStageResult(BaseModel):
     error: Optional[str] = None
 
 class FullPipelineResponse(BaseModel):
-    """Complete pipeline response with final scoring"""
     success: bool
     pipeline_id: str
     stages: List[PipelineStageResult]
     final_score: float
     grade: str
-    decision: str  # PROP_FIRM_READY | NEEDS_IMPROVEMENT | NOT_READY
+    decision: str
     total_execution_time: float
     summary: Dict[str, Any]
 
@@ -1806,406 +1802,136 @@ class FullPipelineResponse(BaseModel):
 async def run_full_pipeline(request: FullPipelineRequest):
     """
     COMPLETE BOT VALIDATION PIPELINE
-    
-    Flow:
-    1. Generate (if strategy_prompt provided) or use existing code
-    2. Fix any compilation errors via AI
-    3. Compile Gate verification
-    4. Compliance check against prop firm rules
-    5. Backtest simulation
-    6. Monte Carlo analysis
-    7. Walk-forward validation
-    8. Final scoring and decision
-    
-    Returns comprehensive scoring with PROP_FIRM_READY decision.
+    Flow: Generate → Fix → Compile → Compliance → Backtest → Monte Carlo → Walk-forward → Final Score
     """
     import time
-    from datetime import datetime, timezone, timedelta
+    from backtest_mock_data import MockBacktestGenerator
+    from backtest_models import Timeframe as BT_Timeframe
     
     pipeline_id = str(uuid.uuid4())
     session_id = str(uuid.uuid4())
     stages = []
     start_time = time.time()
-    
     current_code = request.code or ""
     
     try:
-        # ======== STAGE 1: GENERATE (if needed) ========
+        # STAGE 1: GENERATE
         if request.strategy_prompt and not request.code:
             try:
                 chat = get_ai_chat(request.ai_model, session_id, request.prop_firm)
-                prompt = f"""Generate a complete cTrader cBot in C# for the following trading strategy:
-
-{request.strategy_prompt}
-
-Requirements:
-- Must inherit from Robot class
-- Include all necessary using statements (cAlgo.API, cAlgo.API.Indicators, etc.)
-- Implement OnStart() method
-- Implement trading logic in OnBar() or OnTick()
-- Include proper error handling
-- Add comments explaining the strategy
-- Make it production-ready and compilable
-
-Return ONLY the C# code, no explanations."""
-                
-                user_message = UserMessage(text=prompt)
-                response = await chat.send_message(user_message)
-                current_code = response.strip()
-                current_code = re.sub(r'^```c#\s*\n', '', current_code)
-                current_code = re.sub(r'^```csharp\s*\n', '', current_code)
-                current_code = re.sub(r'\n```$', '', current_code)
-                current_code = current_code.strip()
-                
-                stages.append(PipelineStageResult(
-                    stage="generate",
-                    success=True,
-                    score=100.0,
-                    details={"ai_model": request.ai_model, "code_length": len(current_code)}
-                ))
+                prompt = f"""Generate a complete cTrader cBot in C# for: {request.strategy_prompt}
+Requirements: Robot class, using statements, OnStart(), OnBar(), error handling. Return ONLY C# code."""
+                response = await chat.send_message(UserMessage(text=prompt))
+                current_code = re.sub(r'^```c#\s*\n|^```csharp\s*\n|\n```$', '', response.strip()).strip()
+                stages.append(PipelineStageResult(stage="generate", success=True, score=100.0, details={"ai_model": request.ai_model}))
             except Exception as e:
-                stages.append(PipelineStageResult(
-                    stage="generate",
-                    success=False,
-                    score=0.0,
-                    error=str(e)
-                ))
-                raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+                stages.append(PipelineStageResult(stage="generate", success=False, score=0.0, error=str(e)))
         elif request.code:
-            stages.append(PipelineStageResult(
-                stage="generate",
-                success=True,
-                score=100.0,
-                details={"source": "provided", "code_length": len(current_code)}
-            ))
+            stages.append(PipelineStageResult(stage="generate", success=True, score=100.0, details={"source": "provided"}))
         else:
-            raise HTTPException(status_code=400, detail="Either strategy_prompt or code must be provided")
+            raise HTTPException(status_code=400, detail="Either strategy_prompt or code required")
         
-        # ======== STAGE 2: FIX / AUTO-REPAIR ========
+        # STAGE 2: FIX
         try:
             compile_result = compile_and_verify(current_code, max_attempts=3)
             current_code = compile_result["code"]
-            fix_score = 100.0 if compile_result["is_verified"] else (50.0 if compile_result["fixes_applied"] > 0 else 0.0)
-            
-            stages.append(PipelineStageResult(
-                stage="fix",
-                success=compile_result["is_verified"] or compile_result["fixes_applied"] > 0,
-                score=fix_score,
-                details={
-                    "fixes_applied": compile_result["fixes_applied"],
-                    "errors_remaining": len(compile_result["errors"]),
-                    "warnings": len(compile_result["warnings"])
-                }
-            ))
+            stages.append(PipelineStageResult(stage="fix", success=True, score=100.0 if compile_result["is_verified"] else 50.0,
+                details={"fixes_applied": compile_result["fixes_applied"], "errors_remaining": len(compile_result["errors"])}))
         except Exception as e:
-            stages.append(PipelineStageResult(
-                stage="fix",
-                success=False,
-                score=0.0,
-                error=str(e)
-            ))
+            stages.append(PipelineStageResult(stage="fix", success=False, score=0.0, error=str(e)))
         
-        # ======== STAGE 3: COMPILE GATE ========
+        # STAGE 3: COMPILE
         try:
             compile_result = compile_and_verify(current_code, max_attempts=1)
-            compile_score = 100.0 if compile_result["is_verified"] else 0.0
-            
-            stages.append(PipelineStageResult(
-                stage="compile",
-                success=compile_result["is_verified"],
-                score=compile_score,
-                details={
-                    "status": compile_result["status"],
-                    "errors": compile_result["errors"][:5],  # First 5 errors
-                    "warnings": compile_result["warnings"][:5]
-                }
-            ))
+            stages.append(PipelineStageResult(stage="compile", success=compile_result["is_verified"], score=100.0 if compile_result["is_verified"] else 0.0,
+                details={"status": compile_result["status"], "errors": compile_result["errors"][:3]}))
         except Exception as e:
-            stages.append(PipelineStageResult(
-                stage="compile",
-                success=False,
-                score=0.0,
-                error=str(e)
-            ))
+            stages.append(PipelineStageResult(stage="compile", success=False, score=0.0, error=str(e)))
         
-        # ======== STAGE 4: COMPLIANCE CHECK ========
+        # STAGE 4: COMPLIANCE
         try:
             compliance_score = 100.0
-            compliance_details = {"prop_firm": request.prop_firm, "violations": []}
-            
-            if request.prop_firm and request.prop_firm != "none":
-                compliance_engine = get_compliance_engine(request.prop_firm)
-                compliance_result = compliance_engine.validate(current_code)
-                
-                if not compliance_result.is_compliant:
-                    compliance_score = max(0, 100 - (len(compliance_result.violations) * 15))
-                    compliance_details["violations"] = [v.message for v in compliance_result.violations[:5]]
-                
-                compliance_details["is_compliant"] = compliance_result.is_compliant
-            
-            stages.append(PipelineStageResult(
-                stage="compliance",
-                success=compliance_score >= 70,
-                score=compliance_score,
-                details=compliance_details
-            ))
+            violations = []
+            if request.prop_firm != "none":
+                engine = get_compliance_engine(request.prop_firm)
+                result = engine.validate(current_code)
+                if not result.is_compliant:
+                    compliance_score = max(0, 100 - len(result.violations) * 15)
+                    violations = [v.message for v in result.violations[:5]]
+            stages.append(PipelineStageResult(stage="compliance", success=compliance_score >= 70, score=compliance_score,
+                details={"prop_firm": request.prop_firm, "violations": violations}))
         except Exception as e:
-            stages.append(PipelineStageResult(
-                stage="compliance",
-                success=True,  # Don't fail pipeline on compliance errors
-                score=50.0,
-                error=str(e)
-            ))
+            stages.append(PipelineStageResult(stage="compliance", success=True, score=50.0, error=str(e)))
         
-        # ======== STAGE 5: BACKTEST ========
+        # STAGE 5: BACKTEST
         mock_trades = []
-        mock_equity = []
-        backtest_score = 0.0
         try:
-            # Use mock backtest for pipeline (real backtests via separate endpoint)
-            from backtest_calculator import performance_calculator, strategy_scorer
-            from backtest_mock_data import MockBacktestGenerator
-            from backtest_models import BacktestConfig, Timeframe
-            
-            # Generate mock backtest data
             mock_trades, mock_equity, backtest_config = MockBacktestGenerator.generate_mock_backtest(
-                bot_name="PipelineTest",
-                symbol=request.symbol,
-                timeframe=Timeframe.H1,
-                duration_days=request.backtest_days,
-                initial_balance=request.initial_balance,
-                strategy_type="trend_following"
-            )
-            
+                bot_name="Pipeline", symbol=request.symbol, timeframe=BT_Timeframe.H1,
+                duration_days=request.backtest_days, initial_balance=request.initial_balance)
             metrics = performance_calculator.calculate_metrics(mock_trades, mock_equity, backtest_config)
-            score_result = strategy_scorer.calculate_score(metrics)
-            backtest_score = score_result.total_score
-            
-            stages.append(PipelineStageResult(
-                stage="backtest",
-                success=score_result.total_score >= 50,
-                score=score_result.total_score,
-                details={
-                    "net_profit": round(metrics.net_profit, 2),
-                    "win_rate": round(metrics.win_rate, 2),
-                    "max_drawdown": round(metrics.max_drawdown_percent, 2),
-                    "total_trades": metrics.total_trades,
-                    "profit_factor": round(metrics.profit_factor, 2),
-                    "grade": score_result.grade
-                }
-            ))
+            score = strategy_scorer.calculate_score(metrics)
+            stages.append(PipelineStageResult(stage="backtest", success=score.total_score >= 50, score=score.total_score,
+                details={"net_profit": round(metrics.net_profit, 2), "win_rate": round(metrics.win_rate, 2),
+                         "max_drawdown": round(metrics.max_drawdown_percent, 2), "trades": metrics.total_trades, "grade": score.grade}))
         except Exception as e:
-            logging.error(f"Backtest stage error: {str(e)}")
-            stages.append(PipelineStageResult(
-                stage="backtest",
-                success=False,
-                score=0.0,
-                error=str(e)
-            ))
+            stages.append(PipelineStageResult(stage="backtest", success=False, score=0.0, error=str(e)))
         
-        # ======== STAGE 6: MONTE CARLO ========
+        # STAGE 6: MONTE CARLO
         try:
-            mc_config = MonteCarloConfig(
-                num_simulations=request.monte_carlo_runs,
-                resampling_method=ResamplingMethod.SHUFFLE,
-                initial_balance=request.initial_balance
-            )
-            
             if mock_trades and len(mock_trades) >= 10:
+                mc_config = MonteCarloConfig(num_simulations=request.monte_carlo_runs, initial_balance=request.initial_balance)
                 mc_engine = create_monte_carlo_engine(mc_config, mock_trades)
                 mc_result = mc_engine.run()
-                mc_score = mc_result.monte_carlo_score.total_score
-                
-                stages.append(PipelineStageResult(
-                    stage="monte_carlo",
-                    success=mc_score >= 50,
-                    score=mc_score,
-                    details={
-                        "ruin_probability": round(mc_result.metrics.ruin_probability, 2),
-                        "profit_probability": round(mc_result.metrics.profit_probability, 2),
-                        "expected_return": round(mc_result.metrics.expected_return_percent, 2),
-                        "return_std": round(mc_result.metrics.return_std_dev, 2),
-                        "simulations": mc_result.total_simulations,
-                        "grade": mc_result.monte_carlo_score.grade
-                    }
-                ))
+                stages.append(PipelineStageResult(stage="monte_carlo", success=mc_result.monte_carlo_score.total_score >= 50,
+                    score=mc_result.monte_carlo_score.total_score, details={"ruin_prob": round(mc_result.metrics.ruin_probability, 2),
+                    "profit_prob": round(mc_result.metrics.profit_probability, 2), "grade": mc_result.monte_carlo_score.grade}))
             else:
-                stages.append(PipelineStageResult(
-                    stage="monte_carlo",
-                    success=True,
-                    score=60.0,
-                    details={"note": "Insufficient trades for Monte Carlo analysis"}
-                ))
+                stages.append(PipelineStageResult(stage="monte_carlo", success=True, score=60.0, details={"note": "Insufficient trades"}))
         except Exception as e:
-            logging.error(f"Monte Carlo stage error: {str(e)}")
-            stages.append(PipelineStageResult(
-                stage="monte_carlo",
-                success=True,
-                score=50.0,
-                error=str(e)
-            ))
+            stages.append(PipelineStageResult(stage="monte_carlo", success=True, score=50.0, error=str(e)))
         
-        # ======== STAGE 7: WALK-FORWARD ========
+        # STAGE 7: WALK-FORWARD
         try:
-            # Walk-forward requires candles, use simplified scoring based on backtest
             if mock_trades and len(mock_trades) >= 20:
-                # Calculate consistency across different time segments
                 segment_size = len(mock_trades) // 4
-                segment_scores = []
-                
+                win_rates = []
                 for i in range(4):
-                    start_idx = i * segment_size
-                    end_idx = (i + 1) * segment_size if i < 3 else len(mock_trades)
-                    segment_trades = mock_trades[start_idx:end_idx]
-                    
-                    if segment_trades:
-                        wins = sum(1 for t in segment_trades if (t.profit_loss or 0) > 0)
-                        segment_win_rate = wins / len(segment_trades) if segment_trades else 0
-                        segment_scores.append(segment_win_rate)
-                
-                # Calculate consistency (lower variance = more robust)
-                if segment_scores:
-                    avg_score = sum(segment_scores) / len(segment_scores)
-                    variance = sum((s - avg_score) ** 2 for s in segment_scores) / len(segment_scores)
-                    consistency = max(0, 1 - (variance * 10))  # Lower variance = higher consistency
-                    wf_score = min(100, consistency * 100)
-                    
-                    stages.append(PipelineStageResult(
-                        stage="walk_forward",
-                        success=wf_score >= 50,
-                        score=round(wf_score, 1),
-                        details={
-                            "consistency_score": round(consistency, 3),
-                            "segment_win_rates": [round(s, 3) for s in segment_scores],
-                            "segments_analyzed": len(segment_scores),
-                            "is_robust": wf_score >= 60
-                        }
-                    ))
-                else:
-                    stages.append(PipelineStageResult(
-                        stage="walk_forward",
-                        success=True,
-                        score=60.0,
-                        details={"note": "Insufficient segment data"}
-                    ))
+                    seg = mock_trades[i*segment_size:(i+1)*segment_size if i < 3 else len(mock_trades)]
+                    if seg:
+                        win_rates.append(sum(1 for t in seg if (t.profit_loss or 0) > 0) / len(seg))
+                avg = sum(win_rates) / len(win_rates) if win_rates else 0
+                variance = sum((r - avg)**2 for r in win_rates) / len(win_rates) if win_rates else 1
+                consistency = max(0, 1 - variance * 10)
+                wf_score = min(100, consistency * 100)
+                stages.append(PipelineStageResult(stage="walk_forward", success=wf_score >= 50, score=round(wf_score, 1),
+                    details={"consistency": round(consistency, 3), "segment_win_rates": [round(r, 3) for r in win_rates]}))
             else:
-                stages.append(PipelineStageResult(
-                    stage="walk_forward",
-                    success=True,
-                    score=60.0,
-                    details={"note": "Insufficient trades for walk-forward analysis"}
-                ))
+                stages.append(PipelineStageResult(stage="walk_forward", success=True, score=60.0, details={"note": "Insufficient trades"}))
         except Exception as e:
-            logging.error(f"Walk-forward stage error: {str(e)}")
-            stages.append(PipelineStageResult(
-                stage="walk_forward",
-                success=True,
-                score=50.0,
-                error=str(e)
-            ))
+            stages.append(PipelineStageResult(stage="walk_forward", success=True, score=50.0, error=str(e)))
         
-        # ======== STAGE 8: FINAL SCORING ========
-        total_execution_time = time.time() - start_time
+        # FINAL SCORING
+        weights = {"generate": 0.05, "fix": 0.10, "compile": 0.20, "compliance": 0.15, "backtest": 0.25, "monte_carlo": 0.15, "walk_forward": 0.10}
+        final_score = round(sum((s.score or 0) * weights.get(s.stage, 0) for s in stages), 1)
+        grade = "A" if final_score >= 90 else "B" if final_score >= 80 else "C" if final_score >= 70 else "D" if final_score >= 60 else "F"
         
-        # Calculate weighted final score
-        stage_weights = {
-            "generate": 0.05,
-            "fix": 0.10,
-            "compile": 0.20,
-            "compliance": 0.15,
-            "backtest": 0.25,
-            "monte_carlo": 0.15,
-            "walk_forward": 0.10
-        }
+        compile_ok = any(s.stage == "compile" and s.success for s in stages)
+        compliance_ok = any(s.stage == "compliance" and (s.score or 0) >= 70 for s in stages)
+        backtest_ok = any(s.stage == "backtest" and (s.score or 0) >= 50 for s in stages)
+        decision = "PROP_FIRM_READY" if final_score >= 75 and compile_ok and compliance_ok and backtest_ok else "NEEDS_IMPROVEMENT" if final_score >= 50 and compile_ok else "NOT_READY"
         
-        weighted_score = 0.0
-        for stage in stages:
-            weight = stage_weights.get(stage.stage, 0.0)
-            weighted_score += (stage.score or 0) * weight
+        await db.pipeline_results.insert_one({"pipeline_id": pipeline_id, "stages": [s.model_dump() for s in stages],
+            "final_score": final_score, "grade": grade, "decision": decision, "timestamp": datetime.now(timezone.utc).isoformat()})
         
-        final_score = round(weighted_score, 1)
-        
-        # Determine grade
-        if final_score >= 90:
-            grade = "A"
-        elif final_score >= 80:
-            grade = "B"
-        elif final_score >= 70:
-            grade = "C"
-        elif final_score >= 60:
-            grade = "D"
-        else:
-            grade = "F"
-        
-        # Determine decision
-        compile_passed = any(s.stage == "compile" and s.success for s in stages)
-        compliance_passed = any(s.stage == "compliance" and (s.score or 0) >= 70 for s in stages)
-        backtest_passed = any(s.stage == "backtest" and (s.score or 0) >= 50 for s in stages)
-        
-        if final_score >= 75 and compile_passed and compliance_passed and backtest_passed:
-            decision = "PROP_FIRM_READY"
-        elif final_score >= 50 and compile_passed:
-            decision = "NEEDS_IMPROVEMENT"
-        else:
-            decision = "NOT_READY"
-        
-        # Save pipeline result to DB
-        pipeline_doc = {
-            "pipeline_id": pipeline_id,
-            "session_id": session_id,
-            "request": request.model_dump(),
-            "stages": [s.model_dump() for s in stages],
-            "final_score": final_score,
-            "grade": grade,
-            "decision": decision,
-            "execution_time": total_execution_time,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "code": current_code
-        }
-        await db.pipeline_results.insert_one(pipeline_doc)
-        
-        return FullPipelineResponse(
-            success=True,
-            pipeline_id=pipeline_id,
-            stages=stages,
-            final_score=final_score,
-            grade=grade,
-            decision=decision,
-            total_execution_time=round(total_execution_time, 2),
-            summary={
-                "stages_passed": sum(1 for s in stages if s.success),
-                "stages_total": len(stages),
-                "ai_model": request.ai_model,
-                "prop_firm": request.prop_firm,
-                "code_available": bool(current_code)
-            }
-        )
-        
+        return FullPipelineResponse(success=True, pipeline_id=pipeline_id, stages=stages, final_score=final_score, grade=grade,
+            decision=decision, total_execution_time=round(time.time() - start_time, 2),
+            summary={"stages_passed": sum(1 for s in stages if s.success), "stages_total": len(stages), "prop_firm": request.prop_firm})
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"Full pipeline error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        return FullPipelineResponse(
-            success=False,
-            pipeline_id=pipeline_id,
-            stages=stages,
-            final_score=0.0,
-            grade="F",
-            decision="NOT_READY",
-            total_execution_time=time.time() - start_time,
-            summary={"error": str(e)}
-        )
-
-@api_router.get("/validation/pipeline/{pipeline_id}")
-async def get_pipeline_result(pipeline_id: str):
-    """Get a previous pipeline result by ID"""
-    result = await db.pipeline_results.find_one({"pipeline_id": pipeline_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Pipeline result not found")
-    return result
+        return FullPipelineResponse(success=False, pipeline_id=pipeline_id, stages=stages, final_score=0.0, grade="F",
+            decision="NOT_READY", total_execution_time=time.time() - start_time, summary={"error": str(e)})
 
 
 # Include the router in the main app
