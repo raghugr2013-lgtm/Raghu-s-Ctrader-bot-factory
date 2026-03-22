@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Editor from '@monaco-editor/react';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,8 @@ import {
   Loader2, Play, Download, CheckCircle2, XCircle, AlertCircle,
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
-  Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database
+  Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
+  GripVertical, GripHorizontal
 } from 'lucide-react';
 import {
   PropScoreGauge,
@@ -182,6 +184,49 @@ function NavButton({ onClick, icon: Icon, label, variant = 'default', testId }) 
       <span className="hidden sm:inline">{label}</span>
     </button>
   );
+}
+
+// Vertical Resize Handle (for horizontal panel resizing)
+function VerticalResizeHandle() {
+  return (
+    <PanelResizeHandle className="w-2 mx-1 group cursor-col-resize transition-colors hover:bg-blue-500/30 active:bg-blue-500/50 flex items-center justify-center">
+      <div className="w-1 h-8 bg-white/10 group-hover:bg-blue-400 rounded-full transition-colors" />
+    </PanelResizeHandle>
+  );
+}
+
+// Horizontal Resize Handle (for vertical panel resizing)
+function HorizontalResizeHandle() {
+  return (
+    <PanelResizeHandle className="h-2 my-1 group cursor-row-resize transition-colors hover:bg-blue-500/30 active:bg-blue-500/50 flex items-center justify-center">
+      <div className="h-1 w-16 bg-white/10 group-hover:bg-blue-400 rounded-full transition-colors" />
+    </PanelResizeHandle>
+  );
+}
+
+// Layout storage key
+const LAYOUT_STORAGE_KEY = 'dashboard-layout-v1';
+
+// Load layout from localStorage
+function loadLayout() {
+  try {
+    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.warn('Failed to load layout from localStorage:', e);
+  }
+  return null;
+}
+
+// Save layout to localStorage
+function saveLayout(layout) {
+  try {
+    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
+  } catch (e) {
+    console.warn('Failed to save layout to localStorage:', e);
+  }
 }
 
 export default function Dashboard() {
@@ -682,9 +727,9 @@ export default function Dashboard() {
   }, [propScore, advancedValidation, canDownload]);
 
   return (
-    <div className="h-screen w-screen bg-[#050505] overflow-hidden grid grid-cols-12 grid-rows-[auto_1fr_220px] gap-2 p-2">
+    <div className="h-screen w-screen bg-[#050505] overflow-hidden flex flex-col">
       {/* Header - Professional SaaS Navigation */}
-      <div className="col-span-12 bg-[#0A0A0A] border border-white/5 sticky top-0 z-50" data-testid="app-header">
+      <div className="flex-shrink-0 bg-[#0A0A0A] border-b border-white/5 z-50" data-testid="app-header">
         <div className="flex items-center justify-between h-14 px-4">
           {/* Left: Logo & Branding */}
           <div className="flex items-center gap-4 min-w-[200px]">
@@ -799,123 +844,149 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Left Panel - Strategy Input */}
-      <div className="col-span-3 bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden" data-testid="strategy-panel">
-        <div className="border-b border-white/5 px-3 py-2 bg-[#18181B]">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            Strategy Configuration
-          </h2>
-        </div>
-        <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-          {/* AI Mode Selector */}
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">AI Mode</label>
-            <div className="flex gap-1" data-testid="ai-mode-selector">
-              <ModeButton mode="single" />
-              <ModeButton mode="collaboration" />
-              <ModeButton mode="competition" />
-            </div>
-          </div>
-
-          {/* Model Selection based on mode */}
-          {aiMode === 'single' && (
-            <ModelSelect label="AI Model" value={singleModel} onChange={setSingleModel} testId="single-model-select" />
-          )}
-
-          {aiMode === 'collaboration' && (
-            <div className="space-y-2 bg-[#0F0F10] border border-white/5 p-2" data-testid="collaboration-config">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Pipeline Roles</p>
-              <ModelSelect label="Strategy Generator" value={generatorModel} onChange={setGeneratorModel} testId="generator-model-select" />
-              <ModelSelect label="Code Reviewer" value={reviewerModel} onChange={setReviewerModel} testId="reviewer-model-select" />
-              <ModelSelect label="Strategy Optimizer" value={optimizerModel} onChange={setOptimizerModel} testId="optimizer-model-select" />
-            </div>
-          )}
-
-          {aiMode === 'competition' && (
-            <div className="bg-[#0F0F10] border border-white/5 p-2" data-testid="competition-config">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1">Competing Models</p>
-              <div className="space-y-1">
-                {AI_MODELS.map(m => (
-                  <div key={m.value} className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
-                    <Trophy className="w-3 h-3 text-amber-500/60" />
-                    {m.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Prop Firm Selector */}
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Prop Firm</label>
-            <Select value={propFirm} onValueChange={setPropFirm}>
-              <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="prop-firm-select">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#0F0F10] border-white/10">
-                <SelectItem value="none" className="text-xs">No Prop Firm</SelectItem>
-                <SelectItem value="ftmo" className="text-xs">FTMO</SelectItem>
-                <SelectItem value="pipfarm" className="text-xs">PipFarm</SelectItem>
-                <SelectItem value="fundednext" className="text-xs">Funded Next</SelectItem>
-                <SelectItem value="thefundedtrader" className="text-xs">The Funded Trader</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Strategy Prompt */}
-          <div>
-            <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">
-              Trading Strategy
-            </label>
-            <Textarea
-              placeholder="Describe your trading strategy in detail..."
-              value={strategyPrompt}
-              onChange={(e) => setStrategyPrompt(e.target.value)}
-              className="bg-black border-white/10 text-sm text-white placeholder:text-zinc-600 min-h-[200px] font-mono resize-none"
-              data-testid="strategy-input"
-            />
-          </div>
-
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-mono uppercase text-xs h-9"
-            data-testid="generate-button"
+      {/* Main Content Area with Vertical Split */}
+      <PanelGroup 
+        orientation="vertical" 
+        className="flex-1 p-2"
+      >
+        {/* Top Section: Left + Center + Right Panels */}
+        <Panel 
+          defaultSize={60} 
+          minSize={30}
+        >
+          <PanelGroup 
+            orientation="horizontal" 
+            className="h-full"
           >
-            {isGenerating ? (
-              <><Loader2 className="w-3 h-3 mr-2 animate-spin" /> GENERATING...</>
-            ) : (
-              <><Play className="w-3 h-3 mr-2" /> GENERATE BOT</>
-            )}
-          </Button>
+            {/* Left Panel - Strategy Input - Now with larger default */}
+            <Panel 
+              defaultSize={18} 
+              minSize={14}
+            >
+              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden rounded-sm" data-testid="strategy-panel">
+                <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex-shrink-0">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-200 truncate" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
+                    Strategy Config
+                  </h2>
+                </div>
+                <div className="flex-1 p-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar text-xs">
+                  {/* AI Mode Selector - Wrapped for overflow */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">AI Mode</label>
+                    <div className="flex flex-wrap gap-1" data-testid="ai-mode-selector">
+                      <ModeButton mode="single" />
+                      <ModeButton mode="collaboration" />
+                      <ModeButton mode="competition" />
+                    </div>
+                  </div>
 
-          {sessionId && (
-            <div className="pt-2 border-t border-white/5">
-              <p className="text-[10px] text-zinc-500 uppercase font-mono">Session</p>
-              <p className="text-[10px] text-zinc-400 font-mono break-all">{sessionId}</p>
-            </div>
-          )}
-        </div>
-      </div>
+                  {/* Model Selection based on mode */}
+                  {aiMode === 'single' && (
+                    <ModelSelect label="AI Model" value={singleModel} onChange={setSingleModel} testId="single-model-select" />
+                  )}
 
-      {/* Center Panel - Code Editor */}
-      <div className="col-span-6 bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden" data-testid="code-panel">
-        <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-              Generated cBot Code
-            </h2>
-            {botValidation && (
-              <Badge
-                variant="outline"
-                className={`text-[9px] px-1.5 py-0 h-4 ${botValidation.is_deployable ? 'border-emerald-500/40 text-emerald-400' : 'border-red-500/40 text-red-400'}`}
-                data-testid="validation-badge"
-              >
-                {botValidation.is_deployable ? '✓ VALIDATED' : `${botValidation.failed_checks} FAILED`}
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+                  {aiMode === 'collaboration' && (
+                    <div className="space-y-2 bg-[#0F0F10] border border-white/5 p-2 rounded-sm" data-testid="collaboration-config">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Pipeline Roles</p>
+                      <ModelSelect label="Strategy Generator" value={generatorModel} onChange={setGeneratorModel} testId="generator-model-select" />
+                      <ModelSelect label="Code Reviewer" value={reviewerModel} onChange={setReviewerModel} testId="reviewer-model-select" />
+                      <ModelSelect label="Strategy Optimizer" value={optimizerModel} onChange={setOptimizerModel} testId="optimizer-model-select" />
+                    </div>
+                  )}
+
+                  {aiMode === 'competition' && (
+                    <div className="bg-[#0F0F10] border border-white/5 p-2 rounded-sm" data-testid="competition-config">
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1">Competing Models</p>
+                      <div className="space-y-1">
+                        {AI_MODELS.map(m => (
+                          <div key={m.value} className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
+                            <Trophy className="w-3 h-3 text-amber-500/60" />
+                            {m.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Prop Firm Selector */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Prop Firm</label>
+                    <Select value={propFirm} onValueChange={setPropFirm}>
+                      <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="prop-firm-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#0F0F10] border-white/10">
+                        <SelectItem value="none" className="text-xs">No Prop Firm</SelectItem>
+                        <SelectItem value="ftmo" className="text-xs">FTMO</SelectItem>
+                        <SelectItem value="pipfarm" className="text-xs">PipFarm</SelectItem>
+                        <SelectItem value="fundednext" className="text-xs">Funded Next</SelectItem>
+                        <SelectItem value="thefundedtrader" className="text-xs">The Funded Trader</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Strategy Prompt */}
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">
+                      Trading Strategy
+                    </label>
+                    <Textarea
+                      placeholder="Describe your trading strategy in detail..."
+                      value={strategyPrompt}
+                      onChange={(e) => setStrategyPrompt(e.target.value)}
+                      className="bg-black border-white/10 text-sm text-white placeholder:text-zinc-600 flex-1 min-h-[120px] font-mono resize-none"
+                      data-testid="strategy-input"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-mono uppercase text-xs h-9 flex-shrink-0"
+                    data-testid="generate-button"
+                  >
+                    {isGenerating ? (
+                      <><Loader2 className="w-3 h-3 mr-2 animate-spin" /> GENERATING...</>
+                    ) : (
+                      <><Play className="w-3 h-3 mr-2" /> GENERATE BOT</>
+                    )}
+                  </Button>
+
+                  {sessionId && (
+                    <div className="pt-2 border-t border-white/5 flex-shrink-0">
+                      <p className="text-[10px] text-zinc-500 uppercase font-mono">Session</p>
+                      <p className="text-[10px] text-zinc-400 font-mono break-all">{sessionId}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Panel>
+
+            {/* Vertical Resize Handle */}
+            <VerticalResizeHandle />
+
+            {/* Center Panel - Code Editor */}
+            <Panel 
+              defaultSize={53} 
+              minSize={35}
+            >
+              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden rounded-sm" data-testid="code-panel">
+                <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex items-center justify-between flex-shrink-0 overflow-x-auto">
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200 whitespace-nowrap" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
+                      Generated cBot Code
+                    </h2>
+                    {botValidation && (
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] px-1.5 py-0 h-4 ${botValidation.is_deployable ? 'border-emerald-500/40 text-emerald-400' : 'border-red-500/40 text-red-400'}`}
+                        data-testid="validation-badge"
+                      >
+                        {botValidation.is_deployable ? '✓ VALIDATED' : `${botValidation.failed_checks} FAILED`}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               onClick={handleInjectSafety}
               size="sm"
@@ -1066,110 +1137,128 @@ export default function Dashboard() {
                 <><Download className="w-3 h-3 mr-1" /> DOWNLOAD</>
               )}
             </Button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden" data-testid="code-editor">
-          <Editor
-            height="100%"
-            defaultLanguage="csharp"
-            theme="vs-dark"
-            value={generatedCode}
-            onChange={(value) => setGeneratedCode(value)}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              tabSize: 4,
-              wordWrap: 'on',
-              fontFamily: 'JetBrains Mono, monospace',
-            }}
-          />
-        </div>
-      </div>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-hidden" data-testid="code-editor">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="csharp"
+                    theme="vs-dark"
+                    value={generatedCode}
+                    onChange={(value) => setGeneratedCode(value)}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 13,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize: 4,
+                      wordWrap: 'on',
+                      fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  />
+                </div>
+              </div>
+            </Panel>
 
-      {/* Right Panel - Collaboration Logs */}
-      <div className="col-span-3 bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden" data-testid="logs-panel">
-        <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
-            Pipeline Logs
-          </h2>
-          {collaborationLogs.length > 0 && (
-            <span className="text-[10px] font-mono text-zinc-500">{collaborationLogs.length} events</span>
-          )}
-        </div>
-        <div className="flex-1 p-2 overflow-y-auto" data-testid="collaboration-logs">
-          {isGenerating && collaborationLogs.length === 0 ? (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono p-2">
-              <Loader2 className="w-3 h-3 animate-spin" /> Running pipeline...
-            </div>
-          ) : collaborationLogs.length === 0 ? (
-            <p className="text-xs text-zinc-500 font-mono p-2">Generate a bot to see pipeline logs.</p>
-          ) : (
-            <>
-              {collaborationLogs.map((log, idx) => (
-                <LogEntry key={idx} log={log} />
-              ))}
-              <div ref={logsEndRef} />
-            </>
-          )}
-        </div>
-      </div>
+            {/* Vertical Resize Handle */}
+            <VerticalResizeHandle />
 
-      {/* Bottom Panel - Quality Gates & Results */}
-      <div className="col-span-12 bg-[#0A0A0A] border border-white/5 overflow-hidden flex flex-col" data-testid="results-panel">
-        <Tabs value={bottomTab} onValueChange={setBottomTab} className="flex flex-col h-full">
-          <div className="border-b border-white/5 bg-[#18181B]">
-            <TabsList className="bg-transparent border-none h-8 p-0 rounded-none">
-              <TabsTrigger
-                value="validation"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold"
-                data-testid="tab-validation"
-              >
-                <FlaskConical className="w-3 h-3 mr-1.5" /> Bot Validation
-              </TabsTrigger>
-              <TabsTrigger
-                value="gates"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold"
-                data-testid="tab-gates"
-              >
-                <Shield className="w-3 h-3 mr-1.5" /> Quality Gates
-              </TabsTrigger>
-              <TabsTrigger
-                value="competition"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold"
-                data-testid="tab-competition"
-              >
-                <Trophy className="w-3 h-3 mr-1.5" /> Competition
-              </TabsTrigger>
-              <TabsTrigger
-                value="summary"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold"
-                data-testid="tab-summary"
-              >
-                <BarChart3 className="w-3 h-3 mr-1.5" /> Summary
-              </TabsTrigger>
-              <TabsTrigger
-                value="advanced"
-                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold"
-                data-testid="tab-advanced"
-              >
-                <Gauge className="w-3 h-3 mr-1.5" /> Prop Score
-                {propScore && (
-                  <span className={`ml-1.5 px-1.5 py-0.5 text-[9px] rounded font-bold ${
-                    propScore >= 80 ? 'bg-emerald-500/20 text-emerald-400' :
-                    propScore >= 60 ? 'bg-amber-500/20 text-amber-400' :
-                    'bg-red-500/20 text-red-400'
-                  }`}>
-                    {propScore}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+            {/* Right Panel - Collaboration Logs */}
+            <Panel 
+              defaultSize={20} 
+              minSize={12}
+            >
+              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden rounded-sm" data-testid="logs-panel">
+                <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex items-center justify-between flex-shrink-0">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
+                    Pipeline Logs
+                  </h2>
+                  {collaborationLogs.length > 0 && (
+                    <span className="text-[10px] font-mono text-zinc-500">{collaborationLogs.length} events</span>
+                  )}
+                </div>
+                <div className="flex-1 p-2 overflow-y-auto custom-scrollbar" data-testid="collaboration-logs">
+                  {isGenerating && collaborationLogs.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono p-2">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Running pipeline...
+                    </div>
+                  ) : collaborationLogs.length === 0 ? (
+                    <p className="text-xs text-zinc-500 font-mono p-2">Generate a bot to see pipeline logs.</p>
+                  ) : (
+                    <>
+                      {collaborationLogs.map((log, idx) => (
+                        <LogEntry key={idx} log={log} />
+                      ))}
+                      <div ref={logsEndRef} />
+                    </>
+                  )}
+                </div>
+              </div>
+            </Panel>
+          </PanelGroup>
+        </Panel>
 
-          {/* Bot Validation Tab */}
+        {/* Horizontal Resize Handle */}
+        <HorizontalResizeHandle />
+
+        {/* Bottom Panel - Quality Gates & Results */}
+        <Panel 
+          defaultSize={40} 
+          minSize={20}
+        >
+          <div className="h-full bg-[#0A0A0A] border border-white/5 overflow-hidden flex flex-col rounded-sm" data-testid="results-panel">
+            <Tabs value={bottomTab} onValueChange={setBottomTab} className="flex flex-col h-full">
+              <div className="border-b border-white/5 bg-[#18181B] flex-shrink-0 overflow-x-auto">
+                <TabsList className="bg-transparent border-none h-8 p-0 rounded-none inline-flex min-w-max">
+                  <TabsTrigger
+                    value="validation"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-validation"
+                  >
+                    <FlaskConical className="w-3 h-3 mr-1.5" /> Bot Validation
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="gates"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-gates"
+                  >
+                    <Shield className="w-3 h-3 mr-1.5" /> Quality Gates
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="competition"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-competition"
+                  >
+                    <Trophy className="w-3 h-3 mr-1.5" /> Competition
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="summary"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-summary"
+                  >
+                    <BarChart3 className="w-3 h-3 mr-1.5" /> Summary
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="advanced"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-advanced"
+                  >
+                    <Gauge className="w-3 h-3 mr-1.5" /> Prop Score
+                    {propScore && (
+                      <span className={`ml-1.5 px-1.5 py-0.5 text-[9px] rounded font-bold ${
+                        propScore >= 80 ? 'bg-emerald-500/20 text-emerald-400' :
+                        propScore >= 60 ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {propScore}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Bot Validation Tab */}
           <TabsContent value="validation" className="flex-1 p-3 overflow-y-auto mt-0">
             {!botValidation ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
@@ -1728,8 +1817,10 @@ export default function Dashboard() {
               </div>
             )}
           </TabsContent>
-        </Tabs>
-      </div>
+            </Tabs>
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
