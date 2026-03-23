@@ -1,6 +1,7 @@
 """
 Multi-AI Collaboration Engine - API Router
 Endpoints for multi-AI bot generation, collaboration logs, and quality gates
+UPDATED: Uses direct_ai_client (no EMERGENT_LLM_KEY dependency)
 """
 
 from fastapi import APIRouter, HTTPException
@@ -26,6 +27,7 @@ from roslyn_validator import validate_csharp_code as regex_validate_csharp  # Fa
 from real_csharp_compiler import compile_csharp_code, get_real_compiler  # Real compiler
 from compliance_engine import get_compliance_engine
 from market_selection_engine import evaluate_strategy_markets, MarketType
+from direct_ai_client import get_ai_client, AIProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +35,12 @@ router = APIRouter(prefix="/api")
 
 # Will be set during app startup
 db = None
-EMERGENT_LLM_KEY = None
 
 
-def init_multi_ai_router(database, llm_key: str):
-    """Initialize router with database and API key"""
-    global db, EMERGENT_LLM_KEY
+def init_multi_ai_router(database, llm_key: str = None):
+    """Initialize router with database (llm_key kept for backward compatibility)"""
+    global db
     db = database
-    EMERGENT_LLM_KEY = llm_key
 
 
 @router.post("/bot/generate-multi-ai")
@@ -53,12 +53,14 @@ async def generate_multi_ai(request: MultiAIGenerationRequest):
     """
     start_time = time.time()
 
-    if not EMERGENT_LLM_KEY:
-        raise HTTPException(status_code=500, detail="LLM API key not configured")
+    # Check if AI client is available
+    ai_client = get_ai_client()
+    if not ai_client.available_providers:
+        raise HTTPException(status_code=500, detail="No AI providers configured. Set API keys in environment.")
 
     session_id = request.session_id or str(uuid.uuid4())
-    orchestrator = create_multi_ai_orchestrator(EMERGENT_LLM_KEY)
-    warning_optimizer = create_warning_optimizer(EMERGENT_LLM_KEY)
+    orchestrator = create_multi_ai_orchestrator()
+    warning_optimizer = create_warning_optimizer()
 
     try:
         final_code = ""

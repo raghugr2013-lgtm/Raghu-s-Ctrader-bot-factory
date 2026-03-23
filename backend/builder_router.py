@@ -80,15 +80,6 @@ class ApplyAllFixesRequest(BaseModel):
 
 # ── Helpers ─────────────────────────────────────────────
 
-EMERGENT_LLM_KEY = None
-
-def _get_llm_key():
-    global EMERGENT_LLM_KEY
-    if EMERGENT_LLM_KEY is None:
-        EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
-        logger.info(f"Retrieved EMERGENT_LLM_KEY: {EMERGENT_LLM_KEY[:20] if EMERGENT_LLM_KEY else 'NONE'}...")
-    return EMERGENT_LLM_KEY
-
 _PROP_FIRM_PROFILES = None
 
 def _get_profiles():
