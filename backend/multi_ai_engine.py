@@ -1,13 +1,14 @@
 """
 Multi-AI Orchestration Engine
 Phase 7+: Sequential AI Pipeline with Role-Based Execution
+UPDATED: Direct API Integration (no emergentintegrations)
 """
 
 from typing import List, Optional, Dict, Tuple
 from datetime import datetime
 import logging
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from direct_ai_client import get_ai_client, DirectAIClient
 from multi_ai_models import (
     AIMode,
     AIRole,
@@ -29,10 +30,21 @@ logger = logging.getLogger(__name__)
 class MultiAIOrchestrator:
     """Orchestrates multi-AI collaboration for bot generation"""
     
-    def __init__(self, api_key: str):
-        self.api_key = api_key
+    def __init__(self, api_key: str = None):
+        # api_key kept for backward compatibility but not used
+        self.ai_client = get_ai_client()
         self.collaboration_logs: List[AICollaborationLog] = []
         self.total_ai_calls = 0
+    
+    def _get_provider(self, model: AIModel) -> str:
+        """Map AIModel to provider name"""
+        if model == AIModel.OPENAI_GPT52:
+            return "openai"
+        elif model == AIModel.CLAUDE_SONNET:
+            return "claude"
+        elif model == AIModel.DEEPSEEK:
+            return "deepseek"
+        return "openai"  # default
     
     def log_stage(
         self,
@@ -62,27 +74,18 @@ class MultiAIOrchestrator:
         session_id: str,
         role: Optional[AIRole] = None
     ) -> str:
-        """Generate code using specified AI model"""
+        """Generate code using specified AI model via direct API"""
         self.total_ai_calls += 1
         
-        # Initialize chat
-        chat = LlmChat(
-            api_key=self.api_key,
-            session_id=session_id,
-            system_message="You are an expert cTrader cBot developer. Return ONLY C# code, no markdown or explanations."
+        provider = self._get_provider(model)
+        system_message = "You are an expert cTrader cBot developer. Return ONLY C# code, no markdown or explanations."
+        
+        # Generate using direct API client
+        response = await self.ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
         )
-        
-        # Select model
-        if model == AIModel.OPENAI_GPT52:
-            chat.with_model("openai", "gpt-5.2")
-        elif model == AIModel.CLAUDE_SONNET:
-            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-        elif model == AIModel.DEEPSEEK:
-            chat.with_model("openai", "gpt-4o")  # Fallback for DeepSeek
-        
-        # Generate
-        user_message = UserMessage(text=prompt)
-        response = await chat.send_message(user_message)
         
         # Clean code
         code = response.strip()
@@ -298,7 +301,7 @@ Return ONLY the C# code, no markdown, no explanations."""
             )
             
             # Validate
-            validation = validate_csharp_code(code)
+            validation = regex_validate(code)
             
             entry = CompetitionEntry(
                 ai_model=model,
@@ -353,7 +356,7 @@ IMPORTANT: This bot must comply with {rules.name} prop firm rules:
 - Stop Loss: {'REQUIRED' if rules.stop_loss_required else 'Optional'}
 
 Ensure the bot includes proper risk management."""
-        except:
+        except Exception:
             return ""
         
         return ""
@@ -362,8 +365,19 @@ Ensure the bot includes proper risk management."""
 class WarningOptimizationEngine:
     """Optimizes code to reduce warnings"""
     
-    def __init__(self, api_key: str):
-        self.api_key = api_key
+    def __init__(self, api_key: str = None):
+        # api_key kept for backward compatibility but not used
+        self.ai_client = get_ai_client()
+    
+    def _get_provider(self, model: AIModel) -> str:
+        """Map AIModel to provider name"""
+        if model == AIModel.OPENAI_GPT52:
+            return "openai"
+        elif model == AIModel.CLAUDE_SONNET:
+            return "claude"
+        elif model == AIModel.DEEPSEEK:
+            return "deepseek"
+        return "openai"
     
     async def optimize_warnings(
         self,
@@ -411,22 +425,13 @@ Please optimize the code to:
 
 Return ONLY the optimized C# code, no explanations."""
             
-            # Generate optimized code
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=session_id,
+            # Generate optimized code using direct API
+            provider = self._get_provider(ai_model)
+            response = await self.ai_client.generate(
+                provider=provider,
+                prompt=prompt,
                 system_message="You are an expert C# code optimizer. Return ONLY code."
             )
-            
-            if ai_model == AIModel.OPENAI_GPT52:
-                chat.with_model("openai", "gpt-5.2")
-            elif ai_model == AIModel.CLAUDE_SONNET:
-                chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-            else:
-                chat.with_model("openai", "gpt-4o")
-            
-            user_message = UserMessage(text=prompt)
-            response = await chat.send_message(user_message)
             
             optimized_code = response.strip()
             optimized_code = optimized_code.replace('```csharp', '').replace('```', '').strip()
@@ -449,11 +454,11 @@ Return ONLY the optimized C# code, no explanations."""
 
 
 # Factory functions
-def create_multi_ai_orchestrator(api_key: str) -> MultiAIOrchestrator:
-    """Create orchestrator instance"""
-    return MultiAIOrchestrator(api_key)
+def create_multi_ai_orchestrator(api_key: str = None) -> MultiAIOrchestrator:
+    """Create orchestrator instance (api_key kept for backward compatibility)"""
+    return MultiAIOrchestrator()
 
 
-def create_warning_optimizer(api_key: str) -> WarningOptimizationEngine:
-    """Create warning optimizer instance"""
-    return WarningOptimizationEngine(api_key)
+def create_warning_optimizer(api_key: str = None) -> WarningOptimizationEngine:
+    """Create warning optimizer instance (api_key kept for backward compatibility)"""
+    return WarningOptimizationEngine()

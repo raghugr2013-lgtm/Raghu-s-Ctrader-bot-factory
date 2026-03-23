@@ -14,7 +14,7 @@ import re
 import subprocess
 import tempfile
 from fastapi import File, UploadFile, Form
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from direct_ai_client import get_ai_client, reload_ai_client
 from roslyn_validator import validate_csharp_code
 from compile_gate import compile_and_verify, check_download_allowed, CompileStatus
 from compliance_engine import (
@@ -156,19 +156,26 @@ class BotSession(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-# AI Model Configuration
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+# AI Model Configuration - Direct API Integration
+# No longer using EMERGENT_LLM_KEY
 
-def get_ai_chat(model: str, session_id: str, prop_firm: str = "none"):
-    """Initialize AI chat based on model selection"""
-    
-    # Get prop firm rules for context
-    prop_firm_context = ""
+def get_ai_provider(model: str) -> str:
+    """Map model name to provider"""
+    if model == "openai":
+        return "openai"
+    elif model == "claude":
+        return "claude"
+    elif model == "deepseek":
+        return "deepseek"
+    return "openai"
+
+def get_prop_firm_context(prop_firm: str) -> str:
+    """Get prop firm context for prompts"""
     if prop_firm and prop_firm != "none":
         from compliance_engine import PROP_FIRM_PROFILES
         rules = PROP_FIRM_PROFILES.get(prop_firm.lower())
         if rules:
-            prop_firm_context = f"""
+            return f"""
 
 IMPORTANT: This bot must comply with {rules.name} prop firm rules:
 - Max Daily Loss: {rules.max_daily_loss}%
@@ -185,27 +192,15 @@ Ensure the bot includes:
 4. Position count limiting (max {rules.max_open_trades} positions)
 5. Stop loss on all trades
 """
-    
-    system_message = f"""You are an expert cTrader cBot developer. You write professional, clean C# code for cTrader Automate platform.
+    return ""
+
+def get_bot_system_message(prop_firm: str = "none") -> str:
+    """Get system message for bot generation"""
+    prop_firm_context = get_prop_firm_context(prop_firm)
+    return f"""You are an expert cTrader cBot developer. You write professional, clean C# code for cTrader Automate platform.
 When given a trading strategy, you generate complete, compilable cBot code.
 When given errors, you fix them precisely and return the corrected code.
 Always return ONLY the C# code, no explanations or markdown formatting.{prop_firm_context}"""
-    
-    chat = LlmChat(
-        api_key=EMERGENT_LLM_KEY,
-        session_id=session_id,
-        system_message=system_message
-    )
-    
-    if model == "openai":
-        chat.with_model("openai", "gpt-5.2")
-    elif model == "claude":
-        chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-    elif model == "deepseek":
-        # DeepSeek uses OpenAI-compatible API
-        chat.with_model("openai", "gpt-4o")  # Fallback to OpenAI for now
-    
-    return chat
 
 
 # Add your routes to the router instead of directly to app
@@ -266,8 +261,10 @@ async def generate_bot(request: BotGenerationRequest):
         doc['timestamp'] = doc['timestamp'].isoformat()
         await db.bot_sessions.insert_one(doc)
         
-        # Initialize AI chat with prop firm context
-        chat = get_ai_chat(request.ai_model, session_id, request.prop_firm)
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = get_ai_provider(request.ai_model)
+        system_message = get_bot_system_message(request.prop_firm)
         
         # Create prompt for bot generation
         prompt = f"""Generate a complete cTrader cBot in C# for the following trading strategy:
@@ -285,10 +282,12 @@ Requirements:
 
 Return ONLY the C# code, no explanations."""
 
-        user_message = UserMessage(text=prompt)
-        
-        # Generate code
-        response = await chat.send_message(user_message)
+        # Generate code using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
+        )
         generated_code = response.strip()
         
         # Remove markdown code blocks if present
@@ -383,8 +382,10 @@ async def validate_code(request: CodeValidationRequest):
 async def fix_code(request: CodeFixRequest):
     """Fix code errors using AI"""
     try:
-        # Initialize AI chat with same session and prop firm context
-        chat = get_ai_chat(request.ai_model, request.session_id, request.prop_firm)
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = get_ai_provider(request.ai_model)
+        system_message = get_bot_system_message(request.prop_firm)
         
         # Create fix prompt with both compilation and compliance feedback
         compliance_section = ""
@@ -407,10 +408,12 @@ CODE:
 Please fix all errors and violations, and return the corrected, compilable C# code.
 Return ONLY the fixed C# code, no explanations."""
 
-        user_message = UserMessage(text=prompt)
-        
-        # Get fixed code
-        response = await chat.send_message(user_message)
+        # Get fixed code using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
+        )
         fixed_code = response.strip()
         
         # Remove markdown code blocks if present
@@ -671,29 +674,21 @@ You help users with:
 
 Provide clear, actionable advice. When discussing code, be specific about cTrader API usage."""
         
-        # Initialize AI chat
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
-            system_message=system_message
-        )
-        
-        if request.ai_model == "openai":
-            chat.with_model("openai", "gpt-5.2")
-        elif request.ai_model == "claude":
-            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-        elif request.ai_model == "deepseek":
-            chat.with_model("openai", "gpt-4o")
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = get_ai_provider(request.ai_model)
         
         # Build message with context
         full_message = request.message
         if request.context:
             full_message = f"{request.message}\n\nCurrent Code Context:\n```csharp\n{request.context[:3000]}\n```"
         
-        user_message = UserMessage(text=full_message)
-        
-        # Get AI response
-        response = await chat.send_message(user_message)
+        # Get AI response using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=full_message,
+            system_message=system_message
+        )
         
         # Save messages to DB
         user_msg = ChatMessage(
@@ -775,22 +770,15 @@ async def upload_chat_file(
             file_context = create_file_context(file.filename, content_text, file_type)
             analysis_message = f"{message}\n\n{file_context}"
         
-        # Send to AI with file context
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
+        # Send to AI with file context using direct API
+        ai_client = get_ai_client()
+        provider = get_ai_provider(ai_model)
+        
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=analysis_message,
             system_message="You are an expert cTrader bot developer. Analyze files and provide insights."
         )
-        
-        if ai_model == "openai":
-            chat.with_model("openai", "gpt-5.2")
-        elif ai_model == "claude":
-            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-        else:
-            chat.with_model("openai", "gpt-4o")
-        
-        user_message = UserMessage(text=analysis_message)
-        response = await chat.send_message(user_message)
         
         # Save to DB
         user_msg = ChatMessage(
@@ -853,22 +841,15 @@ Please provide:
 
 Be specific and actionable."""
         
-        # Send to AI
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=session_id,
+        # Send to AI using direct API
+        ai_client = get_ai_client()
+        provider = get_ai_provider(ai_model)
+        
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
             system_message="You are an expert cTrader cBot developer specializing in code review and optimization."
         )
-        
-        if ai_model == "openai":
-            chat.with_model("openai", "gpt-5.2")
-        elif ai_model == "claude":
-            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-        else:
-            chat.with_model("openai", "gpt-4o")
-        
-        user_message = UserMessage(text=prompt)
-        response = await chat.send_message(user_message)
         
         return {
             "success": True,
@@ -1937,8 +1918,8 @@ Requirements: Robot class, using statements, OnStart(), OnBar(), error handling.
 # Include the router in the main app
 app.include_router(api_router)
 
-# Include multi-AI router
-init_multi_ai_router(db, EMERGENT_LLM_KEY)
+# Include multi-AI router (no longer needs EMERGENT_LLM_KEY)
+init_multi_ai_router(db, None)
 app.include_router(multi_ai_router)
 
 # Include portfolio router

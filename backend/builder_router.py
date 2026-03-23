@@ -1,6 +1,7 @@
 """
 AI Bot Builder Router
 Core pipeline: Idea → AI Generate → Validate → Compile → Compliance Check
+UPDATED: Direct API Integration (no emergentintegrations)
 """
 
 import re
@@ -14,7 +15,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from direct_ai_client import get_ai_client
 from roslyn_validator import validate_csharp_code
 from compile_gate import compile_and_verify, check_download_allowed
 from compliance_engine import get_compliance_engine, get_prop_firm_profiles
@@ -119,22 +120,13 @@ def _build_system_message(prop_firm: str = "none") -> str:
     )
 
 
-def _get_chat(model: str, session_id: str, prop_firm: str = "none") -> LlmChat:
-    api_key = _get_llm_key()
-    logger.info(f"Creating LlmChat with key: {api_key[:20] if api_key else 'NONE'}... for model: {model}")
-    
-    chat = LlmChat(
-        api_key=api_key,
-        session_id=session_id,
-        system_message=_build_system_message(prop_firm),
-    )
+def _get_provider(model: str) -> str:
+    """Map model name to provider"""
     if model == "claude":
-        chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
+        return "claude"
     elif model == "deepseek":
-        chat.with_model("openai", "deepseek-chat")  # DeepSeek uses OpenAI-compatible API
-    else:  # default to gpt-4o
-        chat.with_model("openai", "gpt-4o")
-    return chat
+        return "deepseek"
+    return "openai"
 
 
 def _strip_markdown(code: str) -> str:
@@ -160,7 +152,10 @@ async def generate_bot(req: BotGenerationRequest):
     try:
         session_id = req.session_id or str(uuid.uuid4())
 
-        chat = _get_chat(req.ai_model, session_id, req.prop_firm)
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = _get_provider(req.ai_model)
+        system_message = _build_system_message(req.prop_firm)
 
         extra = ""
         if req.risk_percent:
@@ -182,7 +177,12 @@ async def generate_bot(req: BotGenerationRequest):
             f"Return ONLY the C# code."
         )
 
-        response = await chat.send_message(UserMessage(text=prompt))
+        # Generate using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
+        )
         generated_code = _strip_markdown(response.strip())
 
         # Auto compile-gate
@@ -299,7 +299,10 @@ async def get_compliance_profiles():
 async def fix_code(req: CodeFixRequest):
     """Fix code errors using AI."""
     try:
-        chat = _get_chat(req.ai_model, req.session_id, req.prop_firm)
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = _get_provider(req.ai_model)
+        system_message = _build_system_message(req.prop_firm)
 
         compliance_section = ""
         if req.compliance_feedback:
@@ -312,7 +315,12 @@ async def fix_code(req: CodeFixRequest):
             f"Return ONLY the fixed C# code."
         )
 
-        response = await chat.send_message(UserMessage(text=prompt))
+        # Generate using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
+        )
         fixed_code = _strip_markdown(response.strip())
 
         return {"success": True, "code": fixed_code}
