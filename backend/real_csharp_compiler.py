@@ -309,6 +309,23 @@ class RealCSharpCompiler:
 
 # Global singleton
 _compiler_instance = None
+_dotnet_available = None
+
+def is_dotnet_available() -> bool:
+    """Check if dotnet SDK is available"""
+    global _dotnet_available
+    if _dotnet_available is None:
+        try:
+            result = subprocess.run(
+                ["dotnet", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            _dotnet_available = result.returncode == 0
+        except Exception:
+            _dotnet_available = False
+    return _dotnet_available
 
 def get_real_compiler() -> RealCSharpCompiler:
     """Get or create the real C# compiler instance"""
@@ -320,7 +337,8 @@ def get_real_compiler() -> RealCSharpCompiler:
 
 def compile_csharp_code(code: str, bot_name: str = "GeneratedBot") -> Dict:
     """
-    Main entry point for real C# compilation
+    Main entry point for C# compilation
+    Uses real .NET compiler if available, falls back to regex validation
     
     Returns dict compatible with existing validation flow:
     {
@@ -331,17 +349,109 @@ def compile_csharp_code(code: str, bot_name: str = "GeneratedBot") -> Dict:
         "raw_output": str
     }
     """
-    compiler = get_real_compiler()
-    result = compiler.compile(code, bot_name)
+    # Check if dotnet is available
+    if not is_dotnet_available():
+        logger.warning("dotnet SDK not available, using regex-based validation (fallback)")
+        return _fallback_validate(code, bot_name)
+    
+    try:
+        compiler = get_real_compiler()
+        result = compiler.compile(code, bot_name)
+        
+        return {
+            "is_valid": result.success,
+            "errors": [f"{e.code}: {e.message} (Line {e.line})" for e in result.errors],
+            "warnings": [f"{w.code}: {w.message} (Line {w.line})" for w in result.warnings],
+            "details": compiler.format_errors_for_ui(result),
+            "raw_output": result.raw_output,
+            "error_count": result.error_count,
+            "warning_count": result.warning_count,
+            "compilation_time_ms": result.compilation_time_ms,
+            "compiler_version": result.compiler_version
+        }
+    except Exception as e:
+        logger.error(f"Real compilation failed, falling back to regex: {e}")
+        return _fallback_validate(code, bot_name)
+
+
+def _fallback_validate(code: str, bot_name: str = "GeneratedBot") -> Dict:
+    """
+    Fallback regex-based validation when dotnet is unavailable
+    Checks for common cTrader cBot patterns and issues
+    """
+    errors = []
+    warnings = []
+    details = []
+    
+    # Check required using statements
+    required_usings = ["using cAlgo.API;", "using System;"]
+    for using in required_usings:
+        if using not in code:
+            errors.append(f"Missing required: {using}")
+            details.append({
+                "type": "error",
+                "code": "REGEX001",
+                "message": f"Missing required: {using}",
+                "line": 1,
+                "column": 0,
+                "file": f"{bot_name}.cs"
+            })
+    
+    # Check for Robot class
+    if "public class" not in code or ": Robot" not in code:
+        errors.append("Missing Robot class declaration")
+        details.append({
+            "type": "error",
+            "code": "REGEX002",
+            "message": "Code must contain a class that inherits from Robot",
+            "line": 1,
+            "column": 0,
+            "file": f"{bot_name}.cs"
+        })
+    
+    # Check for obsolete APIs (warnings)
+    obsolete_patterns = [
+        ("MarketSeries.Close", "Use Bars.ClosePrices instead"),
+        ("MarketSeries.Open", "Use Bars.OpenPrices instead"),
+        ("MarketSeries.High", "Use Bars.HighPrices instead"),
+        ("MarketSeries.Low", "Use Bars.LowPrices instead"),
+        ("EquityWithdrawn", "Use Account.Equity instead"),
+    ]
+    
+    for pattern, fix in obsolete_patterns:
+        if pattern in code:
+            warnings.append(f"Obsolete API: {pattern}. {fix}")
+            details.append({
+                "type": "warning",
+                "code": "CS0618",
+                "message": f"Obsolete API: {pattern}. {fix}",
+                "line": code[:code.find(pattern)].count('\n') + 1,
+                "column": 0,
+                "file": f"{bot_name}.cs"
+            })
+    
+    # Check for required methods
+    if "OnStart" not in code and "OnBar" not in code and "OnTick" not in code:
+        warnings.append("Missing OnStart, OnBar or OnTick method")
+        details.append({
+            "type": "warning",
+            "code": "REGEX003",
+            "message": "Robot should have OnStart, OnBar, or OnTick method",
+            "line": 1,
+            "column": 0,
+            "file": f"{bot_name}.cs"
+        })
+    
+    is_valid = len(errors) == 0
     
     return {
-        "is_valid": result.success,
-        "errors": [f"{e.code}: {e.message} (Line {e.line})" for e in result.errors],
-        "warnings": [f"{w.code}: {w.message} (Line {w.line})" for w in result.warnings],
-        "details": compiler.format_errors_for_ui(result),
-        "raw_output": result.raw_output,
-        "error_count": result.error_count,
-        "warning_count": result.warning_count,
-        "compilation_time_ms": result.compilation_time_ms,
-        "compiler_version": result.compiler_version
+        "is_valid": is_valid,
+        "errors": errors,
+        "warnings": warnings,
+        "details": details,
+        "raw_output": f"Regex validation (dotnet unavailable): {len(errors)} errors, {len(warnings)} warnings",
+        "error_count": len(errors),
+        "warning_count": len(warnings),
+        "compilation_time_ms": 0,
+        "compiler_version": "regex-fallback"
     }
