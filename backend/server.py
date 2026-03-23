@@ -2267,6 +2267,9 @@ Requirements:
         mock_trades = []
         backtest_score = 0.0
         
+        # Import at the start of the stage (needed in both branches)
+        from backtest_calculator import performance_calculator as perf_calc, strategy_scorer as strat_scorer
+        
         try:
             # Use Dukascopy backtest if data was loaded
             if request.data_source == "dukascopy" and data_info.get("candles_loaded", 0) > 0:
@@ -2281,9 +2284,8 @@ Requirements:
                 mock_trades = trades
                 
                 # Calculate metrics
-                from backtest_calculator import performance_calculator, strategy_scorer
-                metrics = performance_calculator.calculate_metrics(trades, equity_curve, backtest_config)
-                score = strategy_scorer.calculate_score(metrics)
+                metrics = perf_calc.calculate_metrics(trades, equity_curve, backtest_config)
+                score = strat_scorer.calculate_score(metrics)
                 backtest_score = score.total_score
                 
                 stages.append(ProValidationStage(
@@ -2318,8 +2320,8 @@ Requirements:
                     duration_days=request.backtest_days,
                     initial_balance=request.initial_balance
                 )
-                metrics = performance_calculator.calculate_metrics(mock_trades, mock_equity, backtest_config)
-                score = strategy_scorer.calculate_score(metrics)
+                metrics = perf_calc.calculate_metrics(mock_trades, mock_equity, backtest_config)
+                score = strat_scorer.calculate_score(metrics)
                 backtest_score = score.total_score
                 
                 stages.append(ProValidationStage(
