@@ -269,16 +269,18 @@ class DukascopyProvider:
         symbol: str,
         start_date: datetime,
         end_date: datetime,
-        max_concurrent: int = 5
+        max_concurrent: int = 3,  # Reduced for memory efficiency
+        max_hours: int = 168  # Limit to 7 days max (168 hours) for memory safety
     ) -> List[TickData]:
         """
-        Download tick data for a date range
+        Download tick data for a date range (memory-optimized)
         
         Args:
             symbol: Trading symbol
             start_date: Start of range
             end_date: End of range
-            max_concurrent: Max concurrent downloads
+            max_concurrent: Max concurrent downloads (reduced for memory)
+            max_hours: Maximum hours to download (memory limit)
         
         Returns:
             Combined list of tick data
@@ -293,25 +295,36 @@ class DukascopyProvider:
             hours_to_download.append(current)
             current += timedelta(hours=1)
         
+        # MEMORY SAFETY: Limit hours to prevent OOM
+        if len(hours_to_download) > max_hours:
+            logger.warning(f"Limiting download from {len(hours_to_download)} to {max_hours} hours for memory safety")
+            hours_to_download = hours_to_download[-max_hours:]  # Take most recent
+        
         logger.info(f"Downloading {len(hours_to_download)} hours of {symbol} data")
         
-        # Download in batches
+        # Download in smaller batches for memory efficiency
+        batch_size = 24  # Process one day at a time
         semaphore = asyncio.Semaphore(max_concurrent)
         
         async def download_with_semaphore(hour: datetime):
             async with semaphore:
                 return await self.download_hour_data(symbol, hour)
         
-        # Download all hours
-        tasks = [download_with_semaphore(hour) for hour in hours_to_download]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Combine results
-        for result in results:
-            if isinstance(result, list):
-                all_ticks.extend(result)
-            elif isinstance(result, Exception):
-                logger.error(f"Download error: {result}")
+        # Process in batches to limit memory
+        for i in range(0, len(hours_to_download), batch_size):
+            batch = hours_to_download[i:i + batch_size]
+            tasks = [download_with_semaphore(hour) for hour in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Combine results from this batch
+            for result in results:
+                if isinstance(result, list):
+                    all_ticks.extend(result)
+                elif isinstance(result, Exception):
+                    logger.error(f"Download error: {result}")
+            
+            # Log progress
+            logger.info(f"Downloaded batch {i//batch_size + 1}, total ticks so far: {len(all_ticks)}")
         
         # Sort by timestamp
         all_ticks.sort(key=lambda t: t.timestamp)

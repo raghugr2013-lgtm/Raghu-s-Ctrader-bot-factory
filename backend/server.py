@@ -2037,7 +2037,7 @@ class ProValidationRequest(BaseModel):
     symbol: str = Field(default="EURUSD", description="Trading symbol (EURUSD, XAUUSD, US100, ETHUSD)")
     timeframe: str = Field(default="M15", description="Candle timeframe (M1, M15, H1, H4, D1)")
     data_source: Literal["dukascopy", "api"] = Field(default="dukascopy", description="Data source for backtesting")
-    backtest_days: int = Field(default=90, ge=7, le=365, description="Days of historical data")
+    backtest_days: int = Field(default=14, ge=7, le=90, description="Days of historical data (max 90 for memory safety)")
     initial_balance: float = Field(default=10000.0, ge=1000)
     code: Optional[str] = Field(default=None, description="Bot code to validate (optional)")
     strategy_prompt: Optional[str] = Field(default=None, description="Strategy description (optional)")
