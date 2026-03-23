@@ -99,21 +99,26 @@ class MultiAIOrchestrator:
         strategy_prompt: str,
         ai_model: AIModel,
         session_id: str,
-        prop_firm: str = "none"
+        prop_firm: str = "none",
+        symbol: str = "EURUSD"
     ) -> str:
-        """Single AI generation mode"""
+        """Single AI generation mode with symbol-specific optimization"""
         
         self.log_stage(
             CollaborationStage.GENERATION,
             ai_model,
-            f"Generating strategy with {ai_model.value}"
+            f"Generating strategy with {ai_model.value} for {symbol}"
         )
         
         # Build prompt with CORRECT cTrader API reference
         prop_firm_context = self._get_prop_firm_context(prop_firm)
+        symbol_context = self._get_symbol_context(symbol)
+        
         prompt = f"""Generate a complete cTrader cBot for the following strategy:
 
 {strategy_prompt}
+
+{symbol_context}
 
 {prop_firm_context}
 
@@ -360,6 +365,57 @@ Ensure the bot includes proper risk management."""
             return ""
         
         return ""
+    
+    def _get_symbol_context(self, symbol: str) -> str:
+        """Get symbol-specific context for prompts"""
+        try:
+            from config.symbol_config import get_symbol_config
+            config = get_symbol_config(symbol)
+            
+            if not config:
+                return ""
+            
+            volatility_level = "High" if config.volatility_multiplier > 2 else "Medium" if config.volatility_multiplier > 1 else "Normal"
+            
+            return f"""
+SYMBOL-SPECIFIC OPTIMIZATION for {symbol}:
+- Instrument Type: {config.type.upper()}
+- Pip Value: {config.pip_value}
+- Default Spread: {config.spread} pips
+- Recommended Stop Loss: {config.default_stop_loss_pips} pips
+- Recommended Take Profit: {config.default_take_profit_pips} pips
+- Volatility Level: {volatility_level}
+- Pip Digits: {config.pip_digits}
+
+IMPORTANT ADJUSTMENTS:
+{self._get_symbol_specific_advice(config)}
+"""
+        except Exception as e:
+            logger.warning(f"Error getting symbol context: {e}")
+            return ""
+    
+    def _get_symbol_specific_advice(self, config) -> str:
+        """Get symbol-specific trading advice"""
+        advice = []
+        
+        if config.type == "forex":
+            advice.append("- Standard forex pip calculation (multiply by 10000)")
+            advice.append("- Moderate stop loss distances")
+        elif config.type == "metal":
+            advice.append("- XAUUSD has high volatility - use WIDER stop losses (100+ pips)")
+            advice.append("- Gold moves fast - use ATR-based stops")
+            advice.append("- Consider smaller position sizes due to higher pip value")
+        elif config.type == "index":
+            advice.append("- US100 has point-based movements")
+            advice.append("- High overnight gaps possible - consider session filters")
+            advice.append("- Trend-following strategies work well")
+        elif config.type == "crypto":
+            advice.append("- ETHUSD is HIGHLY VOLATILE - use VERY WIDE stops (200+ pips)")
+            advice.append("- 24/7 market - no session filters needed")
+            advice.append("- Consider momentum strategies")
+            advice.append("- Risk per trade should be LOWER due to volatility")
+        
+        return "\n".join(advice) if advice else "- Standard trading parameters"
 
 
 class WarningOptimizationEngine:

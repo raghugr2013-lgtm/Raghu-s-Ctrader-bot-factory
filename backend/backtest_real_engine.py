@@ -1,18 +1,51 @@
 """
 Real Candle Backtest Engine
 Runs backtests on actual market data instead of mock data.
+
+Supports:
+- Multiple data sources: API (existing) and Dukascopy (new)
+- Multi-symbol: EURUSD, XAUUSD, US100, ETHUSD
+- Symbol-specific pip/lot calculations
 """
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
+from enum import Enum
 
 from market_data_models import Candle
 from backtest_models import (
     TradeRecord, EquityPoint, BacktestConfig, Timeframe, TradeDirection, TradeStatus
 )
+from config.symbol_config import get_symbol_config, SymbolConfig, calculate_pips, calculate_pip_value
 
 logger = logging.getLogger(__name__)
+
+
+class DataSource(str, Enum):
+    """Data source for backtesting"""
+    API = "api"
+    DUKASCOPY = "dukascopy"
+
+
+def get_symbol_pip_multiplier(symbol: str) -> float:
+    """Get pip multiplier for PnL calculation based on symbol"""
+    config = get_symbol_config(symbol)
+    if config:
+        # For forex (EURUSD): pip_value = 0.0001, multiplier = 10000
+        # For metals (XAUUSD): pip_value = 0.01, multiplier = 100
+        # For index (US100): pip_value = 1, multiplier = 1
+        # For crypto (ETHUSD): pip_value = 0.1, multiplier = 10
+        return 1.0 / config.pip_value
+    return 10000.0  # Default forex
+
+
+def get_pip_value_per_lot(symbol: str) -> float:
+    """Get dollar value per pip per lot"""
+    config = get_symbol_config(symbol)
+    if config:
+        return config.value_per_pip_per_lot
+    return 10.0  # Default forex
 
 
 def run_backtest_on_real_candles(
@@ -132,13 +165,17 @@ def _create_trade(
     exit_reason: str,
     symbol: str,
 ) -> TradeRecord:
-    """Helper to create a properly formatted TradeRecord."""
-    if position["direction"] == "BUY":
-        pips = (exit_price - position["entry_price"]) * 10000
-    else:
-        pips = (position["entry_price"] - exit_price) * 10000
+    """Helper to create a properly formatted TradeRecord with symbol-specific pip calculations."""
+    # Use symbol-specific pip multiplier
+    pip_multiplier = get_symbol_pip_multiplier(symbol)
+    pip_value_per_lot = get_pip_value_per_lot(symbol)
     
-    pnl = pips * 10  # $10 per pip for 1 lot
+    if position["direction"] == "BUY":
+        pips = (exit_price - position["entry_price"]) * pip_multiplier
+    else:
+        pips = (position["entry_price"] - exit_price) * pip_multiplier
+    
+    pnl = pips * pip_value_per_lot  # Symbol-specific pip value
     
     return TradeRecord(
         backtest_id="real_candle_backtest",
@@ -384,3 +421,162 @@ def _run_breakout(candles: List[Candle], config: BacktestConfig) -> Tuple[List[T
                 position = None
     
     return trades, equity_curve
+
+
+
+# =============================================================================
+# PRO VALIDATION SUPPORT - Dukascopy Integration
+# =============================================================================
+
+async def run_backtest_with_dukascopy(
+    symbol: str,
+    timeframe: str,
+    duration_days: int = 90,
+    initial_balance: float = 10000.0,
+    strategy_type: str = "trend_following",
+    bot_name: str = "ProValidation"
+) -> Tuple[List[TradeRecord], List[EquityPoint], BacktestConfig]:
+    """
+    Run backtest using Dukascopy historical data (PRO validation mode)
+    
+    Args:
+        symbol: Trading symbol (EURUSD, XAUUSD, US100, ETHUSD)
+        timeframe: Candle timeframe (M1, M15, H1, etc.)
+        duration_days: Number of days to backtest (default 90)
+        initial_balance: Starting balance
+        strategy_type: Strategy to simulate
+        bot_name: Name of the bot being validated
+    
+    Returns:
+        Tuple of (trades, equity_curve, config)
+    """
+    from market_data.dukascopy_provider import get_dukascopy_provider, DukascopyCandle
+    
+    logger.info(f"Running PRO backtest with Dukascopy data: {symbol} {timeframe} {duration_days} days")
+    
+    # Get Dukascopy provider
+    provider = get_dukascopy_provider()
+    
+    # Calculate date range
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=duration_days)
+    
+    # Get OHLC data from Dukascopy
+    dukascopy_candles = await provider.get_ohlc(
+        symbol=symbol,
+        timeframe=timeframe,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    if not dukascopy_candles:
+        raise ValueError(f"No Dukascopy data available for {symbol} {timeframe}")
+    
+    logger.info(f"Loaded {len(dukascopy_candles)} candles from Dukascopy")
+    
+    # Convert DukascopyCandle to Candle format
+    candles = [
+        Candle(
+            timestamp=c.timestamp,
+            open=c.open,
+            high=c.high,
+            low=c.low,
+            close=c.close,
+            volume=c.volume
+        )
+        for c in dukascopy_candles
+    ]
+    
+    # Run backtest on the candles
+    return run_backtest_on_real_candles(
+        candles=candles,
+        bot_name=bot_name,
+        symbol=symbol,
+        timeframe=timeframe,
+        duration_days=duration_days,
+        initial_balance=initial_balance,
+        strategy_type=strategy_type
+    )
+
+
+async def run_unified_backtest(
+    symbol: str,
+    timeframe: str,
+    data_source: str = "api",
+    duration_days: int = 90,
+    initial_balance: float = 10000.0,
+    strategy_type: str = "trend_following",
+    bot_name: str = "UnifiedBacktest",
+    candles: Optional[List[Candle]] = None
+) -> Tuple[List[TradeRecord], List[EquityPoint], BacktestConfig]:
+    """
+    Unified backtest function supporting multiple data sources
+    
+    Args:
+        symbol: Trading symbol
+        timeframe: Candle timeframe
+        data_source: "api" (existing) or "dukascopy" (PRO)
+        duration_days: Days to backtest
+        initial_balance: Starting balance
+        strategy_type: Strategy type
+        bot_name: Bot name
+        candles: Pre-loaded candles (for API source)
+    
+    Returns:
+        Tuple of (trades, equity_curve, config)
+    """
+    if data_source == DataSource.DUKASCOPY or data_source == "dukascopy":
+        # Use Dukascopy data
+        return await run_backtest_with_dukascopy(
+            symbol=symbol,
+            timeframe=timeframe,
+            duration_days=duration_days,
+            initial_balance=initial_balance,
+            strategy_type=strategy_type,
+            bot_name=bot_name
+        )
+    else:
+        # Use existing API data (requires candles to be provided)
+        if not candles:
+            raise ValueError("Candles must be provided for API data source")
+        
+        return run_backtest_on_real_candles(
+            candles=candles,
+            bot_name=bot_name,
+            symbol=symbol,
+            timeframe=timeframe,
+            duration_days=duration_days,
+            initial_balance=initial_balance,
+            strategy_type=strategy_type
+        )
+
+
+def get_symbol_adjusted_spread(symbol: str) -> float:
+    """Get spread in pips for symbol"""
+    config = get_symbol_config(symbol)
+    if config:
+        return config.spread
+    return 1.5  # Default
+
+
+def get_symbol_adjusted_sl_tp(symbol: str, atr: float = 0.0) -> Tuple[float, float]:
+    """
+    Get recommended SL/TP distances for symbol
+    
+    Returns:
+        Tuple of (stop_loss_pips, take_profit_pips)
+    """
+    config = get_symbol_config(symbol)
+    if config:
+        sl = config.default_stop_loss_pips
+        tp = config.default_take_profit_pips
+        
+        # Adjust for volatility if ATR provided
+        if atr > 0:
+            volatility_factor = 1.0 + (atr * 0.1)
+            sl *= volatility_factor
+            tp *= volatility_factor
+        
+        return sl, tp
+    
+    return 50.0, 100.0  # Defaults

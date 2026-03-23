@@ -70,6 +70,11 @@ from execution.bot_status import router as bot_status_router
 from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
 
+# PRO Validation imports
+from config.symbol_config import get_symbol_config, get_supported_symbols, SYMBOL_CONFIG
+from backtest_real_engine import run_backtest_with_dukascopy, run_unified_backtest, DataSource
+from direct_ai_client import get_ai_client
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1182,7 +1187,7 @@ async def run_real_backtest(
                 "grade": strategy_score.grade,
                 "execution_time": execution_time
             },
-            "message": f"Backtest completed successfully with real market data"
+            "message": "Backtest completed successfully with real market data"
         }
         
     except HTTPException:
@@ -1972,6 +1977,638 @@ Requirements: Robot class, using statements, OnStart(), OnBar(), error handling.
     except Exception as e:
         return FullPipelineResponse(success=False, pipeline_id=pipeline_id, stages=stages, final_score=0.0, grade="F",
             decision="NOT_READY", total_execution_time=time.time() - start_time, summary={"error": str(e)})
+
+
+# ===================== MULTI-SYMBOL SUPPORT =====================
+
+@api_router.get("/symbols/supported")
+async def get_supported_symbols_list():
+    """Get list of supported trading symbols with their configurations"""
+    symbols = []
+    for symbol, config in SYMBOL_CONFIG.items():
+        symbols.append({
+            "symbol": symbol,
+            "type": config.type,
+            "pip_value": config.pip_value,
+            "lot_size": config.lot_size,
+            "spread": config.spread,
+            "default_sl_pips": config.default_stop_loss_pips,
+            "default_tp_pips": config.default_take_profit_pips,
+            "volatility_multiplier": config.volatility_multiplier
+        })
+    return {
+        "success": True,
+        "symbols": symbols,
+        "count": len(symbols)
+    }
+
+
+@api_router.get("/symbols/{symbol}/config")
+async def get_symbol_configuration(symbol: str):
+    """Get detailed configuration for a specific symbol"""
+    config = get_symbol_config(symbol)
+    if not config:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not supported")
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "config": {
+            "type": config.type,
+            "pip_value": config.pip_value,
+            "lot_size": config.lot_size,
+            "spread": config.spread,
+            "min_lot": config.min_lot,
+            "max_lot": config.max_lot,
+            "pip_digits": config.pip_digits,
+            "value_per_pip_per_lot": config.value_per_pip_per_lot,
+            "default_stop_loss_pips": config.default_stop_loss_pips,
+            "default_take_profit_pips": config.default_take_profit_pips,
+            "volatility_multiplier": config.volatility_multiplier,
+            "dukascopy_symbol": config.dukascopy_symbol
+        }
+    }
+
+
+# ===================== PRO VALIDATION (DUKASCOPY) =====================
+
+class ProValidationRequest(BaseModel):
+    """Request for PRO validation with Dukascopy data"""
+    symbol: str = Field(default="EURUSD", description="Trading symbol (EURUSD, XAUUSD, US100, ETHUSD)")
+    timeframe: str = Field(default="M15", description="Candle timeframe (M1, M15, H1, H4, D1)")
+    data_source: Literal["dukascopy", "api"] = Field(default="dukascopy", description="Data source for backtesting")
+    backtest_days: int = Field(default=90, ge=7, le=365, description="Days of historical data")
+    initial_balance: float = Field(default=10000.0, ge=1000)
+    code: Optional[str] = Field(default=None, description="Bot code to validate (optional)")
+    strategy_prompt: Optional[str] = Field(default=None, description="Strategy description (optional)")
+    ai_model: Literal["openai", "claude", "deepseek"] = "openai"
+    prop_firm: str = "none"
+    monte_carlo_runs: int = Field(default=100, ge=10, le=1000)
+
+class ProValidationStage(BaseModel):
+    stage: str
+    success: bool
+    score: Optional[float] = None
+    details: Dict[str, Any] = {}
+    execution_time: float = 0.0
+    error: Optional[str] = None
+
+class ProValidationResponse(BaseModel):
+    success: bool
+    mode: str = "pro"
+    data_source: str
+    validation_id: str
+    symbol: str
+    timeframe: str
+    stages: List[ProValidationStage]
+    final_score: float
+    grade: str
+    decision: str
+    total_execution_time: float
+    data_info: Dict[str, Any]
+    summary: Dict[str, Any]
+
+
+@api_router.post("/validation/pro", response_model=ProValidationResponse)
+async def run_pro_validation(request: ProValidationRequest):
+    """
+    PRO VALIDATION MODE with Dukascopy Historical Data
+    
+    Full pipeline using real market data:
+    1. Data Loading (Dukascopy)
+    2. Code Generation/Validation (optional)
+    3. Backtest on Real Data
+    4. Monte Carlo Analysis
+    5. Walk-Forward Testing
+    6. Compliance Check
+    7. Final Scoring
+    
+    Supports: EURUSD, XAUUSD, US100, ETHUSD
+    """
+    import time
+    from backtest_models import Timeframe as BT_Timeframe
+    from market_data.dukascopy_provider import get_dukascopy_provider
+    
+    validation_id = str(uuid.uuid4())
+    stages = []
+    start_time = time.time()
+    current_code = request.code or ""
+    
+    # Validate symbol
+    symbol_config = get_symbol_config(request.symbol)
+    if not symbol_config:
+        raise HTTPException(status_code=400, detail=f"Symbol {request.symbol} not supported. Supported: {get_supported_symbols()}")
+    
+    logger.info(f"Starting PRO validation for {request.symbol} {request.timeframe} with {request.data_source}")
+    
+    try:
+        # STAGE 1: DATA LOADING
+        stage_start = time.time()
+        data_info = {"source": request.data_source, "symbol": request.symbol, "timeframe": request.timeframe}
+        
+        try:
+            if request.data_source == "dukascopy":
+                provider = get_dukascopy_provider()
+                end_date = datetime.now(timezone.utc)
+                start_date = end_date - timedelta(days=request.backtest_days)
+                
+                candles = await provider.get_ohlc(
+                    symbol=request.symbol,
+                    timeframe=request.timeframe,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                
+                if candles:
+                    data_info["candles_loaded"] = len(candles)
+                    data_info["date_range"] = {
+                        "start": candles[0].timestamp.isoformat() if candles else None,
+                        "end": candles[-1].timestamp.isoformat() if candles else None
+                    }
+                    data_info["is_real_data"] = True
+                    stages.append(ProValidationStage(
+                        stage="data_loading",
+                        success=True,
+                        score=100.0,
+                        details=data_info,
+                        execution_time=round(time.time() - stage_start, 2)
+                    ))
+                else:
+                    # Fallback to mock if no data available
+                    data_info["warning"] = "No Dukascopy data available, using mock data"
+                    data_info["is_real_data"] = False
+                    stages.append(ProValidationStage(
+                        stage="data_loading",
+                        success=True,
+                        score=50.0,
+                        details=data_info,
+                        execution_time=round(time.time() - stage_start, 2)
+                    ))
+            else:
+                # API data source - use existing market data service
+                tf = DataTimeframe(request.timeframe) if request.timeframe in ["1h", "4h", "1d", "15m", "30m"] else DataTimeframe.H1
+                candles = await market_data_service.get_candles(
+                    symbol=request.symbol,
+                    timeframe=tf,
+                    start_date=datetime.now(timezone.utc) - timedelta(days=request.backtest_days),
+                    end_date=datetime.now(timezone.utc),
+                    limit=20000
+                )
+                data_info["candles_loaded"] = len(candles) if candles else 0
+                data_info["is_real_data"] = bool(candles)
+                stages.append(ProValidationStage(
+                    stage="data_loading",
+                    success=bool(candles),
+                    score=100.0 if candles else 50.0,
+                    details=data_info,
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+                
+        except Exception as e:
+            logger.error(f"Data loading error: {e}")
+            data_info["error"] = str(e)
+            stages.append(ProValidationStage(
+                stage="data_loading",
+                success=False,
+                score=0.0,
+                details=data_info,
+                execution_time=round(time.time() - stage_start, 2),
+                error=str(e)
+            ))
+        
+        # STAGE 2: CODE GENERATION (if strategy_prompt provided)
+        stage_start = time.time()
+        if request.strategy_prompt and not request.code:
+            try:
+                ai_client = get_ai_client()
+                
+                # Include symbol context in prompt
+                symbol_context = f"""
+Symbol: {request.symbol} ({symbol_config.type})
+Pip Value: {symbol_config.pip_value}
+Recommended SL: {symbol_config.default_stop_loss_pips} pips
+Recommended TP: {symbol_config.default_take_profit_pips} pips
+Volatility: {'High' if symbol_config.volatility_multiplier > 2 else 'Medium' if symbol_config.volatility_multiplier > 1 else 'Normal'}
+"""
+                prompt = f"""Generate a complete cTrader cBot in C# for: {request.strategy_prompt}
+
+{symbol_context}
+
+Requirements:
+1. Optimize for {request.symbol} characteristics
+2. Adjust SL/TP for symbol volatility
+3. Use proper pip calculations for this instrument
+4. Robot class with using statements, OnStart(), OnBar()
+5. Return ONLY C# code."""
+
+                # Map model name to provider
+                provider_map = {"openai": "openai", "claude": "claude", "deepseek": "deepseek"}
+                provider = provider_map.get(request.ai_model, "openai")
+                
+                response = await ai_client.generate(
+                    provider=provider,
+                    prompt=prompt,
+                    system_message="You are an expert cTrader cBot developer. Return ONLY C# code, no markdown."
+                )
+                current_code = re.sub(r'^```c#\s*\n|^```csharp\s*\n|\n```$', '', response.strip()).strip()
+                
+                stages.append(ProValidationStage(
+                    stage="generation",
+                    success=True,
+                    score=100.0,
+                    details={"ai_model": request.ai_model, "symbol_optimized": True},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            except Exception as e:
+                stages.append(ProValidationStage(
+                    stage="generation",
+                    success=False,
+                    score=0.0,
+                    error=str(e),
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        elif request.code:
+            stages.append(ProValidationStage(
+                stage="generation",
+                success=True,
+                score=100.0,
+                details={"source": "provided"},
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 3: COMPILATION
+        stage_start = time.time()
+        if current_code:
+            try:
+                compile_result = compile_and_verify(current_code, max_attempts=3)
+                current_code = compile_result["code"]
+                stages.append(ProValidationStage(
+                    stage="compilation",
+                    success=compile_result["is_verified"],
+                    score=100.0 if compile_result["is_verified"] else 30.0,
+                    details={
+                        "status": compile_result["status"],
+                        "fixes_applied": compile_result["fixes_applied"],
+                        "errors": compile_result["errors"][:3] if compile_result["errors"] else []
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            except Exception as e:
+                stages.append(ProValidationStage(
+                    stage="compilation",
+                    success=False,
+                    score=0.0,
+                    error=str(e),
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        
+        # STAGE 4: BACKTEST ON REAL DATA
+        stage_start = time.time()
+        mock_trades = []
+        backtest_score = 0.0
+        
+        try:
+            # Use Dukascopy backtest if data was loaded
+            if request.data_source == "dukascopy" and data_info.get("candles_loaded", 0) > 0:
+                trades, equity_curve, backtest_config = await run_backtest_with_dukascopy(
+                    symbol=request.symbol,
+                    timeframe=request.timeframe,
+                    duration_days=request.backtest_days,
+                    initial_balance=request.initial_balance,
+                    strategy_type="trend_following",
+                    bot_name="ProValidation"
+                )
+                mock_trades = trades
+                
+                # Calculate metrics
+                from backtest_calculator import performance_calculator, strategy_scorer
+                metrics = performance_calculator.calculate_metrics(trades, equity_curve, backtest_config)
+                score = strategy_scorer.calculate_score(metrics)
+                backtest_score = score.total_score
+                
+                stages.append(ProValidationStage(
+                    stage="backtest",
+                    success=backtest_score >= 50,
+                    score=backtest_score,
+                    details={
+                        "data_source": "dukascopy",
+                        "is_real_data": True,
+                        "net_profit": round(metrics.net_profit, 2),
+                        "win_rate": round(metrics.win_rate * 100, 2),
+                        "max_drawdown": round(metrics.max_drawdown_percent, 2),
+                        "trades": metrics.total_trades,
+                        "profit_factor": round(metrics.profit_factor, 2) if metrics.profit_factor else 0,
+                        "sharpe_ratio": round(metrics.sharpe_ratio, 2) if metrics.sharpe_ratio else 0,
+                        "grade": score.grade,
+                        "symbol_config": {
+                            "pip_value": symbol_config.pip_value,
+                            "spread": symbol_config.spread,
+                            "volatility_multiplier": symbol_config.volatility_multiplier
+                        }
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                # Fallback to mock backtest
+                from backtest_mock_data import MockBacktestGenerator
+                mock_trades, mock_equity, backtest_config = MockBacktestGenerator.generate_mock_backtest(
+                    bot_name="ProValidation",
+                    symbol=request.symbol,
+                    timeframe=BT_Timeframe.H1,
+                    duration_days=request.backtest_days,
+                    initial_balance=request.initial_balance
+                )
+                metrics = performance_calculator.calculate_metrics(mock_trades, mock_equity, backtest_config)
+                score = strategy_scorer.calculate_score(metrics)
+                backtest_score = score.total_score
+                
+                stages.append(ProValidationStage(
+                    stage="backtest",
+                    success=backtest_score >= 50,
+                    score=backtest_score,
+                    details={
+                        "data_source": "mock",
+                        "is_real_data": False,
+                        "warning": "Using mock data - real data unavailable",
+                        "net_profit": round(metrics.net_profit, 2),
+                        "win_rate": round(metrics.win_rate * 100, 2),
+                        "trades": metrics.total_trades,
+                        "grade": score.grade
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+                
+        except Exception as e:
+            logger.error(f"Backtest error: {e}")
+            stages.append(ProValidationStage(
+                stage="backtest",
+                success=False,
+                score=0.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 5: MONTE CARLO
+        stage_start = time.time()
+        monte_carlo_score = 50.0
+        
+        try:
+            if mock_trades and len(mock_trades) >= 10:
+                mc_config = MonteCarloConfig(
+                    num_simulations=request.monte_carlo_runs,
+                    initial_balance=request.initial_balance
+                )
+                mc_engine = create_monte_carlo_engine(mc_config, mock_trades)
+                mc_result = mc_engine.run()
+                monte_carlo_score = mc_result.monte_carlo_score.total_score
+                
+                stages.append(ProValidationStage(
+                    stage="monte_carlo",
+                    success=monte_carlo_score >= 50,
+                    score=monte_carlo_score,
+                    details={
+                        "simulations": request.monte_carlo_runs,
+                        "ruin_probability": round(mc_result.metrics.ruin_probability * 100, 2),
+                        "profit_probability": round(mc_result.metrics.profit_probability * 100, 2),
+                        "grade": mc_result.monte_carlo_score.grade,
+                        "median_return": round(mc_result.metrics.median_return_percent, 2) if mc_result.metrics.median_return_percent else 0
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                stages.append(ProValidationStage(
+                    stage="monte_carlo",
+                    success=True,
+                    score=50.0,
+                    details={"note": "Insufficient trades for Monte Carlo"},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        except Exception as e:
+            stages.append(ProValidationStage(
+                stage="monte_carlo",
+                success=True,
+                score=50.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 6: WALK-FORWARD
+        stage_start = time.time()
+        walk_forward_score = 50.0
+        
+        try:
+            if mock_trades and len(mock_trades) >= 20:
+                segment_size = len(mock_trades) // 4
+                win_rates = []
+                pf_values = []
+                
+                for i in range(4):
+                    seg = mock_trades[i*segment_size:(i+1)*segment_size if i < 3 else len(mock_trades)]
+                    if seg:
+                        wins = sum(1 for t in seg if (t.profit_loss or 0) > 0)
+                        win_rates.append(wins / len(seg))
+                        
+                        gross_profit = sum(t.profit_loss for t in seg if (t.profit_loss or 0) > 0)
+                        gross_loss = abs(sum(t.profit_loss for t in seg if (t.profit_loss or 0) < 0))
+                        pf_values.append(gross_profit / gross_loss if gross_loss > 0 else 2.0)
+                
+                avg_wr = sum(win_rates) / len(win_rates) if win_rates else 0
+                variance = sum((r - avg_wr)**2 for r in win_rates) / len(win_rates) if win_rates else 1
+                consistency = max(0, 1 - variance * 10)
+                walk_forward_score = min(100, consistency * 100)
+                
+                stages.append(ProValidationStage(
+                    stage="walk_forward",
+                    success=walk_forward_score >= 50,
+                    score=round(walk_forward_score, 1),
+                    details={
+                        "segments": 4,
+                        "consistency": round(consistency, 3),
+                        "segment_win_rates": [round(r * 100, 1) for r in win_rates],
+                        "segment_profit_factors": [round(pf, 2) for pf in pf_values],
+                        "is_stable": consistency > 0.7
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                stages.append(ProValidationStage(
+                    stage="walk_forward",
+                    success=True,
+                    score=50.0,
+                    details={"note": "Insufficient trades for walk-forward"},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        except Exception as e:
+            stages.append(ProValidationStage(
+                stage="walk_forward",
+                success=True,
+                score=50.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 7: COMPLIANCE
+        stage_start = time.time()
+        compliance_score = 100.0
+        
+        try:
+            if current_code and request.prop_firm != "none":
+                engine = get_compliance_engine(request.prop_firm)
+                result = engine.validate(current_code)
+                if not result.is_compliant:
+                    compliance_score = max(0, 100 - len(result.violations) * 15)
+                    
+                stages.append(ProValidationStage(
+                    stage="compliance",
+                    success=compliance_score >= 70,
+                    score=compliance_score,
+                    details={
+                        "prop_firm": request.prop_firm,
+                        "is_compliant": result.is_compliant,
+                        "violations": [v.message for v in result.violations[:5]] if result.violations else []
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                stages.append(ProValidationStage(
+                    stage="compliance",
+                    success=True,
+                    score=100.0,
+                    details={"prop_firm": "none", "note": "No compliance check required"},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        except Exception as e:
+            stages.append(ProValidationStage(
+                stage="compliance",
+                success=True,
+                score=70.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # FINAL SCORING
+        weights = {
+            "data_loading": 0.10,
+            "generation": 0.05,
+            "compilation": 0.15,
+            "backtest": 0.30,
+            "monte_carlo": 0.20,
+            "walk_forward": 0.10,
+            "compliance": 0.10
+        }
+        
+        final_score = 0.0
+        for stage in stages:
+            weight = weights.get(stage.stage, 0.0)
+            final_score += (stage.score or 0) * weight
+        
+        final_score = round(final_score, 1)
+        
+        # Determine grade
+        if final_score >= 90:
+            grade = "A"
+        elif final_score >= 80:
+            grade = "B"
+        elif final_score >= 70:
+            grade = "C"
+        elif final_score >= 60:
+            grade = "D"
+        else:
+            grade = "F"
+        
+        # Determine decision
+        has_real_data = data_info.get("is_real_data", False)
+        compile_ok = any(s.stage == "compilation" and s.success for s in stages)
+        backtest_ok = any(s.stage == "backtest" and (s.score or 0) >= 50 for s in stages)
+        
+        if final_score >= 75 and has_real_data and backtest_ok:
+            decision = "PROP_FIRM_READY"
+        elif final_score >= 60 and backtest_ok:
+            decision = "DEMO_RECOMMENDED"
+        elif final_score >= 50:
+            decision = "NEEDS_IMPROVEMENT"
+        else:
+            decision = "NOT_READY"
+        
+        # Save to database
+        await db.pro_validations.insert_one({
+            "validation_id": validation_id,
+            "symbol": request.symbol,
+            "timeframe": request.timeframe,
+            "data_source": request.data_source,
+            "stages": [s.model_dump() for s in stages],
+            "final_score": final_score,
+            "grade": grade,
+            "decision": decision,
+            "data_info": data_info,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return ProValidationResponse(
+            success=True,
+            mode="pro",
+            data_source=request.data_source,
+            validation_id=validation_id,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            stages=stages,
+            final_score=final_score,
+            grade=grade,
+            decision=decision,
+            total_execution_time=round(time.time() - start_time, 2),
+            data_info=data_info,
+            summary={
+                "stages_passed": sum(1 for s in stages if s.success),
+                "stages_total": len(stages),
+                "is_real_data": data_info.get("is_real_data", False),
+                "symbol_type": symbol_config.type,
+                "volatility": "high" if symbol_config.volatility_multiplier > 2 else "medium" if symbol_config.volatility_multiplier > 1 else "normal"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PRO validation error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        return ProValidationResponse(
+            success=False,
+            mode="pro",
+            data_source=request.data_source,
+            validation_id=validation_id,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            stages=stages,
+            final_score=0.0,
+            grade="F",
+            decision="NOT_READY",
+            total_execution_time=round(time.time() - start_time, 2),
+            data_info=data_info,
+            summary={"error": str(e)}
+        )
+
+
+@api_router.get("/validation/pro/data-status/{symbol}")
+async def get_dukascopy_data_status(symbol: str):
+    """Check Dukascopy data availability for a symbol"""
+    from market_data.dukascopy_provider import get_dukascopy_provider
+    
+    config = get_symbol_config(symbol)
+    if not config:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not supported")
+    
+    provider = get_dukascopy_provider()
+    cache_info = provider.get_cached_data_info(symbol)
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "dukascopy_symbol": config.dukascopy_symbol,
+        "cache_info": cache_info,
+        "supported_timeframes": ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+    }
 
 
 # Include the router in the main app

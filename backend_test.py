@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 class cTraderBotFactoryTester:
-    def __init__(self, base_url="https://trading-engine-hub-1.preview.emergentagent.com"):
+    def __init__(self, base_url="https://raghu-trading-bot.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.tests_run = 0
@@ -236,23 +236,234 @@ namespace cAlgo.Robots
                 
         return success
 
+    def test_symbols_supported(self):
+        """Test GET /api/symbols/supported endpoint"""
+        success, response = self.run_test(
+            "Symbols Supported",
+            "GET",
+            "symbols/supported",
+            200
+        )
+        
+        if success and response:
+            symbols = response.get('symbols', [])
+            print(f"   Symbols found: {len(symbols)}")
+            
+            # Check for expected symbols
+            expected_symbols = ["EURUSD", "XAUUSD", "US100", "ETHUSD"]
+            found_symbols = [s.get('symbol') for s in symbols]
+            
+            for expected in expected_symbols:
+                if expected in found_symbols:
+                    print(f"   ✅ {expected} found")
+                else:
+                    print(f"   ❌ {expected} missing")
+                    success = False
+            
+            # Check symbol configuration fields
+            if symbols:
+                first_symbol = symbols[0]
+                required_fields = ['symbol', 'type', 'pip_value', 'lot_size', 'spread', 
+                                 'default_sl_pips', 'default_tp_pips', 'volatility_multiplier']
+                for field in required_fields:
+                    if field in first_symbol:
+                        print(f"   ✅ Field '{field}' present")
+                    else:
+                        print(f"   ❌ Field '{field}' missing")
+                        success = False
+                        
+        return success
+
+    def test_symbol_config(self):
+        """Test GET /api/symbols/{symbol}/config for each symbol"""
+        symbols = ["EURUSD", "XAUUSD", "US100", "ETHUSD"]
+        all_success = True
+        
+        for symbol in symbols:
+            success, response = self.run_test(
+                f"Symbol Config - {symbol}",
+                "GET",
+                f"symbols/{symbol}/config",
+                200
+            )
+            
+            if success and response:
+                config = response.get('config', {})
+                required_fields = ['type', 'pip_value', 'lot_size', 'spread', 'min_lot', 'max_lot',
+                                 'pip_digits', 'value_per_pip_per_lot', 'default_stop_loss_pips',
+                                 'default_take_profit_pips', 'volatility_multiplier', 'dukascopy_symbol']
+                
+                missing_fields = [field for field in required_fields if field not in config]
+                if missing_fields:
+                    print(f"   ❌ Missing fields for {symbol}: {missing_fields}")
+                    all_success = False
+                else:
+                    print(f"   ✅ All required fields present for {symbol}")
+            else:
+                all_success = False
+                
+        return all_success
+
+    def test_pro_validation_eurusd(self):
+        """Test POST /api/validation/pro with EURUSD"""
+        success, response = self.run_test(
+            "PRO Validation - EURUSD",
+            "POST",
+            "validation/pro",
+            200,
+            data={
+                "symbol": "EURUSD",
+                "timeframe": "M15",
+                "backtest_days": 7,
+                "data_source": "api"
+            }
+        )
+        
+        if success and response:
+            # Check required response fields
+            required_fields = ['success', 'mode', 'data_source', 'symbol', 'stages', 
+                             'final_score', 'grade', 'decision']
+            
+            for field in required_fields:
+                if field in response:
+                    print(f"   ✅ Field '{field}' present: {response.get(field)}")
+                else:
+                    print(f"   ❌ Field '{field}' missing")
+                    success = False
+            
+            # Check stages array
+            stages = response.get('stages', [])
+            if isinstance(stages, list) and len(stages) > 0:
+                print(f"   ✅ Stages array has {len(stages)} stages")
+                for stage in stages[:3]:  # Show first 3 stages
+                    stage_name = stage.get('stage', 'Unknown')
+                    stage_success = stage.get('success', False)
+                    print(f"     - {stage_name}: {'✅' if stage_success else '❌'}")
+            else:
+                print(f"   ❌ Stages array is empty or invalid")
+                success = False
+                
+        return success
+
+    def test_pro_validation_xauusd(self):
+        """Test POST /api/validation/pro with XAUUSD"""
+        success, response = self.run_test(
+            "PRO Validation - XAUUSD",
+            "POST",
+            "validation/pro",
+            200,
+            data={
+                "symbol": "XAUUSD",
+                "timeframe": "M15",
+                "backtest_days": 7,
+                "data_source": "api"
+            }
+        )
+        
+        if success and response:
+            # Check that symbol is correctly set
+            if response.get('symbol') == 'XAUUSD':
+                print(f"   ✅ Symbol correctly set to XAUUSD")
+            else:
+                print(f"   ❌ Symbol mismatch: expected XAUUSD, got {response.get('symbol')}")
+                success = False
+                
+            # Check for final score and grade
+            final_score = response.get('final_score')
+            grade = response.get('grade')
+            if final_score is not None:
+                print(f"   ✅ Final score: {final_score}")
+            if grade:
+                print(f"   ✅ Grade: {grade}")
+                
+        return success
+
+    def test_data_status_endpoints(self):
+        """Test GET /api/validation/pro/data-status/{symbol} for each symbol"""
+        symbols = ["EURUSD", "XAUUSD", "US100", "ETHUSD"]
+        all_success = True
+        
+        for symbol in symbols:
+            success, response = self.run_test(
+                f"Data Status - {symbol}",
+                "GET",
+                f"validation/pro/data-status/{symbol}",
+                200
+            )
+            
+            if success and response:
+                # Check required fields
+                required_fields = ['success', 'symbol', 'dukascopy_symbol', 'cache_info', 'supported_timeframes']
+                
+                for field in required_fields:
+                    if field in response:
+                        print(f"   ✅ Field '{field}' present for {symbol}")
+                    else:
+                        print(f"   ❌ Field '{field}' missing for {symbol}")
+                        all_success = False
+                
+                # Check supported timeframes
+                timeframes = response.get('supported_timeframes', [])
+                expected_timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+                if set(expected_timeframes).issubset(set(timeframes)):
+                    print(f"   ✅ All expected timeframes supported for {symbol}")
+                else:
+                    print(f"   ❌ Missing timeframes for {symbol}")
+                    all_success = False
+            else:
+                all_success = False
+                
+        return all_success
+
+    def test_existing_endpoints_still_work(self):
+        """Test that existing endpoints still work after PRO validation implementation"""
+        print("\n🔍 Testing existing endpoints compatibility...")
+        
+        # Test full-pipeline validation
+        success1, _ = self.run_test(
+            "Existing Full Pipeline",
+            "POST",
+            "validation/full-pipeline",
+            200,
+            data={"code": "using System; using cAlgo.API; namespace cAlgo.Robots { [Robot] public class TestBot : Robot { protected override void OnStart() { Print(\"Test\"); } } }"}
+        )
+        
+        # Test bot generation
+        success2, _ = self.run_test(
+            "Existing Bot Generation",
+            "POST",
+            "bot/generate",
+            200,
+            data={
+                "strategy_prompt": "Simple test strategy",
+                "ai_model": "openai",
+                "prop_firm": "none"
+            }
+        )
+        
+        return success1 and success2
+
 def main():
-    print("🚀 Starting cTrader Bot Factory API Tests")
-    print("=" * 50)
+    print("🚀 Starting cTrader Bot Factory PRO Validation API Tests")
+    print("=" * 60)
     
     tester = cTraderBotFactoryTester()
     
-    # Test sequence
+    # Test sequence - PRO Validation Features
     tests = [
         ("Root API Endpoint", tester.test_root_endpoint),
         ("Database Connection", tester.test_database_connection),
+        ("Symbols Supported", tester.test_symbols_supported),
+        ("Symbol Configuration", tester.test_symbol_config),
+        ("PRO Validation - EURUSD", tester.test_pro_validation_eurusd),
+        ("PRO Validation - XAUUSD", tester.test_pro_validation_xauusd),
+        ("Data Status Endpoints", tester.test_data_status_endpoints),
+        ("Existing Endpoints Compatibility", tester.test_existing_endpoints_still_work),
         ("Compliance Profiles", tester.test_compliance_profiles),
         ("Code Validation", tester.test_code_validation),
-        ("Bot Generation", tester.test_bot_generation),
-        ("Full Pipeline Validation", tester.test_full_pipeline_validation),
     ]
     
-    print(f"\n📋 Running {len(tests)} test categories...")
+    print(f"\n📋 Running {len(tests)} test categories for PRO Validation + Multi-Symbol Support...")
     
     for test_name, test_func in tests:
         try:
@@ -262,16 +473,16 @@ def main():
             print(f"❌ Test category '{test_name}' failed with exception: {str(e)}")
     
     # Print final results
-    print(f"\n{'='*50}")
-    print(f"📊 Test Results Summary")
-    print(f"{'='*50}")
+    print(f"\n{'='*60}")
+    print(f"📊 PRO Validation Test Results Summary")
+    print(f"{'='*60}")
     print(f"Tests run: {tester.tests_run}")
     print(f"Tests passed: {tester.tests_passed}")
     print(f"Tests failed: {tester.tests_run - tester.tests_passed}")
     print(f"Success rate: {(tester.tests_passed/tester.tests_run*100):.1f}%" if tester.tests_run > 0 else "No tests run")
     
     if tester.tests_passed == tester.tests_run:
-        print("🎉 All tests passed!")
+        print("🎉 All PRO Validation tests passed!")
         return 0
     else:
         print("⚠️  Some tests failed. Check the logs above.")

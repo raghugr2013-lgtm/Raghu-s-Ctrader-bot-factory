@@ -237,6 +237,11 @@ export default function Dashboard() {
   const [reviewerModel, setReviewerModel] = useState('openai');
   const [optimizerModel, setOptimizerModel] = useState('claude');
   const [propFirm, setPropFirm] = useState('none');
+  
+  // NEW: Symbol and Data Source State
+  const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
+  const [dataSource, setDataSource] = useState('api');
+  const [validationMode, setValidationMode] = useState('standard'); // 'standard' or 'pro'
 
   const [generatedCode, setGeneratedCode] = useState('// Your generated cBot code will appear here...');
   const [sessionId, setSessionId] = useState(null);
@@ -262,6 +267,7 @@ export default function Dashboard() {
   const [advancedValidation, setAdvancedValidation] = useState(null);
   const [propScore, setPropScore] = useState(null);
   const [marketSelection, setMarketSelection] = useState(null);  // NEW: Market selection results
+  const [proValidationResult, setProValidationResult] = useState(null); // NEW: PRO validation results
   const [chartData, setChartData] = useState({
     equityCurve: [],
     drawdownCurve: [],
@@ -371,12 +377,65 @@ export default function Dashboard() {
     setBotValidation(null);
     setBottomTab('validation');
     setDataAvailability(null);
+    setProValidationResult(null);
 
     try {
-      // STEP 1: Check real market data availability FIRST
+      // Check if PRO mode is selected
+      if (validationMode === 'pro') {
+        // PRO VALIDATION with Dukascopy
+        toast.info(`🔥 Running PRO validation for ${selectedSymbol}...`, { duration: 3000 });
+        
+        const proResponse = await axios.post(`${API}/validation/pro`, {
+          symbol: selectedSymbol,
+          timeframe: 'M15',
+          data_source: 'dukascopy',
+          backtest_days: 90,
+          initial_balance: 10000,
+          code: generatedCode,
+          prop_firm: propFirm,
+          monte_carlo_runs: 100
+        });
+        
+        const proData = proResponse.data;
+        setProValidationResult(proData);
+        setDataAvailability({
+          success: proData.data_info?.is_real_data || false,
+          data_source: proData.data_source,
+          candle_count: proData.data_info?.candles_loaded || 0
+        });
+        
+        // Set download eligibility
+        setCanDownload(proData.decision === 'PROP_FIRM_READY' || proData.decision === 'DEMO_RECOMMENDED');
+        
+        if (proData.success) {
+          const emoji = proData.data_info?.is_real_data ? '🎯' : '⚠️';
+          toast.success(`${emoji} PRO Validation Complete! Score: ${proData.final_score} (${proData.grade}) - ${proData.decision}`, {
+            duration: 6000
+          });
+          
+          // Map to botValidation format for compatibility
+          setBotValidation({
+            is_deployable: proData.decision === 'PROP_FIRM_READY' || proData.decision === 'DEMO_RECOMMENDED',
+            failed_checks: proData.stages.filter(s => !s.success).length,
+            total_checks: proData.stages.length,
+            passed_checks: proData.stages.filter(s => s.success).length,
+            pro_mode: true,
+            grade: proData.grade,
+            final_score: proData.final_score,
+            decision: proData.decision
+          });
+        } else {
+          toast.error(`PRO validation failed: ${proData.summary?.error || 'Unknown error'}`);
+        }
+        
+        setBottomTab('validation');
+        return;
+      }
+      
+      // STANDARD VALIDATION (existing flow)
       setIsCheckingData(true);
       const dataCheckResponse = await axios.post(`${API}/marketdata/ensure-real-data`, {
-        symbol: 'EURUSD',
+        symbol: selectedSymbol,
         timeframe: '1h',
         min_candles: 60
       });
@@ -385,7 +444,6 @@ export default function Dashboard() {
       setIsCheckingData(false);
       
       if (!dataCheckResponse.data.success) {
-        // Show warning but continue with validation
         toast.warning(`⚠️ Real market data unavailable - backtest results may not be reliable`, {
           duration: 8000
         });
@@ -393,7 +451,7 @@ export default function Dashboard() {
         toast.success(`✓ Real data loaded: ${dataCheckResponse.data.candle_count} candles from ${dataCheckResponse.data.data_source}`);
       }
 
-      // STEP 2: Run validation
+      // Run validation
       const response = await axios.post(`${API}/bot/validate`, {
         code: generatedCode,
         session_id: sessionId,
@@ -925,6 +983,80 @@ export default function Dashboard() {
                     </Select>
                   </div>
 
+                  {/* Symbol Selector - Multi-Asset Support */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Trading Symbol</label>
+                    <Select value={selectedSymbol} onValueChange={setSelectedSymbol}>
+                      <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="symbol-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#0F0F10] border-white/10">
+                        <SelectItem value="EURUSD" className="text-xs">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                            EURUSD <span className="text-zinc-500 ml-1">Forex</span>
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="XAUUSD" className="text-xs">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                            XAUUSD <span className="text-zinc-500 ml-1">Gold</span>
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="US100" className="text-xs">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            US100 <span className="text-zinc-500 ml-1">Index</span>
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="ETHUSD" className="text-xs">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                            ETHUSD <span className="text-zinc-500 ml-1">Crypto</span>
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Validation Mode Selector */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Validation Mode</label>
+                    <div className="flex gap-1" data-testid="validation-mode-selector">
+                      <button
+                        onClick={() => setValidationMode('standard')}
+                        className={`flex-1 px-2 py-1.5 text-[10px] font-mono uppercase border transition-colors ${
+                          validationMode === 'standard'
+                            ? 'bg-blue-600/15 border-blue-500/40 text-blue-400'
+                            : 'bg-[#0F0F10] border-white/5 text-zinc-500 hover:border-white/15'
+                        }`}
+                        data-testid="mode-standard"
+                      >
+                        Standard
+                      </button>
+                      <button
+                        onClick={() => setValidationMode('pro')}
+                        className={`flex-1 px-2 py-1.5 text-[10px] font-mono uppercase border transition-colors ${
+                          validationMode === 'pro'
+                            ? 'bg-amber-600/15 border-amber-500/40 text-amber-400'
+                            : 'bg-[#0F0F10] border-white/5 text-zinc-500 hover:border-white/15'
+                        }`}
+                        data-testid="mode-pro"
+                      >
+                        <span className="flex items-center justify-center gap-1">
+                          PRO <span className="text-[8px]">🔥</span>
+                        </span>
+                      </button>
+                    </div>
+                    {validationMode === 'pro' && (
+                      <div className="mt-1.5 p-2 bg-amber-500/5 border border-amber-500/20 rounded-sm">
+                        <p className="text-[9px] text-amber-400/80 font-mono">
+                          PRO Mode uses Dukascopy historical data for accurate backtesting
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Strategy Prompt */}
                   <div className="flex-1 flex flex-col min-h-0">
                     <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">
@@ -1291,6 +1423,61 @@ export default function Dashboard() {
                     <span className="text-xs font-mono text-emerald-400">
                       REAL DATA: {dataAvailability.candle_count} candles from {dataAvailability.data_source}
                     </span>
+                  </div>
+                )}
+                
+                {/* PRO Validation Results */}
+                {proValidationResult && botValidation?.pro_mode && (
+                  <div className="space-y-3 mb-4 p-3 bg-amber-500/5 border border-amber-500/30 rounded-sm" data-testid="pro-validation-results">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🔥</span>
+                        <span className="text-sm font-bold font-mono uppercase text-amber-400">PRO Validation Mode</span>
+                        <Badge variant="outline" className="text-[9px] border-amber-500/40 text-amber-400">
+                          {proValidationResult.symbol}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold font-mono text-amber-400">{proValidationResult.final_score}</p>
+                        <p className="text-[10px] text-zinc-500 uppercase">Final Score</p>
+                      </div>
+                    </div>
+                    
+                    {/* PRO Stages Grid */}
+                    <div className="grid grid-cols-4 gap-2">
+                      {proValidationResult.stages?.map((stage, idx) => (
+                        <div key={idx} className={`p-2 rounded-sm border ${stage.success ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-mono uppercase text-zinc-500">{stage.stage.replace('_', ' ')}</span>
+                            {stage.success ? (
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <XCircle className="w-3 h-3 text-red-400" />
+                            )}
+                          </div>
+                          <p className="text-sm font-bold font-mono text-zinc-300">{stage.score?.toFixed(1) || '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Decision Badge */}
+                    <div className={`flex items-center justify-center p-2 rounded-sm font-mono text-xs uppercase ${
+                      proValidationResult.decision === 'PROP_FIRM_READY' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
+                      proValidationResult.decision === 'DEMO_RECOMMENDED' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' :
+                      proValidationResult.decision === 'NEEDS_IMPROVEMENT' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                      'bg-red-500/20 text-red-400 border border-red-500/40'
+                    }`}>
+                      {proValidationResult.decision} • Grade: {proValidationResult.grade}
+                    </div>
+                    
+                    {/* Data Info */}
+                    {proValidationResult.data_info && (
+                      <div className="text-[10px] text-zinc-500 font-mono">
+                        Data: {proValidationResult.data_info.candles_loaded || 0} candles • 
+                        Source: {proValidationResult.data_source} • 
+                        Time: {proValidationResult.total_execution_time}s
+                      </div>
+                    )}
                   </div>
                 )}
                 
