@@ -14,7 +14,7 @@ import re
 import subprocess
 import tempfile
 from fastapi import File, UploadFile, Form
-from direct_ai_client import get_ai_client, reload_ai_client
+from direct_ai_client import get_ai_client, reload_ai_client, AIProviderError, log_ai_status
 from roslyn_validator import validate_csharp_code
 from compile_gate import compile_and_verify, check_download_allowed, CompileStatus
 from compliance_engine import (
@@ -241,6 +241,21 @@ async def get_status_checks():
     return status_checks
 
 
+@api_router.get("/ai/status")
+async def get_ai_status():
+    """Get AI provider status and configuration"""
+    ai_client = get_ai_client()
+    providers = ai_client.get_available_providers()
+    summary = ai_client.get_status_summary()
+    
+    return {
+        "status": "operational" if summary["configured_providers"] > 0 else "no_providers",
+        "providers": providers,
+        "summary": summary,
+        "message": f"{summary['configured_providers']}/3 AI providers configured"
+    }
+
+
 # Bot Builder Routes
 @api_router.post("/bot/generate")
 async def generate_bot(request: BotGenerationRequest):
@@ -338,9 +353,32 @@ Return ONLY the C# code, no explanations."""
             "fixes_applied": compile_result["fixes_applied"],
             "badge": "✅ COMPILE VERIFIED" if compile_result["is_verified"] else "⚠️ HAS ERRORS"
         }
+    
+    except AIProviderError as e:
+        logging.error(f"AI Provider error: {str(e)}")
+        error_msg = str(e)
+        if e.is_credit_error:
+            raise HTTPException(
+                status_code=402,
+                detail=f"AI provider has insufficient credits: {error_msg}"
+            )
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"AI service unavailable: {error_msg}"
+            )
         
     except Exception as e:
         logging.error(f"Error generating bot: {str(e)}")
+        error_msg = str(e).lower()
+        
+        # Check for credit-related errors
+        if any(p in error_msg for p in ["quota", "credit", "balance", "billing", "insufficient"]):
+            raise HTTPException(
+                status_code=402,
+                detail=f"API key present but insufficient credits: {str(e)}"
+            )
+        
         raise HTTPException(status_code=500, detail=f"Failed to generate bot: {str(e)}")
 
 
@@ -442,9 +480,30 @@ Return ONLY the fixed C# code, no explanations."""
             "success": True,
             "code": fixed_code
         }
+    
+    except AIProviderError as e:
+        logging.error(f"AI Provider error in fix: {str(e)}")
+        if e.is_credit_error:
+            raise HTTPException(
+                status_code=402,
+                detail=f"AI provider has insufficient credits: {str(e)}"
+            )
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"AI service unavailable: {str(e)}"
+            )
         
     except Exception as e:
         logging.error(f"Error fixing code: {str(e)}")
+        error_msg = str(e).lower()
+        
+        if any(p in error_msg for p in ["quota", "credit", "balance", "billing", "insufficient"]):
+            raise HTTPException(
+                status_code=402,
+                detail=f"API key present but insufficient credits: {str(e)}"
+            )
+        
         raise HTTPException(status_code=500, detail=f"Failed to fix code: {str(e)}")
 
 
@@ -2013,5 +2072,10 @@ async def startup_db_indexes():
         await db.bot_history.create_index([("bot_id", 1), ("timestamp", -1)])
         
         logging.info("Database indexes initialized (including execution layer)")
+        
+        # Initialize AI client and log status at startup
+        ai_client = get_ai_client()
+        log_ai_status()
+        
     except Exception as e:
         logging.error(f"Failed to initialize indexes: {str(e)}")
