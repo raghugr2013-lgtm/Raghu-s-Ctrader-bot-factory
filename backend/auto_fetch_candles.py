@@ -79,7 +79,7 @@ async def auto_fetch_candles(
         end_date = datetime.now(timezone.utc)
     
     # ============================================================
-    # STEP 1: Check cache
+    # STEP 1: Check cache (includes Dukascopy processed candles)
     # ============================================================
     try:
         cached = await market_data_service.get_candles(
@@ -91,10 +91,16 @@ async def auto_fetch_candles(
         )
         
         if cached and len(cached) >= min_candles:
-            logger.info(f"Cache hit: {len(cached)} candles for {symbol} {timeframe}")
+            # Check if data is from Dukascopy (preferred source)
+            source_type = "cache"
+            if cached and hasattr(cached[0], 'source'):
+                if cached[0].source == "dukascopy":
+                    source_type = "dukascopy_cache"
+            
+            logger.info(f"Cache hit ({source_type}): {len(cached)} candles for {symbol} {timeframe}")
             result.success = True
             result.candles = cached
-            result.source = "cache"
+            result.source = source_type
             result.candle_count = len(cached)
             return result
         else:
