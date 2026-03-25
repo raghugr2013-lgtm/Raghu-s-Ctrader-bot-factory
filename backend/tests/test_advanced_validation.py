@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://trading-discovery.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://bot-forge-ai-1.preview.emergentagent.com').rstrip('/')
 
 # Sample trades for testing
 SAMPLE_TRADES = [
