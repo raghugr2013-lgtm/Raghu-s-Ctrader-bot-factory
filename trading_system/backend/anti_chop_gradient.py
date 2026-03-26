@@ -149,16 +149,18 @@ def run_anti_chop_gradient_strategy(
         
         # Confirmation
         "require_confirmation": True,
-        "min_confirmations": 2,
+        "min_confirmations": 2,  # Kept at 2 for better entry timing
         
         # Filters
         "avoid_ema200_zone_pct": 0.002,
         "min_distance_from_ema200_pct": 0.0015,
+        "enable_ema_alignment_filter": True,  # NEW: Require EMA alignment for quality trades
+        "enable_session_filter": True,  # NEW: Only trade high-liquidity sessions
         
         # Risk management
         "base_risk_pct": 0.7,
         "stop_loss_atr_mult": 1.9,
-        "take_profit_atr_mult": 4.0,
+        "take_profit_atr_mult": 3.5,  # Reduced from 4.0 to 3.5 for better hit rate
         "max_trades_per_day": 3,
         "min_candles_between_trades": 2,
         "atr_lookback": 20,
@@ -176,8 +178,8 @@ def run_anti_chop_gradient_strategy(
         
         # NEW: STRONG SIGNAL OVERRIDE
         "enable_strong_signal_override": True,
-        "override_adx_threshold": 30,       # ADX must be > 30 for override
-        "override_min_signals": 3,          # Need 3+ confirmations
+        "override_adx_threshold": 25,       # Reduced from 30 to 25 for more overrides
+        "override_min_signals": 2,          # Reduced from 3 to 2 for easier activation
         
         # Circuit Breakers
         "enable_circuit_breakers": True,
@@ -364,14 +366,32 @@ def run_anti_chop_gradient_strategy(
             bullish_bias = candle.close > ema_long[i]
             bearish_bias = candle.close < ema_long[i]
             
+            # NEW: EMA Alignment Filter (improves entry quality)
+            if p["enable_ema_alignment_filter"]:
+                # For LONG: Require price above EMA50 (stronger trend confirmation)
+                bullish_ema_aligned = candle.close > ema_medium[i]
+                # For SHORT: Require price below EMA50
+                bearish_ema_aligned = candle.close < ema_medium[i]
+            else:
+                bullish_ema_aligned = True
+                bearish_ema_aligned = True
+            
+            # NEW: Session Filter (only trade high-liquidity periods)
+            session_allowed = True
+            if p["enable_session_filter"]:
+                # Allow trading only during London (8-16 UTC) and NY (13-21 UTC)
+                hour_utc = candle.timestamp.hour
+                # London: 8-16, NY: 13-21, Overlap: 13-16 (best)
+                session_allowed = (8 <= hour_utc < 21)  # Combined London + NY window
+            
             signals = []
             confirmations = []
             
-            # Adaptive confirmation requirements based on ADX (same as anti_chop)
-            if adx[i] >= 25:
+            # Adaptive confirmation requirements based on ADX (adjusted thresholds)
+            if adx[i] >= 20:  # Reduced from 25 to 20 to catch more trends
                 min_conf_add = 0
                 risk_mult = 1.0
-            elif adx[i] >= 20:
+            elif adx[i] >= 15:  # Reduced from 20 to 15
                 min_conf_add = 1
                 risk_mult = 0.8
             else:
@@ -381,7 +401,7 @@ def run_anti_chop_gradient_strategy(
             dynamic_min_confirmations = p["min_confirmations"] + min_conf_add
             
             # LONG SIGNALS (same logic as anti_chop)
-            if bullish_bias:
+            if bullish_bias and bullish_ema_aligned and session_allowed:  # Added EMA alignment and session filter
                 # Pullback
                 near_ema20 = abs(candle.close - ema_fast[i]) / ema_fast[i] < p["pullback_distance_pct"]
                 near_ema50 = abs(candle.close - ema_medium[i]) / ema_medium[i] < p["pullback_distance_pct"]
@@ -481,7 +501,7 @@ def run_anti_chop_gradient_strategy(
                                f"Size: {position_multiplier*100:.0f}% ({position_reason}), Signals: {signals}")
             
             # SHORT SIGNALS (same logic, with gradient multiplier)
-            elif bearish_bias:
+            elif bearish_bias and bearish_ema_aligned and session_allowed:  # Added EMA alignment and session filter
                 near_ema20 = abs(candle.close - ema_fast[i]) / ema_fast[i] < p["pullback_distance_pct"]
                 near_ema50 = abs(candle.close - ema_medium[i]) / ema_medium[i] < p["pullback_distance_pct"]
                 if (near_ema20 or near_ema50) and candle.close < candle.open:

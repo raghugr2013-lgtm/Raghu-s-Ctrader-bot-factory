@@ -161,7 +161,7 @@ def ticks_to_ohlc_candles(ticks: List[dict], timeframe_minutes: int) -> List[dic
 async def process_all_bi5_files():
     """Process all .bi5 files and store candles in MongoDB"""
     
-    bi5_dir = Path('/app/dukascopy_data/EURUSD')
+    bi5_dir = Path('/app/trading_system/dukascopy_data/EURUSD')
     bi5_files = sorted(list(bi5_dir.glob('*.bi5')))
     
     logger.info(f"Found {len(bi5_files)} .bi5 files to process")

@@ -1,0 +1,341 @@
+{
+  "validation_type": "incremental_full_dataset",
+  "completed_at": "2026-03-26T16:36:10.867488",
+  "dataset": {
+    "total_candles": 6513,
+    "start_date": "2025-01-02T22:00:00",
+    "end_date": "2026-02-25T17:00:00",
+    "duration_days": 418
+  },
+  "overall": {
+    "total_batches": 14,
+    "total_trades": 257,
+    "profit_factor": 0.0,
+    "max_drawdown_pct": 14.085762554064834,
+    "consistency": 0.0,
+    "win_rate": 31.906614785992215,
+    "total_pnl": -6903.816850582694,
+    "return_pct": -69.03816850582695,
+    "initial_capital": 10000.0,
+    "final_capital": 3096.1831494173052
+  },
+  "validation": {
+    "checks_passed": 0,
+    "total_checks": 5,
+    "score_pct": 0,
+    "grade": "D/F - INSUFFICIENT",
+    "recommendation": "\u274c NOT APPROVED - Needs refinement"
+  },
+  "batches": [
+    {
+      "batch": 1,
+      "start_index": 0,
+      "end_index": 500,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 10000.0,
+      "final_balance": 8992.659371569162,
+      "pnl": -1007.3406284308385,
+      "profit_factor": 0.17842566491381784,
+      "max_dd_pct": 10.565802443746325,
+      "win_rate": 28.57142857142857,
+      "return_pct": -10.073406284308383,
+      "trade_by_strategy": {
+        "trend": 5,
+        "mean_reversion": 16
+      },
+      "pnl_by_strategy": {
+        "trend": -440.8827450313377,
+        "mean_reversion": -566.4578833995008
+      }
+    },
+    {
+      "batch": 2,
+      "start_index": 500,
+      "end_index": 1000,
+      "candles": 500,
+      "trades": 25,
+      "initial_balance": 8992.659371569162,
+      "final_balance": 8809.691710853747,
+      "pnl": -182.96766071541373,
+      "profit_factor": 0.7749269697347033,
+      "max_dd_pct": 4.40015830478301,
+      "win_rate": 60.0,
+      "return_pct": -2.0346335066785404,
+      "trade_by_strategy": {
+        "mean_reversion": 23,
+        "trend": 2
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -272.01297381269893,
+        "trend": 89.04531309728519
+      }
+    },
+    {
+      "batch": 3,
+      "start_index": 1000,
+      "end_index": 1500,
+      "candles": 500,
+      "trades": 11,
+      "initial_balance": 8809.691710853747,
+      "final_balance": 8396.337799664634,
+      "pnl": -413.35391118911275,
+      "profit_factor": 0.11562452156794065,
+      "max_dd_pct": 4.760736093594116,
+      "win_rate": 36.36363636363637,
+      "return_pct": -4.692036052519876,
+      "trade_by_strategy": {
+        "mean_reversion": 10,
+        "trend": 1
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -325.4502985234859,
+        "trend": -87.90361266562681
+      }
+    },
+    {
+      "batch": 4,
+      "start_index": 1500,
+      "end_index": 2000,
+      "candles": 500,
+      "trades": 22,
+      "initial_balance": 8396.337799664634,
+      "final_balance": 7964.629981335874,
+      "pnl": -431.7078183287604,
+      "profit_factor": 0.5678316799532239,
+      "max_dd_pct": 5.3779559280059726,
+      "win_rate": 40.909090909090914,
+      "return_pct": -5.141620413914305,
+      "trade_by_strategy": {
+        "mean_reversion": 15,
+        "trend": 7
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -343.6801714987107,
+        "trend": -88.02764683004973
+      }
+    },
+    {
+      "batch": 5,
+      "start_index": 2000,
+      "end_index": 2500,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 7964.629981335874,
+      "final_balance": 7152.899332773247,
+      "pnl": -811.7306485626268,
+      "profit_factor": 0.21393994672205777,
+      "max_dd_pct": 10.191693154168071,
+      "win_rate": 28.57142857142857,
+      "return_pct": -10.19169315416808,
+      "trade_by_strategy": {
+        "trend": 6,
+        "mean_reversion": 15
+      },
+      "pnl_by_strategy": {
+        "trend": -389.16997160910154,
+        "mean_reversion": -422.5606769535252
+      }
+    },
+    {
+      "batch": 6,
+      "start_index": 2500,
+      "end_index": 3000,
+      "candles": 500,
+      "trades": 26,
+      "initial_balance": 7152.899332773247,
+      "final_balance": 6285.057354038767,
+      "pnl": -867.8419787344806,
+      "profit_factor": 0.27867495130687747,
+      "max_dd_pct": 12.13273021693724,
+      "win_rate": 26.923076923076923,
+      "return_pct": -12.132730216937215,
+      "trade_by_strategy": {
+        "mean_reversion": 17,
+        "trend": 9
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -567.1143486490166,
+        "trend": -300.7276300854641
+      }
+    },
+    {
+      "batch": 7,
+      "start_index": 3000,
+      "end_index": 3500,
+      "candles": 500,
+      "trades": 16,
+      "initial_balance": 6285.057354038767,
+      "final_balance": 5766.659933156581,
+      "pnl": -518.3974208821854,
+      "profit_factor": 0.24565415165910956,
+      "max_dd_pct": 9.180063968350149,
+      "win_rate": 25.0,
+      "return_pct": -8.248093719448146,
+      "trade_by_strategy": {
+        "mean_reversion": 10,
+        "trend": 6
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -329.9257869068406,
+        "trend": -188.47163397534484
+      }
+    },
+    {
+      "batch": 8,
+      "start_index": 3500,
+      "end_index": 4000,
+      "candles": 500,
+      "trades": 15,
+      "initial_balance": 5766.659933156581,
+      "final_balance": 5095.108443997095,
+      "pnl": -671.5514891594866,
+      "profit_factor": 0.01980367463068933,
+      "max_dd_pct": 11.645415144011963,
+      "win_rate": 6.666666666666667,
+      "return_pct": -11.645415144011961,
+      "trade_by_strategy": {
+        "trend": 7,
+        "mean_reversion": 8
+      },
+      "pnl_by_strategy": {
+        "trend": -306.0011305680084,
+        "mean_reversion": -365.55035859147836
+      }
+    },
+    {
+      "batch": 9,
+      "start_index": 4000,
+      "end_index": 4500,
+      "candles": 500,
+      "trades": 25,
+      "initial_balance": 5095.108443997095,
+      "final_balance": 4381.5960297834545,
+      "pnl": -713.5124142136399,
+      "profit_factor": 0.19272585681891896,
+      "max_dd_pct": 14.085762554064834,
+      "win_rate": 24.0,
+      "return_pct": -14.003871007971957,
+      "trade_by_strategy": {
+        "mean_reversion": 13,
+        "trend": 12
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -291.1797941164377,
+        "trend": -422.3326200972022
+      }
+    },
+    {
+      "batch": 10,
+      "start_index": 4500,
+      "end_index": 5000,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 4381.5960297834545,
+      "final_balance": 3947.701414822306,
+      "pnl": -433.8946149611484,
+      "profit_factor": 0.1779618575868163,
+      "max_dd_pct": 10.720721615735247,
+      "win_rate": 33.33333333333333,
+      "return_pct": -9.902661313635342,
+      "trade_by_strategy": {
+        "mean_reversion": 16,
+        "trend": 5
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -219.15281218310312,
+        "trend": -214.7418027780452
+      }
+    },
+    {
+      "batch": 11,
+      "start_index": 5000,
+      "end_index": 5500,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 3947.701414822306,
+      "final_balance": 3729.0914103515806,
+      "pnl": -218.61000447072547,
+      "profit_factor": 0.44251687000592727,
+      "max_dd_pct": 7.615609494378213,
+      "win_rate": 33.33333333333333,
+      "return_pct": -5.537652965594553,
+      "trade_by_strategy": {
+        "mean_reversion": 18,
+        "trend": 3
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -256.9106035973315,
+        "trend": 38.30059912660601
+      }
+    },
+    {
+      "batch": 12,
+      "start_index": 5500,
+      "end_index": 6000,
+      "candles": 500,
+      "trades": 16,
+      "initial_balance": 3729.0914103515806,
+      "final_balance": 3429.5209156919723,
+      "pnl": -299.5704946596082,
+      "profit_factor": 0.19011470330522776,
+      "max_dd_pct": 9.105284845256605,
+      "win_rate": 37.5,
+      "return_pct": -8.03333739226748,
+      "trade_by_strategy": {
+        "mean_reversion": 10,
+        "trend": 6
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -77.38597393399603,
+        "trend": -222.1845207256122
+      }
+    },
+    {
+      "batch": 13,
+      "start_index": 6000,
+      "end_index": 6500,
+      "candles": 500,
+      "trades": 17,
+      "initial_balance": 3429.5209156919723,
+      "final_balance": 3096.1831494173052,
+      "pnl": -333.3377662746672,
+      "profit_factor": 0.0912601003225796,
+      "max_dd_pct": 10.269624972164213,
+      "win_rate": 23.52941176470588,
+      "return_pct": -9.719659814566539,
+      "trade_by_strategy": {
+        "mean_reversion": 14,
+        "trend": 3
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -245.1426422272316,
+        "trend": -88.1951240474356
+      }
+    },
+    {
+      "batch": 14,
+      "start_index": 6500,
+      "end_index": 6513,
+      "candles": 13,
+      "trades": 0,
+      "initial_balance": 3096.1831494173052,
+      "final_balance": 3096.1831494173052,
+      "pnl": 0,
+      "profit_factor": 0,
+      "max_dd_pct": 0,
+      "win_rate": 0,
+      "return_pct": 0
+    }
+  ],
+  "strategy_breakdown": {
+    "trend": {
+      "trades": 72,
+      "pnl": -2621.292526189337
+    },
+    "mean_reversion": {
+      "trades": 185,
+      "pnl": -4282.524324393356
+    }
+  }
+}

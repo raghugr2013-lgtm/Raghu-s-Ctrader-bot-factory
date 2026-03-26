@@ -1,0 +1,2627 @@
+{
+  "batch_number": 14,
+  "last_processed_index": 6513,
+  "total_candles": 6513,
+  "cumulative_balance": 3096.1831494173052,
+  "all_trades": [
+    {
+      "entry_time": "2025-01-13T07:00:00",
+      "exit_time": "2025-01-13T11:00:00",
+      "direction": "buy",
+      "entry_price": 1.042565,
+      "exit_price": 1.0402330082502773,
+      "profit_loss": -100.0,
+      "pips": -23.319917497226506
+    },
+    {
+      "entry_time": "2025-01-13T15:00:00",
+      "exit_time": "2025-01-13T18:00:00",
+      "direction": "buy",
+      "entry_price": 1.0433400000000002,
+      "exit_price": 1.0403957386557725,
+      "profit_loss": -99.0,
+      "pips": -29.4426134422765
+    },
+    {
+      "entry_time": "2025-01-13T19:00:00",
+      "exit_time": "2025-01-14T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.04372,
+      "exit_price": 1.0494635556691867,
+      "profit_loss": -100.0,
+      "pips": -57.43555669186718
+    },
+    {
+      "entry_time": "2025-01-14T13:00:00",
+      "exit_time": "2025-01-17T07:00:00",
+      "direction": "sell",
+      "entry_price": 1.048825,
+      "exit_price": 1.04826,
+      "profit_loss": 13.777232679329455,
+      "pips": 5.649999999999267
+    },
+    {
+      "entry_time": "2025-01-18T00:00:00",
+      "exit_time": "2025-01-18T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.04751,
+      "exit_price": 1.0451842432024978,
+      "profit_loss": -99.1377723267933,
+      "pips": -23.25756797502132
+    },
+    {
+      "entry_time": "2025-01-18T16:00:00",
+      "exit_time": "2025-01-19T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.04568,
+      "exit_price": 1.0456249999999998,
+      "profit_loss": -2.0004766257445703,
+      "pips": -0.5500000000013827
+    },
+    {
+      "entry_time": "2025-01-19T09:00:00",
+      "exit_time": "2025-01-19T16:00:00",
+      "direction": "buy",
+      "entry_price": 1.04291,
+      "exit_price": 1.0404977288265571,
+      "profit_loss": -98.12638983726792,
+      "pips": -24.122711734428925
+    },
+    {
+      "entry_time": "2025-01-20T12:00:00",
+      "exit_time": "2025-01-20T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.04358,
+      "exit_price": 1.0462513473143573,
+      "profit_loss": -97.14512593889526,
+      "pips": -26.71347314357364
+    },
+    {
+      "entry_time": "2025-01-20T15:00:00",
+      "exit_time": "2025-01-21T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.047405,
+      "exit_price": 1.047675,
+      "profit_loss": -7.762383704748344,
+      "pips": -2.6999999999999247
+    },
+    {
+      "entry_time": "2025-01-23T23:00:00",
+      "exit_time": "2025-01-24T00:00:00",
+      "direction": "sell",
+      "entry_price": 1.0474,
+      "exit_price": 1.0507216225131988,
+      "profit_loss": -96.09605084245881,
+      "pips": -33.21622513198675
+    },
+    {
+      "entry_time": "2025-01-24T00:00:00",
+      "exit_time": "2025-01-24T07:00:00",
+      "direction": "sell",
+      "entry_price": 1.05042,
+      "exit_price": 1.049115,
+      "profit_loss": 33.39735039759723,
+      "pips": 13.049999999998896
+    },
+    {
+      "entry_time": "2025-01-24T07:00:00",
+      "exit_time": "2025-01-24T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.049115,
+      "exit_price": 1.0468697597524628,
+      "profit_loss": -96.059601,
+      "pips": -22.4524024753725
+    },
+    {
+      "entry_time": "2025-01-25T11:00:00",
+      "exit_time": "2025-01-25T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.04894,
+      "exit_price": 1.0518326984141064,
+      "profit_loss": -95.46906383801019,
+      "pips": -28.926984141064427
+    },
+    {
+      "entry_time": "2025-01-25T15:00:00",
+      "exit_time": "2025-01-26T04:00:00",
+      "direction": "sell",
+      "entry_price": 1.049855,
+      "exit_price": 1.049725,
+      "profit_loss": 3.8244990042029565,
+      "pips": 1.2999999999996348
+    },
+    {
+      "entry_time": "2025-01-26T11:00:00",
+      "exit_time": "2025-01-26T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.04916,
+      "exit_price": 1.050595,
+      "profit_loss": 49.53389419642739,
+      "pips": 14.34999999999853
+    },
+    {
+      "entry_time": "2025-01-27T01:00:00",
+      "exit_time": "2025-01-27T09:00:00",
+      "direction": "buy",
+      "entry_price": 1.04783,
+      "exit_price": 1.0484200000000001,
+      "profit_loss": 17.321796851123615,
+      "pips": 5.9000000000009045
+    },
+    {
+      "entry_time": "2025-01-27T12:00:00",
+      "exit_time": "2025-01-27T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.047665,
+      "exit_price": 1.0448541125893354,
+      "profit_loss": -95.2211751001476,
+      "pips": -28.108874106647086
+    },
+    {
+      "entry_time": "2025-01-27T13:00:00",
+      "exit_time": "2025-01-28T01:00:00",
+      "direction": "buy",
+      "entry_price": 1.042355,
+      "exit_price": 1.0384886402615254,
+      "profit_loss": -94.26896334914615,
+      "pips": -38.6635973847449
+    },
+    {
+      "entry_time": "2025-01-28T07:00:00",
+      "exit_time": "2025-01-28T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.03962,
+      "exit_price": 1.0414440161429284,
+      "profit_loss": -94.1480149401,
+      "pips": -18.240161429283752
+    },
+    {
+      "entry_time": "2025-01-28T18:00:00",
+      "exit_time": "2025-02-02T22:00:00",
+      "direction": "buy",
+      "entry_price": 1.0363600000000002,
+      "exit_price": 1.0404,
+      "profit_loss": 100.91474503503055,
+      "pips": 40.399999999998215
+    },
+    {
+      "entry_time": "2025-02-02T22:00:00",
+      "exit_time": "2025-02-03T03:00:00",
+      "direction": "sell",
+      "entry_price": 1.0404,
+      "exit_price": 1.0416949999999998,
+      "profit_loss": -51.67512909123777,
+      "pips": -12.94999999999824
+    },
+    {
+      "entry_time": "2025-02-14T01:00:00",
+      "exit_time": "2025-02-14T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.084095,
+      "exit_price": 1.085075,
+      "profit_loss": 24.246227241465885,
+      "pips": 9.799999999999809
+    },
+    {
+      "entry_time": "2025-02-14T09:00:00",
+      "exit_time": "2025-02-14T10:00:00",
+      "direction": "sell",
+      "entry_price": 1.0852249999999999,
+      "exit_price": 1.0887734935509672,
+      "profit_loss": -90.16905598810625,
+      "pips": -35.484935509673136
+    },
+    {
+      "entry_time": "2025-02-14T10:00:00",
+      "exit_time": "2025-02-14T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.08951,
+      "exit_price": 1.087435,
+      "profit_loss": 42.23107875084271,
+      "pips": 20.75000000000049
+    },
+    {
+      "entry_time": "2025-02-14T18:00:00",
+      "exit_time": "2025-02-18T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.08804,
+      "exit_price": 1.0934181619193464,
+      "profit_loss": 179.85318743139067,
+      "pips": 53.781619193464806
+    },
+    {
+      "entry_time": "2025-02-18T07:00:00",
+      "exit_time": "2025-02-18T11:00:00",
+      "direction": "sell",
+      "entry_price": 1.093525,
+      "exit_price": 1.09164,
+      "profit_loss": 61.83605483172148,
+      "pips": 18.850000000001366
+    },
+    {
+      "entry_time": "2025-02-18T11:00:00",
+      "exit_time": "2025-02-18T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.09164,
+      "exit_price": 1.0896829050056693,
+      "profit_loss": -90.80787433410548,
+      "pips": -19.570949943306104
+    },
+    {
+      "entry_time": "2025-02-18T20:00:00",
+      "exit_time": "2025-02-19T00:00:00",
+      "direction": "sell",
+      "entry_price": 1.094555,
+      "exit_price": 1.09348,
+      "profit_loss": 26.51551734149865,
+      "pips": 10.749999999999371
+    },
+    {
+      "entry_time": "2025-02-19T06:00:00",
+      "exit_time": "2025-02-19T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.092085,
+      "exit_price": 1.089331728662009,
+      "profit_loss": -88.9664592630496,
+      "pips": -27.5327133799097
+    },
+    {
+      "entry_time": "2025-02-19T08:00:00",
+      "exit_time": "2025-02-19T17:00:00",
+      "direction": "buy",
+      "entry_price": 1.090735,
+      "exit_price": 1.087207561958569,
+      "profit_loss": -88.07679467041912,
+      "pips": -35.27438041430963
+    },
+    {
+      "entry_time": "2025-02-20T06:00:00",
+      "exit_time": "2025-02-20T09:00:00",
+      "direction": "buy",
+      "entry_price": 1.08935,
+      "exit_price": 1.0860188498826846,
+      "profit_loss": -87.19602672371491,
+      "pips": -33.3115011731544
+    },
+    {
+      "entry_time": "2025-02-21T13:00:00",
+      "exit_time": "2025-02-23T23:00:00",
+      "direction": "buy",
+      "entry_price": 1.08321,
+      "exit_price": 1.08361,
+      "profit_loss": 9.66891029000271,
+      "pips": 3.9999999999995595
+    },
+    {
+      "entry_time": "2025-02-24T12:00:00",
+      "exit_time": "2025-02-24T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.08298,
+      "exit_price": 1.0793705944195786,
+      "profit_loss": -86.42075555937778,
+      "pips": -36.094055804214435
+    },
+    {
+      "entry_time": "2025-02-24T13:00:00",
+      "exit_time": "2025-02-25T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.0793499999999998,
+      "exit_price": 1.08202,
+      "profit_loss": 56.681583709764226,
+      "pips": 26.700000000001722
+    },
+    {
+      "entry_time": "2025-02-25T11:00:00",
+      "exit_time": "2025-02-25T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.081795,
+      "exit_price": 1.08033,
+      "profit_loss": 36.53683441905278,
+      "pips": 14.650000000000496
+    },
+    {
+      "entry_time": "2025-02-25T21:00:00",
+      "exit_time": "2025-02-26T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.07925,
+      "exit_price": 1.079935,
+      "profit_loss": 18.646537672869915,
+      "pips": 6.850000000000467
+    },
+    {
+      "entry_time": "2025-02-26T12:00:00",
+      "exit_time": "2025-02-26T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.07844,
+      "exit_price": 1.0790799999999998,
+      "profit_loss": 20.076530355596937,
+      "pips": 6.399999999997519
+    },
+    {
+      "entry_time": "2025-02-26T16:00:00",
+      "exit_time": "2025-02-26T17:00:00",
+      "direction": "buy",
+      "entry_price": 1.07877,
+      "exit_price": 1.075332587189988,
+      "profit_loss": -86.87596286535683,
+      "pips": -34.374128100120856
+    },
+    {
+      "entry_time": "2025-02-26T17:00:00",
+      "exit_time": "2025-02-27T02:00:00",
+      "direction": "buy",
+      "entry_price": 1.075675,
+      "exit_price": 1.0776,
+      "profit_loss": 42.87524115647748,
+      "pips": 19.249999999999545
+    },
+    {
+      "entry_time": "2025-02-27T15:00:00",
+      "exit_time": "2025-02-28T04:00:00",
+      "direction": "sell",
+      "entry_price": 1.079965,
+      "exit_price": 1.078865,
+      "profit_loss": 21.993637043703863,
+      "pips": 11.000000000001009
+    },
+    {
+      "entry_time": "2025-02-28T08:00:00",
+      "exit_time": "2025-02-28T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.0778349999999999,
+      "exit_price": 1.0789,
+      "profit_loss": 29.851080173877005,
+      "pips": 10.650000000000936
+    },
+    {
+      "entry_time": "2025-02-28T12:00:00",
+      "exit_time": "2025-02-28T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.0789,
+      "exit_price": 1.082176787292674,
+      "profit_loss": -86.95440282044385,
+      "pips": -32.76787292674
+    },
+    {
+      "entry_time": "2025-02-28T14:00:00",
+      "exit_time": "2025-03-01T05:00:00",
+      "direction": "sell",
+      "entry_price": 1.0823049999999999,
+      "exit_price": 1.080715,
+      "profit_loss": 36.477545074768045,
+      "pips": 15.899999999997583
+    },
+    {
+      "entry_time": "2025-03-01T10:00:00",
+      "exit_time": "2025-03-01T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.079825,
+      "exit_price": 1.080755,
+      "profit_loss": 22.46811838097569,
+      "pips": 9.299999999998754
+    },
+    {
+      "entry_time": "2025-03-02T11:00:00",
+      "exit_time": "2025-03-02T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.08025,
+      "exit_price": 1.083219993293493,
+      "profit_loss": -86.67431542679684,
+      "pips": -29.699932934930118
+    },
+    {
+      "entry_time": "2025-03-02T14:00:00",
+      "exit_time": "2025-03-02T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.085845,
+      "exit_price": 1.0867499999999999,
+      "profit_loss": -20.7840969380511,
+      "pips": -9.049999999999336
+    },
+    {
+      "entry_time": "2025-03-15T14:00:00",
+      "exit_time": "2025-03-16T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.1329,
+      "exit_price": 1.1317149999999998,
+      "profit_loss": -14.59560371399361,
+      "pips": -11.850000000002137
+    },
+    {
+      "entry_time": "2025-03-16T03:00:00",
+      "exit_time": "2025-03-16T19:00:00",
+      "direction": "sell",
+      "entry_price": 1.134335,
+      "exit_price": 1.139793546737429,
+      "profit_loss": -87.95096107139754,
+      "pips": -54.585467374288484
+    },
+    {
+      "entry_time": "2025-03-16T19:00:00",
+      "exit_time": "2025-03-17T00:00:00",
+      "direction": "sell",
+      "entry_price": 1.13867,
+      "exit_price": 1.136825,
+      "profit_loss": 25.50527490739474,
+      "pips": 18.450000000000966
+    },
+    {
+      "entry_time": "2025-03-18T13:00:00",
+      "exit_time": "2025-03-20T21:00:00",
+      "direction": "sell",
+      "entry_price": 1.137945,
+      "exit_price": 1.1410439517529822,
+      "profit_loss": -87.32650420975752,
+      "pips": -30.989517529822486
+    },
+    {
+      "entry_time": "2025-03-20T21:00:00",
+      "exit_time": "2025-03-20T23:00:00",
+      "direction": "sell",
+      "entry_price": 1.142465,
+      "exit_price": 1.1453605362937753,
+      "profit_loss": -86.45323916765994,
+      "pips": -28.955362937752582
+    },
+    {
+      "entry_time": "2025-03-21T13:00:00",
+      "exit_time": "2025-03-22T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.151915,
+      "exit_price": 1.1480322809410144,
+      "profit_loss": -87.90361266562681,
+      "pips": -38.827190589856286
+    },
+    {
+      "entry_time": "2025-03-25T00:00:00",
+      "exit_time": "2025-03-25T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.13473,
+      "exit_price": 1.1360000000000001,
+      "profit_loss": 21.83310196746421,
+      "pips": 12.700000000001044
+    },
+    {
+      "entry_time": "2025-03-28T14:00:00",
+      "exit_time": "2025-03-29T03:00:00",
+      "direction": "sell",
+      "entry_price": 1.1378650000000001,
+      "exit_price": 1.139065,
+      "profit_loss": -17.911406144957944,
+      "pips": -11.999999999998678
+    },
+    {
+      "entry_time": "2025-03-30T00:00:00",
+      "exit_time": "2025-03-30T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.13826,
+      "exit_price": 1.1382949999999998,
+      "profit_loss": 0.6518459529399446,
+      "pips": 0.34999999999785203
+    },
+    {
+      "entry_time": "2025-03-30T14:00:00",
+      "exit_time": "2025-03-30T20:00:00",
+      "direction": "buy",
+      "entry_price": 1.136705,
+      "exit_price": 1.1317992240954389,
+      "profit_loss": -85.2550688673897,
+      "pips": -49.057759045612045
+    },
+    {
+      "entry_time": "2025-03-30T20:00:00",
+      "exit_time": "2025-04-01T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.13285,
+      "exit_price": 1.1332200000000001,
+      "profit_loss": 6.052261823871448,
+      "pips": 3.700000000002035
+    },
+    {
+      "entry_time": "2025-04-14T06:00:00",
+      "exit_time": "2025-04-14T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.11882,
+      "exit_price": 1.1223650121862891,
+      "profit_loss": -83.96337799664634,
+      "pips": -35.4501218628922
+    },
+    {
+      "entry_time": "2025-04-14T08:00:00",
+      "exit_time": "2025-04-14T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.12387,
+      "exit_price": 1.120515,
+      "profit_loss": 64.2483162599606,
+      "pips": 33.54999999999997
+    },
+    {
+      "entry_time": "2025-04-16T04:00:00",
+      "exit_time": "2025-04-16T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.120335,
+      "exit_price": 1.1199,
+      "profit_loss": 10.299654649080976,
+      "pips": 4.350000000001852
+    },
+    {
+      "entry_time": "2025-04-16T13:00:00",
+      "exit_time": "2025-04-16T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.1200350000000001,
+      "exit_price": 1.1165238412656338,
+      "profit_loss": -83.8692239257703,
+      "pips": -35.1115873436636
+    },
+    {
+      "entry_time": "2025-04-16T14:00:00",
+      "exit_time": "2025-04-18T21:00:00",
+      "direction": "buy",
+      "entry_price": 1.115465,
+      "exit_price": 1.117705,
+      "profit_loss": 44.68568103756212,
+      "pips": 22.400000000000198
+    },
+    {
+      "entry_time": "2025-04-18T21:00:00",
+      "exit_time": "2025-04-19T06:00:00",
+      "direction": "sell",
+      "entry_price": 1.117705,
+      "exit_price": 1.1201401148282488,
+      "profit_loss": -83.12374421667988,
+      "pips": -24.351148282488744
+    },
+    {
+      "entry_time": "2025-04-19T07:00:00",
+      "exit_time": "2025-04-19T10:00:00",
+      "direction": "sell",
+      "entry_price": 1.1238450000000002,
+      "exit_price": 1.128409844171769,
+      "profit_loss": -82.64261461191933,
+      "pips": -45.64844171768723
+    },
+    {
+      "entry_time": "2025-04-20T04:00:00",
+      "exit_time": "2025-04-20T10:00:00",
+      "direction": "sell",
+      "entry_price": 1.124235,
+      "exit_price": 1.12446,
+      "profit_loss": -4.838683134717836,
+      "pips": -2.249999999999197
+    },
+    {
+      "entry_time": "2025-04-20T16:00:00",
+      "exit_time": "2025-04-21T00:00:00",
+      "direction": "sell",
+      "entry_price": 1.12567,
+      "exit_price": 1.1300151630522057,
+      "profit_loss": -81.76780163445295,
+      "pips": -43.451630522057805
+    },
+    {
+      "entry_time": "2025-04-21T16:00:00",
+      "exit_time": "2025-04-21T19:00:00",
+      "direction": "sell",
+      "entry_price": 1.13405,
+      "exit_price": 1.1319050000000002,
+      "profit_loss": 38.69074300007631,
+      "pips": 21.449999999998415
+    },
+    {
+      "entry_time": "2025-04-22T07:00:00",
+      "exit_time": "2025-04-22T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.1321400000000001,
+      "exit_price": 1.127701299760474,
+      "profit_loss": -81.3370310481092,
+      "pips": -44.387002395260836
+    },
+    {
+      "entry_time": "2025-04-22T14:00:00",
+      "exit_time": "2025-04-23T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.12774,
+      "exit_price": 1.129705,
+      "profit_loss": 32.127712775125865,
+      "pips": 19.649999999999945
+    },
+    {
+      "entry_time": "2025-04-23T04:00:00",
+      "exit_time": "2025-04-23T11:00:00",
+      "direction": "buy",
+      "entry_price": 1.131805,
+      "exit_price": 1.1362394687545512,
+      "profit_loss": 164.5850135490344,
+      "pips": 44.344687545512244
+    },
+    {
+      "entry_time": "2025-04-23T11:00:00",
+      "exit_time": "2025-04-26T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.132155,
+      "exit_price": 1.1382307119150117,
+      "profit_loss": 167.876713820013,
+      "pips": 60.75711915011661
+    },
+    {
+      "entry_time": "2025-04-26T06:00:00",
+      "exit_time": "2025-04-26T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.1409150000000001,
+      "exit_price": 1.1383444110848293,
+      "profit_loss": -85.61712404820355,
+      "pips": -25.705889151708128
+    },
+    {
+      "entry_time": "2025-04-26T23:00:00",
+      "exit_time": "2025-04-27T04:00:00",
+      "direction": "sell",
+      "entry_price": 1.138865,
+      "exit_price": 1.137855,
+      "profit_loss": 30.96893740402738,
+      "pips": 10.099999999999554
+    },
+    {
+      "entry_time": "2025-04-27T06:00:00",
+      "exit_time": "2025-04-27T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.1365150000000002,
+      "exit_price": 1.1332459759072282,
+      "profit_loss": -80.34617786076583,
+      "pips": -32.69024092771966
+    },
+    {
+      "entry_time": "2025-04-27T15:00:00",
+      "exit_time": "2025-04-28T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.13254,
+      "exit_price": 1.1332200000000001,
+      "profit_loss": 13.743848151511145,
+      "pips": 6.800000000000139
+    },
+    {
+      "entry_time": "2025-04-28T11:00:00",
+      "exit_time": "2025-04-28T23:00:00",
+      "direction": "buy",
+      "entry_price": 1.13178,
+      "exit_price": 1.1281319829919825,
+      "profit_loss": -79.68015456367328,
+      "pips": -36.48017008017534
+    },
+    {
+      "entry_time": "2025-04-29T05:00:00",
+      "exit_time": "2025-04-29T06:00:00",
+      "direction": "sell",
+      "entry_price": 1.124375,
+      "exit_price": 1.1271149010801462,
+      "profit_loss": -84.76095280772152,
+      "pips": -27.39901080146323
+    },
+    {
+      "entry_time": "2025-04-29T06:00:00",
+      "exit_time": "2025-04-29T12:00:00",
+      "direction": "sell",
+      "entry_price": 1.127135,
+      "exit_price": 1.13001615814585,
+      "profit_loss": -83.91334327964431,
+      "pips": -28.811581458501045
+    },
+    {
+      "entry_time": "2025-04-30T00:00:00",
+      "exit_time": "2025-04-30T03:00:00",
+      "direction": "buy",
+      "entry_price": 1.1372499999999999,
+      "exit_price": 1.1345925099645429,
+      "profit_loss": -83.07420984684786,
+      "pips": -26.574900354570108
+    },
+    {
+      "entry_time": "2025-05-12T23:00:00",
+      "exit_time": "2025-05-13T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.160875,
+      "exit_price": 1.1582393531007418,
+      "profit_loss": -79.64629981335874,
+      "pips": -26.35646899258326
+    },
+    {
+      "entry_time": "2025-05-13T00:00:00",
+      "exit_time": "2025-05-13T04:00:00",
+      "direction": "buy",
+      "entry_price": 1.1558700000000002,
+      "exit_price": 1.1526185064506889,
+      "profit_loss": -78.84983681522516,
+      "pips": -32.51493549311313
+    },
+    {
+      "entry_time": "2025-05-13T19:00:00",
+      "exit_time": "2025-05-15T21:00:00",
+      "direction": "buy",
+      "entry_price": 1.1550099999999999,
+      "exit_price": 1.1534,
+      "profit_loss": -38.67392646892944,
+      "pips": -16.099999999998893
+    },
+    {
+      "entry_time": "2025-05-16T05:00:00",
+      "exit_time": "2025-05-16T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.1556950000000001,
+      "exit_price": 1.1603268260521746,
+      "profit_loss": -79.64629981335874,
+      "pips": -46.318260521744925
+    },
+    {
+      "entry_time": "2025-05-16T14:00:00",
+      "exit_time": "2025-05-16T19:00:00",
+      "direction": "buy",
+      "entry_price": 1.15913,
+      "exit_price": 1.1564032760884833,
+      "profit_loss": -77.67459918238362,
+      "pips": -27.267239115167374
+    },
+    {
+      "entry_time": "2025-05-17T13:00:00",
+      "exit_time": "2025-05-17T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.15589,
+      "exit_price": 1.1520086694475165,
+      "profit_loss": -78.84983681522516,
+      "pips": -38.81330552483631
+    },
+    {
+      "entry_time": "2025-05-17T15:00:00",
+      "exit_time": "2025-05-17T17:00:00",
+      "direction": "buy",
+      "entry_price": 1.153425,
+      "exit_price": 1.1489451154930115,
+      "profit_loss": -78.0613384470729,
+      "pips": -44.79884506988441
+    },
+    {
+      "entry_time": "2025-05-17T17:00:00",
+      "exit_time": "2025-05-18T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.14865,
+      "exit_price": 1.15104,
+      "profit_loss": 36.39699918721407,
+      "pips": 23.900000000001143
+    },
+    {
+      "entry_time": "2025-05-18T17:00:00",
+      "exit_time": "2025-05-19T01:00:00",
+      "direction": "buy",
+      "entry_price": 1.14985,
+      "exit_price": 1.1452816691251413,
+      "profit_loss": -77.64469505447431,
+      "pips": -45.68330874858751
+    },
+    {
+      "entry_time": "2025-05-19T01:00:00",
+      "exit_time": "2025-05-19T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.14532,
+      "exit_price": 1.147675,
+      "profit_loss": 38.422403810713476,
+      "pips": 23.55000000000107
+    },
+    {
+      "entry_time": "2025-05-19T15:00:00",
+      "exit_time": "2025-05-19T17:00:00",
+      "direction": "buy",
+      "entry_price": 1.1459899999999998,
+      "exit_price": 1.14791,
+      "profit_loss": 35.879841686773474,
+      "pips": 19.200000000001438
+    },
+    {
+      "entry_time": "2025-05-19T22:00:00",
+      "exit_time": "2025-05-20T10:00:00",
+      "direction": "sell",
+      "entry_price": 1.1497600000000001,
+      "exit_price": 1.1533154155676324,
+      "profit_loss": -77.61127055890444,
+      "pips": -35.55415567632281
+    },
+    {
+      "entry_time": "2025-05-20T15:00:00",
+      "exit_time": "2025-05-20T19:00:00",
+      "direction": "sell",
+      "entry_price": 1.1519650000000001,
+      "exit_price": 1.151595,
+      "profit_loss": 7.87219358855739,
+      "pips": 3.700000000002035
+    },
+    {
+      "entry_time": "2025-05-20T20:00:00",
+      "exit_time": "2025-05-22T21:00:00",
+      "direction": "buy",
+      "entry_price": 1.15212,
+      "exit_price": 1.1486310195119946,
+      "profit_loss": -76.91387978920096,
+      "pips": -34.88980488005389
+    },
+    {
+      "entry_time": "2025-05-23T08:00:00",
+      "exit_time": "2025-05-23T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.1481750000000002,
+      "exit_price": 1.153085,
+      "profit_loss": 80.38370008745014,
+      "pips": 49.09999999999748
+    },
+    {
+      "entry_time": "2025-05-23T14:00:00",
+      "exit_time": "2025-05-23T22:00:00",
+      "direction": "sell",
+      "entry_price": 1.153085,
+      "exit_price": 1.1586510082733523,
+      "profit_loss": -76.94857799218346,
+      "pips": -55.66008273352408
+    },
+    {
+      "entry_time": "2025-05-23T22:00:00",
+      "exit_time": "2025-05-25T06:00:00",
+      "direction": "sell",
+      "entry_price": 1.159255,
+      "exit_price": 1.16072,
+      "profit_loss": -21.85084142405161,
+      "pips": -14.650000000000496
+    },
+    {
+      "entry_time": "2025-05-25T15:00:00",
+      "exit_time": "2025-05-25T18:00:00",
+      "direction": "sell",
+      "entry_price": 1.1619899999999999,
+      "exit_price": 1.1659644225635275,
+      "profit_loss": -75.9605837980211,
+      "pips": -39.744225635276464
+    },
+    {
+      "entry_time": "2025-05-26T10:00:00",
+      "exit_time": "2025-05-26T22:00:00",
+      "direction": "buy",
+      "entry_price": 1.1714950000000002,
+      "exit_price": 1.1688081180768581,
+      "profit_loss": -75.36758591206764,
+      "pips": -26.86881923142037
+    },
+    {
+      "entry_time": "2025-05-27T11:00:00",
+      "exit_time": "2025-05-27T17:00:00",
+      "direction": "sell",
+      "entry_price": 1.17142,
+      "exit_price": 1.17022,
+      "profit_loss": 21.971508378258847,
+      "pips": 11.999999999998678
+    },
+    {
+      "entry_time": "2025-05-29T23:00:00",
+      "exit_time": "2025-05-30T03:00:00",
+      "direction": "buy",
+      "entry_price": 1.17267,
+      "exit_price": 1.171235,
+      "profit_loss": -38.95772341713695,
+      "pips": -14.350000000000751
+    },
+    {
+      "entry_time": "2025-06-10T11:00:00",
+      "exit_time": "2025-06-10T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.171165,
+      "exit_price": 1.1683764922200504,
+      "profit_loss": -71.52899332773246,
+      "pips": -27.88507779949656
+    },
+    {
+      "entry_time": "2025-06-10T18:00:00",
+      "exit_time": "2025-06-11T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.169215,
+      "exit_price": 1.1711185481058088,
+      "profit_loss": -71.52899332773246,
+      "pips": -19.0354810580895
+    },
+    {
+      "entry_time": "2025-06-11T20:00:00",
+      "exit_time": "2025-06-14T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.16891,
+      "exit_price": 1.16934,
+      "profit_loss": 9.22574026046814,
+      "pips": 4.300000000001525
+    },
+    {
+      "entry_time": "2025-06-14T05:00:00",
+      "exit_time": "2025-06-14T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.16696,
+      "exit_price": 1.1685750000000001,
+      "profit_loss": 32.41754398767158,
+      "pips": 16.15000000000144
+    },
+    {
+      "entry_time": "2025-06-14T15:00:00",
+      "exit_time": "2025-06-15T02:00:00",
+      "direction": "buy",
+      "entry_price": 1.16711,
+      "exit_price": 1.16746,
+      "profit_loss": 6.803968392831841,
+      "pips": 3.4999999999985043
+    },
+    {
+      "entry_time": "2025-06-15T12:00:00",
+      "exit_time": "2025-06-15T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.16781,
+      "exit_price": 1.1646361266415364,
+      "profit_loss": -71.29817592086486,
+      "pips": -31.738733584636414
+    },
+    {
+      "entry_time": "2025-06-15T13:00:00",
+      "exit_time": "2025-06-15T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.16432,
+      "exit_price": 1.1606549747385695,
+      "profit_loss": -70.5851941616562,
+      "pips": -36.65025261430532
+    },
+    {
+      "entry_time": "2025-06-15T15:00:00",
+      "exit_time": "2025-06-16T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.1618,
+      "exit_price": 1.16277,
+      "profit_loss": 17.140002540399784,
+      "pips": 9.700000000001374
+    },
+    {
+      "entry_time": "2025-06-16T12:00:00",
+      "exit_time": "2025-06-16T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.159875,
+      "exit_price": 1.1568335997264414,
+      "profit_loss": -70.05074224544364,
+      "pips": -30.41400273558592
+    },
+    {
+      "entry_time": "2025-06-16T13:00:00",
+      "exit_time": "2025-06-16T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.15725,
+      "exit_price": 1.1629,
+      "profit_loss": 110.87469566269903,
+      "pips": 56.50000000000155
+    },
+    {
+      "entry_time": "2025-06-16T15:00:00",
+      "exit_time": "2025-06-16T20:00:00",
+      "direction": "sell",
+      "entry_price": 1.1629,
+      "exit_price": 1.16404,
+      "profit_loss": -21.704392303946218,
+      "pips": -11.399999999999189
+    },
+    {
+      "entry_time": "2025-06-17T05:00:00",
+      "exit_time": "2025-06-17T12:00:00",
+      "direction": "sell",
+      "entry_price": 1.1617000000000002,
+      "exit_price": 1.1566746423769876,
+      "profit_loss": 138.3749335477382,
+      "pips": 50.253576230125944
+    },
+    {
+      "entry_time": "2025-06-17T12:00:00",
+      "exit_time": "2025-06-17T22:00:00",
+      "direction": "sell",
+      "entry_price": 1.1587200000000002,
+      "exit_price": 1.1615967722272504,
+      "profit_loss": -70.57121610934341,
+      "pips": -28.76772227250246
+    },
+    {
+      "entry_time": "2025-06-17T23:00:00",
+      "exit_time": "2025-06-18T12:00:00",
+      "direction": "sell",
+      "entry_price": 1.161515,
+      "exit_price": 1.1653048589560657,
+      "profit_loss": -70.67813269457291,
+      "pips": -37.898589560656504
+    },
+    {
+      "entry_time": "2025-06-21T08:00:00",
+      "exit_time": "2025-06-21T12:00:00",
+      "direction": "sell",
+      "entry_price": 1.1642350000000001,
+      "exit_price": 1.1671925597097261,
+      "profit_loss": -69.9713513676272,
+      "pips": -29.575597097259987
+    },
+    {
+      "entry_time": "2025-06-22T07:00:00",
+      "exit_time": "2025-06-22T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.168605,
+      "exit_price": 1.1711146358687998,
+      "profit_loss": -69.27163785395092,
+      "pips": -25.09635868799931
+    },
+    {
+      "entry_time": "2025-06-22T14:00:00",
+      "exit_time": "2025-06-22T16:00:00",
+      "direction": "sell",
+      "entry_price": 1.17225,
+      "exit_price": 1.175793962671184,
+      "profit_loss": -68.5789214754114,
+      "pips": -35.43962671183954
+    },
+    {
+      "entry_time": "2025-06-23T00:00:00",
+      "exit_time": "2025-06-23T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.17472,
+      "exit_price": 1.1727277256654849,
+      "profit_loss": -69.86550394824997,
+      "pips": -19.922743345150984
+    },
+    {
+      "entry_time": "2025-06-23T14:00:00",
+      "exit_time": "2025-06-23T18:00:00",
+      "direction": "sell",
+      "entry_price": 1.173365,
+      "exit_price": 1.1766844773926879,
+      "profit_loss": -67.8931322606573,
+      "pips": -33.19477392687897
+    },
+    {
+      "entry_time": "2025-06-24T05:00:00",
+      "exit_time": "2025-06-24T09:00:00",
+      "direction": "buy",
+      "entry_price": 1.1771,
+      "exit_price": 1.1754530737257718,
+      "profit_loss": -69.16684890876748,
+      "pips": -16.469262742282442
+    },
+    {
+      "entry_time": "2025-06-24T15:00:00",
+      "exit_time": "2025-06-24T21:00:00",
+      "direction": "buy",
+      "entry_price": 1.1764700000000001,
+      "exit_price": 1.1740070929810251,
+      "profit_loss": -68.47518041967979,
+      "pips": -24.629070189750024
+    },
+    {
+      "entry_time": "2025-06-25T09:00:00",
+      "exit_time": "2025-06-25T18:00:00",
+      "direction": "buy",
+      "entry_price": 1.1735099999999998,
+      "exit_price": 1.17455,
+      "profit_loss": 20.443058546628777,
+      "pips": 10.40000000000152
+    },
+    {
+      "entry_time": "2025-06-28T00:00:00",
+      "exit_time": "2025-06-28T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.1763849999999998,
+      "exit_price": 1.1743228239848766,
+      "profit_loss": -67.790428615483,
+      "pips": -20.621760151231516
+    },
+    {
+      "entry_time": "2025-06-28T05:00:00",
+      "exit_time": "2025-06-28T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.17408,
+      "exit_price": 1.1708245776664141,
+      "profit_loss": -67.418631523517,
+      "pips": -32.55422333585889
+    },
+    {
+      "entry_time": "2025-06-28T07:00:00",
+      "exit_time": "2025-06-28T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.16749,
+      "exit_price": 1.1631721230899181,
+      "profit_loss": -66.74444520828183,
+      "pips": -43.17876910081786
+    },
+    {
+      "entry_time": "2025-06-28T23:00:00",
+      "exit_time": "2025-06-28T23:00:00",
+      "direction": "sell",
+      "entry_price": 1.15964,
+      "exit_price": 1.15964,
+      "profit_loss": 0.0,
+      "pips": 0.0
+    },
+    {
+      "entry_time": "2025-07-11T10:00:00",
+      "exit_time": "2025-07-11T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1646999999999998,
+      "exit_price": 1.1615701400850567,
+      "profit_loss": -62.85057354038767,
+      "pips": -31.298599149431894
+    },
+    {
+      "entry_time": "2025-07-11T12:00:00",
+      "exit_time": "2025-07-12T02:00:00",
+      "direction": "buy",
+      "entry_price": 1.1620249999999999,
+      "exit_price": 1.16229,
+      "profit_loss": 4.854331745068542,
+      "pips": 2.6500000000018176
+    },
+    {
+      "entry_time": "2025-07-12T12:00:00",
+      "exit_time": "2025-07-12T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.1642350000000001,
+      "exit_price": 1.1679579079464053,
+      "profit_loss": -62.270611122434474,
+      "pips": -37.229079464051736
+    },
+    {
+      "entry_time": "2025-07-13T06:00:00",
+      "exit_time": "2025-07-13T09:00:00",
+      "direction": "sell",
+      "entry_price": 1.169225,
+      "exit_price": 1.1724826198987315,
+      "profit_loss": -61.647905011210135,
+      "pips": -32.57619898731523
+    },
+    {
+      "entry_time": "2025-07-13T11:00:00",
+      "exit_time": "2025-07-13T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1719,
+      "exit_price": 1.1698649529836231,
+      "profit_loss": -62.850573540387664,
+      "pips": -20.35047016376801
+    },
+    {
+      "entry_time": "2025-07-13T13:00:00",
+      "exit_time": "2025-07-14T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.17047,
+      "exit_price": 1.168324984970573,
+      "profit_loss": -62.22206780498379,
+      "pips": -21.450150294268777
+    },
+    {
+      "entry_time": "2025-07-17T23:00:00",
+      "exit_time": "2025-07-18T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.1706349999999999,
+      "exit_price": 1.1690584604564587,
+      "profit_loss": -61.59984712693396,
+      "pips": -15.765395435412
+    },
+    {
+      "entry_time": "2025-07-18T23:00:00",
+      "exit_time": "2025-07-19T01:00:00",
+      "direction": "buy",
+      "entry_price": 1.16681,
+      "exit_price": 1.1640931202365528,
+      "profit_loss": -60.75493619568185,
+      "pips": -27.168797634471442
+    },
+    {
+      "entry_time": "2025-07-19T01:00:00",
+      "exit_time": "2025-07-19T04:00:00",
+      "direction": "buy",
+      "entry_price": 1.16494,
+      "exit_price": 1.166075,
+      "profit_loss": 22.808022754646093,
+      "pips": 11.349999999998861
+    },
+    {
+      "entry_time": "2025-07-21T05:00:00",
+      "exit_time": "2025-07-21T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.164945,
+      "exit_price": 1.165825,
+      "profit_loss": 21.614205544593133,
+      "pips": 8.799999999999919
+    },
+    {
+      "entry_time": "2025-07-21T12:00:00",
+      "exit_time": "2025-07-21T14:00:00",
+      "direction": "buy",
+      "entry_price": 1.16467,
+      "exit_price": 1.1614661511281694,
+      "profit_loss": -60.59160911671743,
+      "pips": -32.03848871830672
+    },
+    {
+      "entry_time": "2025-07-21T14:00:00",
+      "exit_time": "2025-07-22T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.16157,
+      "exit_price": 1.16087,
+      "profit_loss": -11.213150443602615,
+      "pips": -6.999999999999229
+    },
+    {
+      "entry_time": "2025-07-25T00:00:00",
+      "exit_time": "2025-07-25T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.1698,
+      "exit_price": 1.167429421741625,
+      "profit_loss": -60.37401016910797,
+      "pips": -23.705782583749446
+    },
+    {
+      "entry_time": "2025-07-25T15:00:00",
+      "exit_time": "2025-07-25T18:00:00",
+      "direction": "buy",
+      "entry_price": 1.166925,
+      "exit_price": 1.1631736967847315,
+      "profit_loss": -59.873561521114226,
+      "pips": -37.513032152685085
+    },
+    {
+      "entry_time": "2025-07-26T09:00:00",
+      "exit_time": "2025-07-27T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.16425,
+      "exit_price": 1.158836954609726,
+      "profit_loss": 119.54054013483378,
+      "pips": 54.13045390274096
+    },
+    {
+      "entry_time": "2025-07-27T14:00:00",
+      "exit_time": "2025-07-27T16:00:00",
+      "direction": "sell",
+      "entry_price": 1.15924,
+      "exit_price": 1.1614526806053116,
+      "profit_loss": -60.96567546876523,
+      "pips": -22.126806053115455
+    },
+    {
+      "entry_time": "2025-08-09T05:00:00",
+      "exit_time": "2025-08-09T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.1778849999999998,
+      "exit_price": 1.1762669709375597,
+      "profit_loss": -57.66659933156582,
+      "pips": -16.180290624401295
+    },
+    {
+      "entry_time": "2025-08-09T06:00:00",
+      "exit_time": "2025-08-09T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.1764899999999998,
+      "exit_price": 1.1747362944420197,
+      "profit_loss": -57.089933338250155,
+      "pips": -17.537055579801564
+    },
+    {
+      "entry_time": "2025-08-11T04:00:00",
+      "exit_time": "2025-08-11T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.16995,
+      "exit_price": 1.1672421262186847,
+      "profit_loss": -57.66659933156581,
+      "pips": -27.078737813153175
+    },
+    {
+      "entry_time": "2025-08-11T22:00:00",
+      "exit_time": "2025-08-12T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.17388,
+      "exit_price": 1.1720635144650575,
+      "profit_loss": -56.519034004867656,
+      "pips": -18.164855349425135
+    },
+    {
+      "entry_time": "2025-08-15T08:00:00",
+      "exit_time": "2025-08-15T12:00:00",
+      "direction": "sell",
+      "entry_price": 1.1737199999999999,
+      "exit_price": 1.1763695918571264,
+      "profit_loss": -57.56720430829692,
+      "pips": -26.49591857126543
+    },
+    {
+      "entry_time": "2025-08-15T12:00:00",
+      "exit_time": "2025-08-16T07:00:00",
+      "direction": "sell",
+      "entry_price": 1.17696,
+      "exit_price": 1.1797516208228704,
+      "profit_loss": -56.991532265213955,
+      "pips": -27.91620822870433
+    },
+    {
+      "entry_time": "2025-08-17T04:00:00",
+      "exit_time": "2025-08-17T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.185395,
+      "exit_price": 1.1836902835412113,
+      "profit_loss": -57.07292053811536,
+      "pips": -17.047164587886687
+    },
+    {
+      "entry_time": "2025-08-19T04:00:00",
+      "exit_time": "2025-08-19T11:00:00",
+      "direction": "buy",
+      "entry_price": 1.177395,
+      "exit_price": 1.1738446988830733,
+      "profit_loss": -56.42161694256181,
+      "pips": -35.503011169266685
+    },
+    {
+      "entry_time": "2025-08-21T22:00:00",
+      "exit_time": "2025-08-22T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.17409,
+      "exit_price": 1.1748500000000002,
+      "profit_loss": 13.567881091636007,
+      "pips": 7.600000000000939
+    },
+    {
+      "entry_time": "2025-08-23T03:00:00",
+      "exit_time": "2025-08-23T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.180575,
+      "exit_price": 1.1789312229026119,
+      "profit_loss": -56.5021913327342,
+      "pips": -16.43777097388055
+    },
+    {
+      "entry_time": "2025-08-23T10:00:00",
+      "exit_time": "2025-08-24T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.1796,
+      "exit_price": 1.17888,
+      "profit_loss": -21.150452022475235,
+      "pips": -7.200000000000539
+    },
+    {
+      "entry_time": "2025-08-24T08:00:00",
+      "exit_time": "2025-08-24T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1772,
+      "exit_price": 1.1743068861918535,
+      "profit_loss": -55.450746003614924,
+      "pips": -28.93113808146497
+    },
+    {
+      "entry_time": "2025-08-25T04:00:00",
+      "exit_time": "2025-08-25T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1752150000000001,
+      "exit_price": 1.1729949730503335,
+      "profit_loss": -54.896238543578775,
+      "pips": -22.200269496666092
+    },
+    {
+      "entry_time": "2025-08-25T12:00:00",
+      "exit_time": "2025-08-25T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.16981,
+      "exit_price": 1.1672449999999999,
+      "profit_loss": -40.12430228828217,
+      "pips": -25.650000000001505
+    },
+    {
+      "entry_time": "2025-08-25T15:00:00",
+      "exit_time": "2025-08-25T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.1672449999999999,
+      "exit_price": 1.1672449999999999,
+      "profit_loss": 0.0,
+      "pips": 0.0
+    },
+    {
+      "entry_time": "2025-09-07T23:00:00",
+      "exit_time": "2025-09-08T02:00:00",
+      "direction": "buy",
+      "entry_price": 1.16528,
+      "exit_price": 1.1625996803771836,
+      "profit_loss": -50.95108443997095,
+      "pips": -26.803196228164516
+    },
+    {
+      "entry_time": "2025-09-08T09:00:00",
+      "exit_time": "2025-09-08T10:00:00",
+      "direction": "sell",
+      "entry_price": 1.16113,
+      "exit_price": 1.1630219052076634,
+      "profit_loss": -50.95108443997095,
+      "pips": -18.91905207663358
+    },
+    {
+      "entry_time": "2025-09-08T10:00:00",
+      "exit_time": "2025-09-09T04:00:00",
+      "direction": "sell",
+      "entry_price": 1.16337,
+      "exit_price": 1.1645599999999998,
+      "profit_loss": -29.30648383641687,
+      "pips": -11.899999999998023
+    },
+    {
+      "entry_time": "2025-09-09T06:00:00",
+      "exit_time": "2025-09-09T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.16157,
+      "exit_price": 1.158077004019357,
+      "profit_loss": 100.29701751441415,
+      "pips": 34.92995980642899
+    },
+    {
+      "entry_time": "2025-09-10T02:00:00",
+      "exit_time": "2025-09-10T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.15696,
+      "exit_price": 1.1588671351124467,
+      "profit_loss": -51.151478932351196,
+      "pips": -19.071351124466673
+    },
+    {
+      "entry_time": "2025-09-10T14:00:00",
+      "exit_time": "2025-09-10T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.157845,
+      "exit_price": 1.1610857256677924,
+      "profit_loss": -50.02917447154777,
+      "pips": -32.40725667792432
+    },
+    {
+      "entry_time": "2025-09-10T15:00:00",
+      "exit_time": "2025-09-13T07:00:00",
+      "direction": "sell",
+      "entry_price": 1.161265,
+      "exit_price": 1.1599849999999998,
+      "profit_loss": 16.044952592246712,
+      "pips": 12.800000000001699
+    },
+    {
+      "entry_time": "2025-09-13T11:00:00",
+      "exit_time": "2025-09-14T04:00:00",
+      "direction": "sell",
+      "entry_price": 1.1568299999999998,
+      "exit_price": 1.1592046879426403,
+      "profit_loss": -50.63996414302769,
+      "pips": -23.746879426405076
+    },
+    {
+      "entry_time": "2025-09-14T07:00:00",
+      "exit_time": "2025-09-14T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.15496,
+      "exit_price": 1.1570626033897566,
+      "profit_loss": -50.13356450159741,
+      "pips": -21.02603389756652
+    },
+    {
+      "entry_time": "2025-09-14T13:00:00",
+      "exit_time": "2025-09-14T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.1574049999999998,
+      "exit_price": 1.1596152979074814,
+      "profit_loss": -49.63222885658144,
+      "pips": -22.102979074816176
+    },
+    {
+      "entry_time": "2025-09-15T06:00:00",
+      "exit_time": "2025-09-15T11:00:00",
+      "direction": "sell",
+      "entry_price": 1.16342,
+      "exit_price": 1.16201,
+      "profit_loss": 23.92548674646946,
+      "pips": 14.099999999999113
+    },
+    {
+      "entry_time": "2025-09-15T15:00:00",
+      "exit_time": "2025-09-16T01:00:00",
+      "direction": "sell",
+      "entry_price": 1.1637149999999998,
+      "exit_price": 1.1672033571151348,
+      "profit_loss": -49.928587120219454,
+      "pips": -34.88357115134954
+    },
+    {
+      "entry_time": "2025-09-16T11:00:00",
+      "exit_time": "2025-09-16T17:00:00",
+      "direction": "sell",
+      "entry_price": 1.1654,
+      "exit_price": 1.168226013527849,
+      "profit_loss": -49.429301249017264,
+      "pips": -28.260135278490583
+    },
+    {
+      "entry_time": "2025-09-16T17:00:00",
+      "exit_time": "2025-09-17T05:00:00",
+      "direction": "sell",
+      "entry_price": 1.168825,
+      "exit_price": 1.1721358961767823,
+      "profit_loss": -48.935008236527096,
+      "pips": -33.108961767822635
+    },
+    {
+      "entry_time": "2025-09-17T07:00:00",
+      "exit_time": "2025-09-17T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.17116,
+      "exit_price": 1.169244008987218,
+      "profit_loss": -49.13590656801563,
+      "pips": -19.15991012781948
+    },
+    {
+      "entry_time": "2025-09-17T08:00:00",
+      "exit_time": "2025-09-17T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1697199999999999,
+      "exit_price": 1.167679972630988,
+      "profit_loss": -48.64454750233547,
+      "pips": -20.400273690117654
+    },
+    {
+      "entry_time": "2025-09-20T09:00:00",
+      "exit_time": "2025-09-21T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.1662,
+      "exit_price": 1.16531,
+      "profit_loss": -15.706476212432563,
+      "pips": -8.899999999998354
+    },
+    {
+      "entry_time": "2025-09-21T01:00:00",
+      "exit_time": "2025-09-21T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.16448,
+      "exit_price": 1.1621558664713494,
+      "profit_loss": -48.28859339203749,
+      "pips": -23.241335286505738
+    },
+    {
+      "entry_time": "2025-09-21T17:00:00",
+      "exit_time": "2025-09-22T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.1603949999999998,
+      "exit_price": 1.16136,
+      "profit_loss": 15.03476387430276,
+      "pips": 9.650000000001047
+    },
+    {
+      "entry_time": "2025-09-22T07:00:00",
+      "exit_time": "2025-09-22T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.160075,
+      "exit_price": 1.1578593651300026,
+      "profit_loss": -47.95605509686014,
+      "pips": -22.156348699973183
+    },
+    {
+      "entry_time": "2025-09-22T12:00:00",
+      "exit_time": "2025-09-22T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.1583100000000002,
+      "exit_price": 1.1597479498835523,
+      "profit_loss": -48.15810202731212,
+      "pips": -14.379498835521698
+    },
+    {
+      "entry_time": "2025-09-22T13:00:00",
+      "exit_time": "2025-09-22T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.159485,
+      "exit_price": 1.1609895248918698,
+      "profit_loss": -47.67652100703899,
+      "pips": -15.045248918696963
+    },
+    {
+      "entry_time": "2025-09-23T02:00:00",
+      "exit_time": "2025-09-23T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.1596700000000002,
+      "exit_price": 1.160145,
+      "profit_loss": 10.866819809259594,
+      "pips": 4.7499999999978115
+    },
+    {
+      "entry_time": "2025-09-23T07:00:00",
+      "exit_time": "2025-09-23T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.16001,
+      "exit_price": 1.161304268783997,
+      "profit_loss": -47.1997557969686,
+      "pips": -12.942687839969658
+    },
+    {
+      "entry_time": "2025-09-23T17:00:00",
+      "exit_time": "2025-09-24T01:00:00",
+      "direction": "sell",
+      "entry_price": 1.161175,
+      "exit_price": 1.16096,
+      "profit_loss": 4.17246307989656,
+      "pips": 2.1500000000007624
+    },
+    {
+      "entry_time": "2025-10-06T18:00:00",
+      "exit_time": "2025-10-07T05:00:00",
+      "direction": "sell",
+      "entry_price": 1.154725,
+      "exit_price": 1.1534049999999998,
+      "profit_loss": 20.116635356474763,
+      "pips": 13.200000000002099
+    },
+    {
+      "entry_time": "2025-10-07T11:00:00",
+      "exit_time": "2025-10-07T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.15581,
+      "exit_price": 1.1580563391826735,
+      "profit_loss": -44.017126651399295,
+      "pips": -22.463391826734735
+    },
+    {
+      "entry_time": "2025-10-11T12:00:00",
+      "exit_time": "2025-10-11T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.15705,
+      "exit_price": 1.1594770182738237,
+      "profit_loss": -43.5769553848853,
+      "pips": -24.270182738237445
+    },
+    {
+      "entry_time": "2025-10-11T13:00:00",
+      "exit_time": "2025-10-11T21:00:00",
+      "direction": "sell",
+      "entry_price": 1.1600899999999998,
+      "exit_price": 1.158245,
+      "profit_loss": 27.590286236805106,
+      "pips": 18.449999999998745
+    },
+    {
+      "entry_time": "2025-10-12T14:00:00",
+      "exit_time": "2025-10-13T00:00:00",
+      "direction": "sell",
+      "entry_price": 1.15754,
+      "exit_price": 1.15805,
+      "profit_loss": -9.253502168292528,
+      "pips": -5.1000000000001044
+    },
+    {
+      "entry_time": "2025-10-13T06:00:00",
+      "exit_time": "2025-10-13T07:00:00",
+      "direction": "sell",
+      "entry_price": 1.15856,
+      "exit_price": 1.1605823615418116,
+      "profit_loss": -43.32455367172158,
+      "pips": -20.22361541811568
+    },
+    {
+      "entry_time": "2025-10-13T07:00:00",
+      "exit_time": "2025-10-13T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.16113,
+      "exit_price": 1.163526657145968,
+      "profit_loss": -42.891308135004365,
+      "pips": -23.966571459679287
+    },
+    {
+      "entry_time": "2025-10-13T22:00:00",
+      "exit_time": "2025-10-14T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.1636950000000001,
+      "exit_price": 1.1620120958881044,
+      "profit_loss": -43.81596029783454,
+      "pips": -16.829041118957555
+    },
+    {
+      "entry_time": "2025-10-14T13:00:00",
+      "exit_time": "2025-10-14T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.16378,
+      "exit_price": 1.1617814241841065,
+      "profit_loss": -43.3778006948562,
+      "pips": -19.985758158935774
+    },
+    {
+      "entry_time": "2025-10-17T01:00:00",
+      "exit_time": "2025-10-17T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.16065,
+      "exit_price": 1.161335,
+      "profit_loss": 10.696301415162226,
+      "pips": 6.850000000000467
+    },
+    {
+      "entry_time": "2025-10-17T09:00:00",
+      "exit_time": "2025-10-18T04:00:00",
+      "direction": "buy",
+      "entry_price": 1.1601400000000002,
+      "exit_price": 1.159955,
+      "profit_loss": -3.157003836525171,
+      "pips": -1.8500000000010175
+    },
+    {
+      "entry_time": "2025-10-18T09:00:00",
+      "exit_time": "2025-10-18T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1589399999999999,
+      "exit_price": 1.1592,
+      "profit_loss": 4.947620099650644,
+      "pips": 2.60000000000149
+    },
+    {
+      "entry_time": "2025-10-18T15:00:00",
+      "exit_time": "2025-10-19T04:00:00",
+      "direction": "buy",
+      "entry_price": 1.15821,
+      "exit_price": 1.15843,
+      "profit_loss": 3.5355814586203,
+      "pips": 2.20000000000109
+    },
+    {
+      "entry_time": "2025-10-19T07:00:00",
+      "exit_time": "2025-10-19T11:00:00",
+      "direction": "buy",
+      "entry_price": 1.15815,
+      "exit_price": 1.1586400000000001,
+      "profit_loss": 9.162687024460041,
+      "pips": 4.900000000001015
+    },
+    {
+      "entry_time": "2025-10-19T13:00:00",
+      "exit_time": "2025-10-19T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.15728,
+      "exit_price": 1.154392419309183,
+      "profit_loss": -42.714246915268,
+      "pips": -28.87580690817071
+    },
+    {
+      "entry_time": "2025-10-19T15:00:00",
+      "exit_time": "2025-10-20T02:00:00",
+      "direction": "buy",
+      "entry_price": 1.15468,
+      "exit_price": 1.151589432975775,
+      "profit_loss": -42.28710444611532,
+      "pips": -30.90567024224944
+    },
+    {
+      "entry_time": "2025-10-20T08:00:00",
+      "exit_time": "2025-10-20T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.15211,
+      "exit_price": 1.1536617239955071,
+      "profit_loss": -42.94402268790764,
+      "pips": -15.517239955071815
+    },
+    {
+      "entry_time": "2025-10-20T13:00:00",
+      "exit_time": "2025-10-20T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.152775,
+      "exit_price": 1.1546038466347055,
+      "profit_loss": -42.51458246102856,
+      "pips": -18.288466347053944
+    },
+    {
+      "entry_time": "2025-10-21T09:00:00",
+      "exit_time": "2025-10-21T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1525500000000002,
+      "exit_price": 1.1498326476749758,
+      "profit_loss": -41.86423340165417,
+      "pips": -27.17352325024347
+    },
+    {
+      "entry_time": "2025-10-21T18:00:00",
+      "exit_time": "2025-10-24T05:00:00",
+      "direction": "sell",
+      "entry_price": 1.1504249999999998,
+      "exit_price": 1.1524269563005414,
+      "profit_loss": -42.08943663641828,
+      "pips": -20.01956300541563
+    },
+    {
+      "entry_time": "2025-10-24T09:00:00",
+      "exit_time": "2025-10-24T16:00:00",
+      "direction": "sell",
+      "entry_price": 1.15298,
+      "exit_price": 1.1517849999999998,
+      "profit_loss": 17.88411083658951,
+      "pips": 11.950000000000571
+    },
+    {
+      "entry_time": "2025-11-05T15:00:00",
+      "exit_time": "2025-11-08T00:00:00",
+      "direction": "buy",
+      "entry_price": 1.164815,
+      "exit_price": 1.16512,
+      "profit_loss": 5.0318848534866385,
+      "pips": 3.049999999999997
+    },
+    {
+      "entry_time": "2025-11-08T13:00:00",
+      "exit_time": "2025-11-08T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.164835,
+      "exit_price": 1.1625792238481414,
+      "profit_loss": -39.52733299675793,
+      "pips": -22.557761518586794
+    },
+    {
+      "entry_time": "2025-11-08T15:00:00",
+      "exit_time": "2025-11-08T17:00:00",
+      "direction": "buy",
+      "entry_price": 1.1625100000000002,
+      "exit_price": 1.16391,
+      "profit_loss": 20.776999144672725,
+      "pips": 13.999999999998458
+    },
+    {
+      "entry_time": "2025-11-09T14:00:00",
+      "exit_time": "2025-11-10T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.1637849999999998,
+      "exit_price": 1.163525,
+      "profit_loss": -4.33490750509741,
+      "pips": -2.5999999999992696
+    },
+    {
+      "entry_time": "2025-11-10T15:00:00",
+      "exit_time": "2025-11-10T19:00:00",
+      "direction": "sell",
+      "entry_price": 1.1642000000000001,
+      "exit_price": 1.166756360711126,
+      "profit_loss": -39.2964805831861,
+      "pips": -25.5636071112586
+    },
+    {
+      "entry_time": "2025-11-10T19:00:00",
+      "exit_time": "2025-11-11T11:00:00",
+      "direction": "sell",
+      "entry_price": 1.16784,
+      "exit_price": 1.1708736622311138,
+      "profit_loss": -38.90351577735424,
+      "pips": -30.336622311137873
+    },
+    {
+      "entry_time": "2025-11-11T11:00:00",
+      "exit_time": "2025-11-11T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.17131,
+      "exit_price": 1.174048972470963,
+      "profit_loss": -38.514480619580695,
+      "pips": -27.38972470962997
+    },
+    {
+      "entry_time": "2025-11-12T04:00:00",
+      "exit_time": "2025-11-12T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.1731850000000001,
+      "exit_price": 1.1728200000000002,
+      "profit_loss": 5.791376658914491,
+      "pips": 3.649999999999487
+    },
+    {
+      "entry_time": "2025-11-12T16:00:00",
+      "exit_time": "2025-11-15T00:00:00",
+      "direction": "sell",
+      "entry_price": 1.1731,
+      "exit_price": 1.17333,
+      "profit_loss": -3.2143340876529893,
+      "pips": -2.2999999999995246
+    },
+    {
+      "entry_time": "2025-11-15T10:00:00",
+      "exit_time": "2025-11-15T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.174285,
+      "exit_price": 1.1766581537521723,
+      "profit_loss": -38.155106239097506,
+      "pips": -23.731537521722856
+    },
+    {
+      "entry_time": "2025-11-16T10:00:00",
+      "exit_time": "2025-11-16T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.175745,
+      "exit_price": 1.1780304979610878,
+      "profit_loss": -37.77355517670653,
+      "pips": -22.8549796108779
+    },
+    {
+      "entry_time": "2025-11-16T13:00:00",
+      "exit_time": "2025-11-16T17:00:00",
+      "direction": "sell",
+      "entry_price": 1.177575,
+      "exit_price": 1.1763949999999999,
+      "profit_loss": 14.837986841251453,
+      "pips": 11.800000000001809
+    },
+    {
+      "entry_time": "2025-11-17T01:00:00",
+      "exit_time": "2025-11-17T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.174735,
+      "exit_price": 1.1715643697448086,
+      "profit_loss": -37.54419949335198,
+      "pips": -31.706302551914867
+    },
+    {
+      "entry_time": "2025-11-17T06:00:00",
+      "exit_time": "2025-11-17T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.17099,
+      "exit_price": 1.1731850000000001,
+      "profit_loss": 26.35140432176628,
+      "pips": 21.95000000000169
+    },
+    {
+      "entry_time": "2025-11-18T08:00:00",
+      "exit_time": "2025-11-18T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.17323,
+      "exit_price": 1.1746949999999998,
+      "profit_loss": 23.35493525130291,
+      "pips": 14.649999999998276
+    },
+    {
+      "entry_time": "2025-11-19T06:00:00",
+      "exit_time": "2025-11-19T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.1719849999999998,
+      "exit_price": 1.1719300000000001,
+      "profit_loss": -0.8532747786794854,
+      "pips": -0.5499999999969418
+    },
+    {
+      "entry_time": "2025-11-22T07:00:00",
+      "exit_time": "2025-11-22T13:00:00",
+      "direction": "sell",
+      "entry_price": 1.1728999999999998,
+      "exit_price": 1.1752404574951119,
+      "profit_loss": -37.657288146362355,
+      "pips": -23.40457495112025
+    },
+    {
+      "entry_time": "2025-11-22T13:00:00",
+      "exit_time": "2025-11-23T01:00:00",
+      "direction": "sell",
+      "entry_price": 1.175055,
+      "exit_price": 1.177496028799985,
+      "profit_loss": -37.28071526489874,
+      "pips": -24.41028799984979
+    },
+    {
+      "entry_time": "2025-11-23T12:00:00",
+      "exit_time": "2025-11-23T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.17897,
+      "exit_price": 1.1775805908385353,
+      "profit_loss": -39.08224400674083,
+      "pips": -13.894091614647941
+    },
+    {
+      "entry_time": "2025-11-23T13:00:00",
+      "exit_time": "2025-11-24T01:00:00",
+      "direction": "buy",
+      "entry_price": 1.17748,
+      "exit_price": 1.1804835455855773,
+      "profit_loss": 77.38284313334684,
+      "pips": 30.035455855772497
+    },
+    {
+      "entry_time": "2025-11-24T01:00:00",
+      "exit_time": "2025-11-24T01:00:00",
+      "direction": "buy",
+      "entry_price": 1.18052,
+      "exit_price": 1.18052,
+      "profit_loss": 0.0,
+      "pips": 0.0
+    },
+    {
+      "entry_time": "2026-01-05T22:00:00",
+      "exit_time": "2026-01-06T02:00:00",
+      "direction": "buy",
+      "entry_price": 1.17813,
+      "exit_price": 1.17877,
+      "profit_loss": 7.375233735067988,
+      "pips": 6.40000000000196
+    },
+    {
+      "entry_time": "2026-01-06T12:00:00",
+      "exit_time": "2026-01-06T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.179275,
+      "exit_price": 1.1817407788289989,
+      "profit_loss": -37.364666440866486,
+      "pips": -24.65778828998788
+    },
+    {
+      "entry_time": "2026-01-06T14:00:00",
+      "exit_time": "2026-01-09T06:00:00",
+      "direction": "sell",
+      "entry_price": 1.182095,
+      "exit_price": 1.1848204674596978,
+      "profit_loss": -36.99101977645782,
+      "pips": -27.254674596979278
+    },
+    {
+      "entry_time": "2026-01-09T06:00:00",
+      "exit_time": "2026-01-09T12:00:00",
+      "direction": "sell",
+      "entry_price": 1.18519,
+      "exit_price": 1.1879034009820488,
+      "profit_loss": -36.62110957869324,
+      "pips": -27.134009820488636
+    },
+    {
+      "entry_time": "2026-01-10T01:00:00",
+      "exit_time": "2026-01-10T19:00:00",
+      "direction": "buy",
+      "entry_price": 1.190575,
+      "exit_price": 1.188754652001992,
+      "profit_loss": -38.03673238558618,
+      "pips": -18.203479980078985
+    },
+    {
+      "entry_time": "2026-01-11T06:00:00",
+      "exit_time": "2026-01-11T11:00:00",
+      "direction": "sell",
+      "entry_price": 1.1915300000000002,
+      "exit_price": 1.19082,
+      "profit_loss": 8.82734426813973,
+      "pips": 7.100000000002105
+    },
+    {
+      "entry_time": "2026-01-11T11:00:00",
+      "exit_time": "2026-01-11T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.19082,
+      "exit_price": 1.18910189392906,
+      "profit_loss": -37.27980141111301,
+      "pips": -17.181060709399176
+    },
+    {
+      "entry_time": "2026-01-12T04:00:00",
+      "exit_time": "2026-01-12T07:00:00",
+      "direction": "buy",
+      "entry_price": 1.1861899999999999,
+      "exit_price": 1.187295,
+      "profit_loss": 12.098631843447315,
+      "pips": 11.050000000001337
+    },
+    {
+      "entry_time": "2026-01-16T11:00:00",
+      "exit_time": "2026-01-17T03:00:00",
+      "direction": "buy",
+      "entry_price": 1.18613,
+      "exit_price": 1.1839131622100667,
+      "profit_loss": -36.731180455642416,
+      "pips": -22.168377899332015
+    },
+    {
+      "entry_time": "2026-01-17T15:00:00",
+      "exit_time": "2026-01-17T16:00:00",
+      "direction": "sell",
+      "entry_price": 1.18107,
+      "exit_price": 1.1825501825042883,
+      "profit_loss": -36.90700339700188,
+      "pips": -14.801825042882744
+    },
+    {
+      "entry_time": "2026-01-17T16:00:00",
+      "exit_time": "2026-01-17T18:00:00",
+      "direction": "sell",
+      "entry_price": 1.18308,
+      "exit_price": 1.1847185623254104,
+      "profit_loss": -36.53793336303186,
+      "pips": -16.385623254104864
+    },
+    {
+      "entry_time": "2026-01-18T07:00:00",
+      "exit_time": "2026-01-18T12:00:00",
+      "direction": "buy",
+      "entry_price": 1.1834850000000001,
+      "exit_price": 1.1839849999999998,
+      "profit_loss": 8.75058977359533,
+      "pips": 4.999999999997229
+    },
+    {
+      "entry_time": "2026-01-19T05:00:00",
+      "exit_time": "2026-01-19T08:00:00",
+      "direction": "sell",
+      "entry_price": 1.17916,
+      "exit_price": 1.1804488736529963,
+      "profit_loss": -36.896005109989574,
+      "pips": -12.888736529963474
+    },
+    {
+      "entry_time": "2026-01-19T20:00:00",
+      "exit_time": "2026-01-20T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.176895,
+      "exit_price": 1.178684245937368,
+      "profit_loss": -36.527045058889684,
+      "pips": -17.89245937368067
+    },
+    {
+      "entry_time": "2026-01-22T23:00:00",
+      "exit_time": "2026-01-23T09:00:00",
+      "direction": "sell",
+      "entry_price": 1.183335,
+      "exit_price": 1.180085,
+      "profit_loss": 28.614481697123736,
+      "pips": 32.49999999999975
+    },
+    {
+      "entry_time": "2026-01-24T02:00:00",
+      "exit_time": "2026-01-24T09:00:00",
+      "direction": "buy",
+      "entry_price": 1.1783899999999998,
+      "exit_price": 1.1787649999999998,
+      "profit_loss": 4.655721000289845,
+      "pips": 3.750000000000142
+    },
+    {
+      "entry_time": "2026-02-08T21:00:00",
+      "exit_time": "2026-02-09T05:00:00",
+      "direction": "buy",
+      "entry_price": 1.15476,
+      "exit_price": 1.15676,
+      "profit_loss": 12.032685057560855,
+      "pips": 20.000000000000018
+    },
+    {
+      "entry_time": "2026-02-09T05:00:00",
+      "exit_time": "2026-02-09T16:00:00",
+      "direction": "sell",
+      "entry_price": 1.15676,
+      "exit_price": 1.158765,
+      "profit_loss": -20.02615112278295,
+      "pips": -20.050000000000345
+    },
+    {
+      "entry_time": "2026-02-09T18:00:00",
+      "exit_time": "2026-02-09T19:00:00",
+      "direction": "sell",
+      "entry_price": 1.1576499999999998,
+      "exit_price": 1.1632538002930901,
+      "profit_loss": -34.415536007495334,
+      "pips": -56.038002930902664
+    },
+    {
+      "entry_time": "2026-02-09T19:00:00",
+      "exit_time": "2026-02-10T18:00:00",
+      "direction": "sell",
+      "entry_price": 1.160905,
+      "exit_price": 1.1624400000000001,
+      "profit_loss": -8.376364524712287,
+      "pips": -15.350000000000641
+    },
+    {
+      "entry_time": "2026-02-11T08:00:00",
+      "exit_time": "2026-02-11T15:00:00",
+      "direction": "buy",
+      "entry_price": 1.161265,
+      "exit_price": 1.1572326733469118,
+      "profit_loss": -33.98761700217326,
+      "pips": -40.323266530881696
+    },
+    {
+      "entry_time": "2026-02-11T15:00:00",
+      "exit_time": "2026-02-12T09:00:00",
+      "direction": "buy",
+      "entry_price": 1.15662,
+      "exit_price": 1.155955,
+      "profit_loss": -4.816988929608163,
+      "pips": -6.649999999999157
+    },
+    {
+      "entry_time": "2026-02-12T11:00:00",
+      "exit_time": "2026-02-12T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.1556350000000002,
+      "exit_price": 1.1520573658649873,
+      "profit_loss": -33.599570942855436,
+      "pips": -35.77634135012886
+    },
+    {
+      "entry_time": "2026-02-12T13:00:00",
+      "exit_time": "2026-02-13T06:00:00",
+      "direction": "buy",
+      "entry_price": 1.152615,
+      "exit_price": 1.1485814149550142,
+      "profit_loss": -33.263575233426884,
+      "pips": -40.33585044985743
+    },
+    {
+      "entry_time": "2026-02-13T06:00:00",
+      "exit_time": "2026-02-13T08:00:00",
+      "direction": "buy",
+      "entry_price": 1.148285,
+      "exit_price": 1.1451100528546334,
+      "profit_loss": -32.93093948109262,
+      "pips": -31.74947145366591
+    },
+    {
+      "entry_time": "2026-02-15T23:00:00",
+      "exit_time": "2026-02-16T10:00:00",
+      "direction": "sell",
+      "entry_price": 1.143545,
+      "exit_price": 1.1459469435018674,
+      "profit_loss": -34.427035465205115,
+      "pips": -24.019435018673985
+    },
+    {
+      "entry_time": "2026-02-18T03:00:00",
+      "exit_time": "2026-02-18T07:00:00",
+      "direction": "sell",
+      "entry_price": 1.15361,
+      "exit_price": 1.1526450000000001,
+      "profit_loss": 11.067060846113435,
+      "pips": 9.649999999998826
+    },
+    {
+      "entry_time": "2026-02-18T18:00:00",
+      "exit_time": "2026-02-19T09:00:00",
+      "direction": "buy",
+      "entry_price": 1.14772,
+      "exit_price": 1.148045,
+      "profit_loss": 2.311464407517894,
+      "pips": 3.249999999999087
+    },
+    {
+      "entry_time": "2026-02-19T12:00:00",
+      "exit_time": "2026-02-19T15:00:00",
+      "direction": "sell",
+      "entry_price": 1.1487150000000002,
+      "exit_price": 1.1531749710573487,
+      "profit_loss": -32.73541533881801,
+      "pips": -44.59971057348522
+    },
+    {
+      "entry_time": "2026-02-23T08:00:00",
+      "exit_time": "2026-02-23T10:00:00",
+      "direction": "buy",
+      "entry_price": 1.152975,
+      "exit_price": 1.148594963842705,
+      "profit_loss": -32.40806118542983,
+      "pips": -43.80036157294987
+    },
+    {
+      "entry_time": "2026-02-23T11:00:00",
+      "exit_time": "2026-02-23T14:00:00",
+      "direction": "sell",
+      "entry_price": 1.1556549999999999,
+      "exit_price": 1.1624957760341024,
+      "profit_loss": -32.08398057357553,
+      "pips": -68.40776034102491
+    },
+    {
+      "entry_time": "2026-02-23T14:00:00",
+      "exit_time": "2026-02-24T13:00:00",
+      "direction": "buy",
+      "entry_price": 1.161535,
+      "exit_price": 1.1567691578104395,
+      "profit_loss": -33.741937459447534,
+      "pips": -47.658421895604434
+    },
+    {
+      "entry_time": "2026-02-24T21:00:00",
+      "exit_time": "2026-02-25T04:00:00",
+      "direction": "sell",
+      "entry_price": 1.16119,
+      "exit_price": 1.159795,
+      "profit_loss": 8.064196680763594,
+      "pips": 13.950000000000351
+    }
+  ],
+  "batch_results": [
+    {
+      "batch": 1,
+      "start_index": 0,
+      "end_index": 500,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 10000.0,
+      "final_balance": 8992.659371569162,
+      "pnl": -1007.3406284308385,
+      "profit_factor": 0.17842566491381784,
+      "max_dd_pct": 10.565802443746325,
+      "win_rate": 28.57142857142857,
+      "return_pct": -10.073406284308383,
+      "trade_by_strategy": {
+        "trend": 5,
+        "mean_reversion": 16
+      },
+      "pnl_by_strategy": {
+        "trend": -440.8827450313377,
+        "mean_reversion": -566.4578833995008
+      }
+    },
+    {
+      "batch": 2,
+      "start_index": 500,
+      "end_index": 1000,
+      "candles": 500,
+      "trades": 25,
+      "initial_balance": 8992.659371569162,
+      "final_balance": 8809.691710853747,
+      "pnl": -182.96766071541373,
+      "profit_factor": 0.7749269697347033,
+      "max_dd_pct": 4.40015830478301,
+      "win_rate": 60.0,
+      "return_pct": -2.0346335066785404,
+      "trade_by_strategy": {
+        "mean_reversion": 23,
+        "trend": 2
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -272.01297381269893,
+        "trend": 89.04531309728519
+      }
+    },
+    {
+      "batch": 3,
+      "start_index": 1000,
+      "end_index": 1500,
+      "candles": 500,
+      "trades": 11,
+      "initial_balance": 8809.691710853747,
+      "final_balance": 8396.337799664634,
+      "pnl": -413.35391118911275,
+      "profit_factor": 0.11562452156794065,
+      "max_dd_pct": 4.760736093594116,
+      "win_rate": 36.36363636363637,
+      "return_pct": -4.692036052519876,
+      "trade_by_strategy": {
+        "mean_reversion": 10,
+        "trend": 1
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -325.4502985234859,
+        "trend": -87.90361266562681
+      }
+    },
+    {
+      "batch": 4,
+      "start_index": 1500,
+      "end_index": 2000,
+      "candles": 500,
+      "trades": 22,
+      "initial_balance": 8396.337799664634,
+      "final_balance": 7964.629981335874,
+      "pnl": -431.7078183287604,
+      "profit_factor": 0.5678316799532239,
+      "max_dd_pct": 5.3779559280059726,
+      "win_rate": 40.909090909090914,
+      "return_pct": -5.141620413914305,
+      "trade_by_strategy": {
+        "mean_reversion": 15,
+        "trend": 7
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -343.6801714987107,
+        "trend": -88.02764683004973
+      }
+    },
+    {
+      "batch": 5,
+      "start_index": 2000,
+      "end_index": 2500,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 7964.629981335874,
+      "final_balance": 7152.899332773247,
+      "pnl": -811.7306485626268,
+      "profit_factor": 0.21393994672205777,
+      "max_dd_pct": 10.191693154168071,
+      "win_rate": 28.57142857142857,
+      "return_pct": -10.19169315416808,
+      "trade_by_strategy": {
+        "trend": 6,
+        "mean_reversion": 15
+      },
+      "pnl_by_strategy": {
+        "trend": -389.16997160910154,
+        "mean_reversion": -422.5606769535252
+      }
+    },
+    {
+      "batch": 6,
+      "start_index": 2500,
+      "end_index": 3000,
+      "candles": 500,
+      "trades": 26,
+      "initial_balance": 7152.899332773247,
+      "final_balance": 6285.057354038767,
+      "pnl": -867.8419787344806,
+      "profit_factor": 0.27867495130687747,
+      "max_dd_pct": 12.13273021693724,
+      "win_rate": 26.923076923076923,
+      "return_pct": -12.132730216937215,
+      "trade_by_strategy": {
+        "mean_reversion": 17,
+        "trend": 9
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -567.1143486490166,
+        "trend": -300.7276300854641
+      }
+    },
+    {
+      "batch": 7,
+      "start_index": 3000,
+      "end_index": 3500,
+      "candles": 500,
+      "trades": 16,
+      "initial_balance": 6285.057354038767,
+      "final_balance": 5766.659933156581,
+      "pnl": -518.3974208821854,
+      "profit_factor": 0.24565415165910956,
+      "max_dd_pct": 9.180063968350149,
+      "win_rate": 25.0,
+      "return_pct": -8.248093719448146,
+      "trade_by_strategy": {
+        "mean_reversion": 10,
+        "trend": 6
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -329.9257869068406,
+        "trend": -188.47163397534484
+      }
+    },
+    {
+      "batch": 8,
+      "start_index": 3500,
+      "end_index": 4000,
+      "candles": 500,
+      "trades": 15,
+      "initial_balance": 5766.659933156581,
+      "final_balance": 5095.108443997095,
+      "pnl": -671.5514891594866,
+      "profit_factor": 0.01980367463068933,
+      "max_dd_pct": 11.645415144011963,
+      "win_rate": 6.666666666666667,
+      "return_pct": -11.645415144011961,
+      "trade_by_strategy": {
+        "trend": 7,
+        "mean_reversion": 8
+      },
+      "pnl_by_strategy": {
+        "trend": -306.0011305680084,
+        "mean_reversion": -365.55035859147836
+      }
+    },
+    {
+      "batch": 9,
+      "start_index": 4000,
+      "end_index": 4500,
+      "candles": 500,
+      "trades": 25,
+      "initial_balance": 5095.108443997095,
+      "final_balance": 4381.5960297834545,
+      "pnl": -713.5124142136399,
+      "profit_factor": 0.19272585681891896,
+      "max_dd_pct": 14.085762554064834,
+      "win_rate": 24.0,
+      "return_pct": -14.003871007971957,
+      "trade_by_strategy": {
+        "mean_reversion": 13,
+        "trend": 12
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -291.1797941164377,
+        "trend": -422.3326200972022
+      }
+    },
+    {
+      "batch": 10,
+      "start_index": 4500,
+      "end_index": 5000,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 4381.5960297834545,
+      "final_balance": 3947.701414822306,
+      "pnl": -433.8946149611484,
+      "profit_factor": 0.1779618575868163,
+      "max_dd_pct": 10.720721615735247,
+      "win_rate": 33.33333333333333,
+      "return_pct": -9.902661313635342,
+      "trade_by_strategy": {
+        "mean_reversion": 16,
+        "trend": 5
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -219.15281218310312,
+        "trend": -214.7418027780452
+      }
+    },
+    {
+      "batch": 11,
+      "start_index": 5000,
+      "end_index": 5500,
+      "candles": 500,
+      "trades": 21,
+      "initial_balance": 3947.701414822306,
+      "final_balance": 3729.0914103515806,
+      "pnl": -218.61000447072547,
+      "profit_factor": 0.44251687000592727,
+      "max_dd_pct": 7.615609494378213,
+      "win_rate": 33.33333333333333,
+      "return_pct": -5.537652965594553,
+      "trade_by_strategy": {
+        "mean_reversion": 18,
+        "trend": 3
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -256.9106035973315,
+        "trend": 38.30059912660601
+      }
+    },
+    {
+      "batch": 12,
+      "start_index": 5500,
+      "end_index": 6000,
+      "candles": 500,
+      "trades": 16,
+      "initial_balance": 3729.0914103515806,
+      "final_balance": 3429.5209156919723,
+      "pnl": -299.5704946596082,
+      "profit_factor": 0.19011470330522776,
+      "max_dd_pct": 9.105284845256605,
+      "win_rate": 37.5,
+      "return_pct": -8.03333739226748,
+      "trade_by_strategy": {
+        "mean_reversion": 10,
+        "trend": 6
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -77.38597393399603,
+        "trend": -222.1845207256122
+      }
+    },
+    {
+      "batch": 13,
+      "start_index": 6000,
+      "end_index": 6500,
+      "candles": 500,
+      "trades": 17,
+      "initial_balance": 3429.5209156919723,
+      "final_balance": 3096.1831494173052,
+      "pnl": -333.3377662746672,
+      "profit_factor": 0.0912601003225796,
+      "max_dd_pct": 10.269624972164213,
+      "win_rate": 23.52941176470588,
+      "return_pct": -9.719659814566539,
+      "trade_by_strategy": {
+        "mean_reversion": 14,
+        "trend": 3
+      },
+      "pnl_by_strategy": {
+        "mean_reversion": -245.1426422272316,
+        "trend": -88.1951240474356
+      }
+    },
+    {
+      "batch": 14,
+      "start_index": 6500,
+      "end_index": 6513,
+      "candles": 13,
+      "trades": 0,
+      "initial_balance": 3096.1831494173052,
+      "final_balance": 3096.1831494173052,
+      "pnl": 0,
+      "profit_factor": 0,
+      "max_dd_pct": 0,
+      "win_rate": 0,
+      "return_pct": 0
+    }
+  ],
+  "started_at": "2026-03-26T16:35:03.682952",
+  "last_updated": "2026-03-26T16:36:10.860848",
+  "completed": true,
+  "completed_at": "2026-03-26T16:36:10.864106"
+}
