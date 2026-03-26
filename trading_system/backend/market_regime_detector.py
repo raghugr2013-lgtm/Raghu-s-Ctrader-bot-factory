@@ -189,11 +189,14 @@ def detect_market_regime(
             trend = TrendRegime.UNCLEAR
             trend_confidence = 0.4
     
-    elif choppiness > 55 or adx < 20:
-        # Ranging / choppy market (RELAXED thresholds for more ranging detection)
+    elif choppiness > 50 or adx < 20:
+        # Ranging / choppy market (FURTHER RELAXED from 55 → 50 for more ranging detection)
         trend = TrendRegime.RANGING
-        # Confidence based on how choppy
-        trend_confidence = min((choppiness - 55) / 25 + 0.5, 1.0) if choppiness > 55 else 0.55
+        # Confidence based on how choppy (RELAXED: starts at choppiness 50 instead of 55)
+        if choppiness > 50:
+            trend_confidence = min((choppiness - 50) / 30 + 0.4, 1.0)  # Starts at 0.4 confidence
+        else:
+            trend_confidence = 0.5  # When ADX < 20 but choppiness not high
     
     else:
         # Unclear

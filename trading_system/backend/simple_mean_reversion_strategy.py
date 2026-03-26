@@ -94,15 +94,15 @@ def generate_mean_reversion_signal(
     candle = candles[current_idx]
     prev_candle = candles[current_idx - 1]
     
-    # LONG Signal: Price at lower BB + oversold (RELAXED bounce requirement)
-    if (candle.low <= bb_lower[current_idx] * 1.002 and  # Allow slight margin (0.2%)
+    # LONG Signal: Price at lower BB + oversold (FURTHER RELAXED for more trades)
+    if (candle.low <= bb_lower[current_idx] * 1.005 and  # Increased margin from 0.2% → 0.5% for easier trigger
         rsi[current_idx] < params["rsi_oversold_extreme"] and
         regime.is_ranging()):
         # Removed strict bullish candle requirement for more opportunities
         return "BUY"
     
-    # SHORT Signal: Price at upper BB + overbought (RELAXED reversal requirement)
-    if (candle.high >= bb_upper[current_idx] * 0.998 and  # Allow slight margin (0.2%)
+    # SHORT Signal: Price at upper BB + overbought (FURTHER RELAXED for more trades)
+    if (candle.high >= bb_upper[current_idx] * 0.995 and  # Increased margin from 0.2% → 0.5% for easier trigger
         rsi[current_idx] > params["rsi_overbought_extreme"] and
         regime.is_ranging()):
         # Removed strict bearish candle requirement for more opportunities
@@ -135,14 +135,14 @@ def run_simple_mean_reversion_strategy(
     """
     
     default_params = {
-        # Bollinger Bands (RELAXED)
+        # Bollinger Bands (RELAXED for more touches)
         "bb_period": 20,
-        "bb_std_dev": 1.8,  # Reduced from 2.0 for more frequent touches
+        "bb_std_dev": 1.6,  # Further reduced from 1.8 → 2.0 for more frequent BB touches
         
-        # RSI (RELAXED)
+        # RSI (FURTHER RELAXED for more signals)
         "rsi_period": 14,
-        "rsi_oversold_extreme": 40,  # Increased from 30 for more signals
-        "rsi_overbought_extreme": 60,  # Decreased from 70 for more signals
+        "rsi_oversold_extreme": 45,  # Increased from 40 → 30 for more BUY signals
+        "rsi_overbought_extreme": 55,  # Decreased from 60 → 70 for more SELL signals
         
         # Risk management
         "stop_loss_atr_mult": 2.5,  # Wider for mean reversion
@@ -150,9 +150,9 @@ def run_simple_mean_reversion_strategy(
         "risk_per_trade_pct": 1.0,
         "atr_period": 14,
         
-        # Filters (RELAXED)
-        "min_regime_confidence": 0.4,  # Reduced from 0.6
-        "max_trades_per_day": 3,
+        # Filters (RELAXED to allow more ranging periods)
+        "min_regime_confidence": 0.3,  # Further reduced from 0.4 → 0.6
+        "max_trades_per_day": 4,  # Increased from 3 to allow more opportunities
     }
     
     if params:
