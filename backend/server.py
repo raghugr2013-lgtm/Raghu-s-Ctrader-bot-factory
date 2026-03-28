@@ -10,6 +10,14 @@ from typing import List
 import uuid
 from datetime import datetime, timezone
 
+# Import optimization executor
+try:
+    from optimization_executor import router as optimization_executor_router
+    OPTIMIZATION_ENABLED = True
+except ImportError:
+    OPTIMIZATION_ENABLED = False
+    print("⚠️  Optimization executor not found - automated optimization disabled")
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -68,6 +76,13 @@ async def get_status_checks():
 
 # Include the router in the main app
 app.include_router(api_router)
+
+# Add optimization router if available
+if OPTIMIZATION_ENABLED:
+    app.include_router(optimization_executor_router)
+    logger.info("✅ Optimization executor enabled")
+else:
+    logger.warning("⚠️  Optimization executor disabled")
 
 app.add_middleware(
     CORSMiddleware,
