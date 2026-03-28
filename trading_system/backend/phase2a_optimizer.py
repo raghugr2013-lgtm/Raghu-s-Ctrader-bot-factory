@@ -61,28 +61,107 @@ class Phase2AOptimizer:
     
     def run_trend_strategy(self, parameters: Dict) -> List[Dict]:
         """
-        Placeholder for trend following strategy
+        Real EMA-based trend following strategy
         
-        REPLACE THIS with your actual strategy implementation
+        Entry Rules:
+        - BUY: EMA_fast > EMA_slow
+        - SELL: EMA_fast < EMA_slow
+        
+        Uses shift(1) to avoid lookahead bias
         """
-        # This is a simplified example - replace with your real strategy
+        # Extract parameters
+        ema_fast = parameters['ema_fast']
+        ema_slow = parameters['ema_slow']
+        risk_pct = parameters['risk_pct']
+        stop_loss_atr = parameters.get('stop_loss_atr', 2.0)
+        
+        # Work on a copy of candles
+        df = self.candles.copy()
+        
+        # Calculate EMAs
+        df['ema_fast'] = df['close'].ewm(span=ema_fast, adjust=False).mean()
+        df['ema_slow'] = df['close'].ewm(span=ema_slow, adjust=False).mean()
+        
+        # Calculate ATR for position sizing (simplified)
+        df['high_low'] = df['high'] - df['low']
+        df['atr'] = df['high_low'].rolling(window=14).mean()
+        
+        # Generate signals (avoiding lookahead bias)
+        df['signal'] = 0
+        df.loc[df['ema_fast'] > df['ema_slow'], 'signal'] = 1   # Long
+        df.loc[df['ema_fast'] < df['ema_slow'], 'signal'] = -1  # Short
+        
+        # Shift signal to avoid lookahead bias
+        df['position'] = df['signal'].shift(1)
+        
+        # Calculate returns
+        df['returns'] = df['close'].pct_change()
+        df['strategy_returns'] = df['returns'] * df['position']
+        
+        # Drop NaN values
+        df = df.dropna()
+        
+        # Simulate trades based on position changes
         trades = []
+        position = None
         
-        # Example: Generate some mock trades for demonstration
-        # In reality, you would implement your strategy logic here
-        import random
-        random.seed(42)
+        for i in range(1, len(df)):
+            current_position = df.iloc[i]['position']
+            prev_position = df.iloc[i-1]['position']
+            
+            # Position change detected
+            if current_position != prev_position:
+                # Close existing position if any
+                if position is not None:
+                    exit_price = df.iloc[i]['close']
+                    exit_time = df.iloc[i]['timestamp']
+                    
+                    # Calculate P&L
+                    if position['direction'] == 'LONG':
+                        price_change = exit_price - position['entry_price']
+                        pnl = (price_change / position['entry_price']) * 10000 * risk_pct
+                    else:  # SHORT
+                        price_change = position['entry_price'] - exit_price
+                        pnl = (price_change / position['entry_price']) * 10000 * risk_pct
+                    
+                    trades.append({
+                        'entry_time': str(position['entry_time']),
+                        'exit_time': str(exit_time),
+                        'direction': position['direction'],
+                        'entry_price': float(position['entry_price']),
+                        'exit_price': float(exit_price),
+                        'pnl': round(pnl, 2)
+                    })
+                    
+                    position = None
+                
+                # Open new position if signal is not neutral
+                if current_position != 0:
+                    position = {
+                        'direction': 'LONG' if current_position > 0 else 'SHORT',
+                        'entry_time': df.iloc[i]['timestamp'],
+                        'entry_price': df.iloc[i]['close']
+                    }
         
-        num_trades = random.randint(15, 50)
-        for i in range(num_trades):
-            pnl = random.uniform(-100, 200)
+        # Close final position if still open
+        if position is not None:
+            exit_price = df.iloc[-1]['close']
+            exit_time = df.iloc[-1]['timestamp']
+            
+            if position['direction'] == 'LONG':
+                price_change = exit_price - position['entry_price']
+                pnl = (price_change / position['entry_price']) * 10000 * risk_pct
+            else:
+                price_change = position['entry_price'] - exit_price
+                pnl = (price_change / position['entry_price']) * 10000 * risk_pct
+            
             trades.append({
-                'entry_time': f"2025-01-{i+1:02d} 10:00:00",
-                'exit_time': f"2025-01-{i+1:02d} 15:00:00",
-                'direction': 'LONG' if i % 2 == 0 else 'SHORT',
-                'entry_price': 1.0850 + random.uniform(-0.01, 0.01),
-                'exit_price': 1.0850 + random.uniform(-0.01, 0.01),
-                'pnl': pnl
+                'entry_time': str(position['entry_time']),
+                'exit_time': str(exit_time),
+                'direction': position['direction'],
+                'entry_price': float(position['entry_price']),
+                'exit_price': float(exit_price),
+                'pnl': round(pnl, 2)
             })
         
         return trades
@@ -202,11 +281,11 @@ class Phase2AOptimizer:
             recommendation = "Not Viable - Review strategy"
         
         return {
-            "is_viable": is_viable,
-            "passes_pf_threshold": pf_pass,
-            "passes_dd_threshold": dd_pass,
-            "passes_trade_count": trades_pass,
-            "passes_return": return_pass,
+            "is_viable": bool(is_viable),
+            "passes_pf_threshold": bool(pf_pass),
+            "passes_dd_threshold": bool(dd_pass),
+            "passes_trade_count": bool(trades_pass),
+            "passes_return": bool(return_pass),
             "recommendation": recommendation
         }
     
