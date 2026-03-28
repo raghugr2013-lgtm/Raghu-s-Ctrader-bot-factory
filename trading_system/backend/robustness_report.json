@@ -1,0 +1,105 @@
+{
+  "stable_strategies": [
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "train_pf": 1.35,
+      "test_pf": 1.35,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 2.05,
+      "test_return": 8.21
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "train_pf": 1.35,
+      "test_pf": 1.35,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 2.05,
+      "test_return": 8.21
+    },
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "train_pf": 1.35,
+      "test_pf": 1.35,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 4.11,
+      "test_return": 8.21
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "train_pf": 1.35,
+      "test_pf": 1.35,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 4.11,
+      "test_return": 8.21
+    },
+    {
+      "variation_id": "trend_ema30_100_adx20",
+      "train_pf": 1.29,
+      "test_pf": 1.29,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 1.9,
+      "test_return": 7.6
+    },
+    {
+      "variation_id": "trend_ema30_100_adx25",
+      "train_pf": 1.29,
+      "test_pf": 1.29,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 1.9,
+      "test_return": 7.6
+    },
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "train_pf": 1.35,
+      "test_pf": 1.35,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 6.16,
+      "test_return": 8.21
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "train_pf": 1.35,
+      "test_pf": 1.35,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 6.16,
+      "test_return": 8.21
+    },
+    {
+      "variation_id": "trend_ema30_100_adx20",
+      "train_pf": 1.29,
+      "test_pf": 1.29,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 3.8,
+      "test_return": 7.6
+    },
+    {
+      "variation_id": "trend_ema30_100_adx25",
+      "train_pf": 1.29,
+      "test_pf": 1.29,
+      "stability_score": 100.0,
+      "train_trades": 63,
+      "test_trades": 63,
+      "train_return": 3.8,
+      "test_return": 7.6
+    }
+  ],
+  "walk_forward_results": null
+}
