@@ -77,12 +77,12 @@ async def get_status_checks():
 # Include the router in the main app
 app.include_router(api_router)
 
-# Add optimization router if available
+# Add optimization router if available (already has /api prefix)
 if OPTIMIZATION_ENABLED:
     app.include_router(optimization_executor_router)
-    logger.info("✅ Optimization executor enabled")
+    print("✅ Optimization executor enabled at /api/optimization")
 else:
-    logger.warning("⚠️  Optimization executor disabled")
+    print("⚠️  Optimization executor disabled")
 
 app.add_middleware(
     CORSMiddleware,

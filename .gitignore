@@ -82,3 +82,7 @@ memory/test_credentials.md
 android-sdk/trading_system/dukascopy_data.rar
 archive.zip
 trading_system/dukascopy_data.rar
+-e 
+# Environment files
+*.env
+*.env.*
