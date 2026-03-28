@@ -1,0 +1,29 @@
+{
+  "improved_metrics": {
+    "initial_balance": 10000,
+    "final_balance": 10021.39,
+    "net_return_pct": 0.21,
+    "net_return_dollars": 21.39,
+    "total_trades": 151,
+    "winning_trades": 60,
+    "losing_trades": 91,
+    "win_rate_pct": 39.74,
+    "profit_factor": 1.01,
+    "avg_win": 27.26,
+    "avg_loss": 17.74,
+    "max_drawdown_pct": 4.21,
+    "total_costs": 231.47,
+    "spread_costs": 231.47,
+    "commissions": 0,
+    "sharpe_like_ratio": 0.063,
+    "peak_balance": 10461.84
+  },
+  "baseline_metrics": {
+    "trades": 93,
+    "pf": 1.05,
+    "return": 1.1,
+    "dd": 7.12,
+    "costs": 143
+  },
+  "improvement_pct": -80.90909090909092
+}
