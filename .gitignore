@@ -86,3 +86,7 @@ trading_system/dukascopy_data.rar
 # Environment files
 *.env
 *.env.*
+-e 
+# Environment files
+*.env
+*.env.*
