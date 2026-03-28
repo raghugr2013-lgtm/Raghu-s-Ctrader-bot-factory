@@ -1,0 +1,107 @@
+{
+  "position_sizing": {
+    "0.5": {
+      "initial_balance": 10000,
+      "final_balance": 14710.59,
+      "net_return_pct": 47.11,
+      "net_return_dollars": 4710.59,
+      "total_trades": 107,
+      "winning_trades": 36,
+      "losing_trades": 71,
+      "win_rate_pct": 33.64,
+      "profit_factor": 1.22,
+      "avg_win": 723.39,
+      "avg_loss": 300.44,
+      "max_drawdown_pct": 49.99,
+      "total_costs": 46.14,
+      "spread_costs": 46.14,
+      "commissions": 0,
+      "sharpe_like_ratio": 0.678,
+      "peak_balance": 17700.42
+    },
+    "0.25": {
+      "initial_balance": 10000,
+      "final_balance": 13457.28,
+      "net_return_pct": 34.57,
+      "net_return_dollars": 3457.28,
+      "total_trades": 107,
+      "winning_trades": 36,
+      "losing_trades": 71,
+      "win_rate_pct": 33.64,
+      "profit_factor": 1.32,
+      "avg_win": 395.38,
+      "avg_loss": 151.78,
+      "max_drawdown_pct": 28.91,
+      "total_costs": 25.12,
+      "spread_costs": 25.12,
+      "commissions": 0,
+      "sharpe_like_ratio": 0.947,
+      "peak_balance": 14192.53
+    },
+    "0.1": {
+      "initial_balance": 10000,
+      "final_balance": 11601.12,
+      "net_return_pct": 16.01,
+      "net_return_dollars": 1601.12,
+      "total_trades": 107,
+      "winning_trades": 36,
+      "losing_trades": 71,
+      "win_rate_pct": 33.64,
+      "profit_factor": 1.38,
+      "avg_win": 162.08,
+      "avg_loss": 59.63,
+      "max_drawdown_pct": 12.65,
+      "total_costs": 10.4,
+      "spread_costs": 10.4,
+      "commissions": 0,
+      "sharpe_like_ratio": 1.102,
+      "peak_balance": 11718.08
+    }
+  },
+  "equity_stop": {
+    "final_balance": 7926.293588251945,
+    "net_return_pct": -20.73706411748055,
+    "max_dd_pct": 25.226661257644306,
+    "trades_taken": 52,
+    "total_trades": 107,
+    "stopped": true
+  },
+  "portfolio": {
+    "60/40": {
+      "allocation": "60% Gold / 40% S&P",
+      "combined_return_pct": 22.06717790794166,
+      "combined_dd_pct": 17.346,
+      "combined_sharpe": 1.1061999999999999,
+      "return_dd_ratio": 1.2721767501407621,
+      "gold_return": 34.57,
+      "spx_return": 3.31
+    },
+    "50/50": {
+      "allocation": "50% Gold / 50% S&P",
+      "combined_return_pct": 18.940780201543056,
+      "combined_dd_pct": 14.455,
+      "combined_sharpe": 1.1465,
+      "return_dd_ratio": 1.3103272363571814,
+      "gold_return": 34.57,
+      "spx_return": 3.31
+    },
+    "70/30": {
+      "allocation": "70% Gold / 30% S&P",
+      "combined_return_pct": 25.193575614340112,
+      "combined_dd_pct": 20.237,
+      "combined_sharpe": 1.0663999999999998,
+      "return_dd_ratio": 1.2449264028433125,
+      "gold_return": 34.57,
+      "spx_return": 3.31
+    },
+    "40/60": {
+      "allocation": "40% Gold / 60% S&P",
+      "combined_return_pct": 15.814382495144546,
+      "combined_dd_pct": 11.564,
+      "combined_sharpe": 1.1864,
+      "return_dd_ratio": 1.3675529656818182,
+      "gold_return": 34.57,
+      "spx_return": 3.31
+    }
+  }
+}
