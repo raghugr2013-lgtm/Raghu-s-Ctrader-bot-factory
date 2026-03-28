@@ -32,14 +32,14 @@ class Phase2AOptimizer:
             sys.exit(1)
     
     def get_parameter_space(self) -> Dict:
-        """Phase 2A: Small parameter space (8 variations)"""
+        """Phase 2C: Expanded parameter space for more trades (24 variations)"""
         return {
-            "ema_fast": [20, 50],
-            "ema_slow": [100, 200],
-            "adx_threshold": [20, 25],
-            "risk_pct": [1.0],
-            "stop_loss_atr": [2.0],
-            "take_profit_atr": [3.0]
+            "ema_fast": [10, 20, 30],           # 3 values (tighter for more crossovers)
+            "ema_slow": [50, 100, 150],         # 3 values (closer to fast for more signals)
+            "adx_threshold": [20, 25],          # 2 values
+            "risk_pct": [0.5, 1.0, 1.5, 2.0],   # 4 values (test different risk levels)
+            "stop_loss_atr": [2.0],             # Fixed for now
+            "take_profit_atr": [3.0]            # Fixed for now
         }
     
     def generate_combinations(self, params: Dict) -> List[Dict]:
@@ -61,13 +61,14 @@ class Phase2AOptimizer:
     
     def run_trend_strategy(self, parameters: Dict) -> List[Dict]:
         """
-        Real EMA-based trend following strategy
+        Real EMA-based trend following strategy with volatility filter
         
         Entry Rules:
-        - BUY: EMA_fast > EMA_slow
-        - SELL: EMA_fast < EMA_slow
+        - BUY: EMA_fast > EMA_slow AND ATR > threshold
+        - SELL: EMA_fast < EMA_slow AND ATR > threshold
         
         Uses shift(1) to avoid lookahead bias
+        Volatility filter ensures trades only in active markets
         """
         # Extract parameters
         ema_fast = parameters['ema_fast']
@@ -82,14 +83,22 @@ class Phase2AOptimizer:
         df['ema_fast'] = df['close'].ewm(span=ema_fast, adjust=False).mean()
         df['ema_slow'] = df['close'].ewm(span=ema_slow, adjust=False).mean()
         
-        # Calculate ATR for position sizing (simplified)
+        # Calculate ATR for volatility filter and position sizing
         df['high_low'] = df['high'] - df['low']
-        df['atr'] = df['high_low'].rolling(window=14).mean()
+        df['high_close'] = abs(df['high'] - df['close'].shift(1))
+        df['low_close'] = abs(df['low'] - df['close'].shift(1))
+        df['tr'] = df[['high_low', 'high_close', 'low_close']].max(axis=1)
+        df['atr'] = df['tr'].rolling(window=14).mean()
         
-        # Generate signals (avoiding lookahead bias)
+        # Volatility threshold (minimum ATR required for trade)
+        # Using dynamic threshold: 50% of mean ATR
+        mean_atr = df['atr'].mean()
+        volatility_threshold = mean_atr * 0.3  # Only trade when ATR > 30% of average
+        
+        # Generate signals with volatility filter
         df['signal'] = 0
-        df.loc[df['ema_fast'] > df['ema_slow'], 'signal'] = 1   # Long
-        df.loc[df['ema_fast'] < df['ema_slow'], 'signal'] = -1  # Short
+        df.loc[(df['ema_fast'] > df['ema_slow']) & (df['atr'] > volatility_threshold), 'signal'] = 1   # Long
+        df.loc[(df['ema_fast'] < df['ema_slow']) & (df['atr'] > volatility_threshold), 'signal'] = -1  # Short
         
         # Shift signal to avoid lookahead bias
         df['position'] = df['signal'].shift(1)
@@ -293,8 +302,11 @@ class Phase2AOptimizer:
         """Main optimization function"""
         print()
         print("="*80)
-        print("PHASE 2A: CONTROLLED OPTIMIZATION")
+        print("PHASE 2C: EXPANDED OPTIMIZATION (Higher Trade Count)")
         print("="*80)
+        print()
+        print("Strategy: Trend Following with Volatility Filter")
+        print("Parameter Space: Expanded for more reliable results")
         print()
         
         start_time = datetime.utcnow()
@@ -303,9 +315,9 @@ class Phase2AOptimizer:
         param_space = self.get_parameter_space()
         combinations = self.generate_combinations(param_space)
         
-        print(f"Strategy: Trend Following (ONLY)")
         print(f"Parameter combinations: {len(combinations)}")
-        print(f"Expected runtime: ~{len(combinations)}s")
+        print(f"Expected runtime: ~{len(combinations) * 0.05:.1f}s")
+        print(f"Data: {len(self.candles)} candles")
         print()
         
         all_results = []
