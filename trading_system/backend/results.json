@@ -1,50 +1,50 @@
 {
   "optimization_run": {
-    "run_id": "2026-03-28T10:23:43.030891",
+    "run_id": "2026-03-28T10:43:26.087496",
     "run_type": "phase_2a_controlled",
     "phase": "2A",
     "data_info": {
-      "source": "/app/trading_system/data/EURUSD_H1.csv",
-      "candles": 6137,
-      "start_date": "2025-03-28 10:00:00",
+      "source": "/tmp/robustness_test.csv",
+      "candles": 1842,
+      "start_date": "2025-12-08 03:00:00",
       "end_date": "2026-03-27 21:00:00"
     },
     "optimization_config": {
       "strategies_tested": 1,
       "total_variations": 72,
-      "execution_time_seconds": 34.1
+      "execution_time_seconds": 8.8
     }
   },
   "top_strategies": [
     {
-      "variation_id": "trend_ema20_150_adx20",
+      "variation_id": "trend_ema20_50_adx20",
       "strategy_name": "trend_following",
       "parameters": {
         "ema_fast": 20,
-        "ema_slow": 150,
+        "ema_slow": 50,
         "adx_threshold": 20,
-        "risk_pct": 0.5,
+        "risk_pct": 2.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 205.35,
-        "return_pct": 2.05,
-        "max_drawdown_pct": 2.12,
-        "average_win": 34.68,
-        "average_loss": 14.81
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 671.7,
+        "return_pct": 6.72,
+        "max_drawdown_pct": 4.47,
+        "average_win": 128.71,
+        "average_loss": 62.59
       },
-      "ranking_score": 53.6,
+      "ranking_score": 52.7,
       "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 13.7,
-        "drawdown_score": 78.8,
-        "trade_count_score": 100
+        "pf_score": 67.0,
+        "return_score": 44.8,
+        "drawdown_score": 55.3,
+        "trade_count_score": 38
       },
       "viability": {
         "is_viable": true,
@@ -52,39 +52,39 @@
         "passes_dd_threshold": true,
         "passes_trade_count": true,
         "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
+        "recommendation": "Excellent - Ready for Phase 2B"
       },
       "rank": 1
     },
     {
-      "variation_id": "trend_ema20_150_adx25",
+      "variation_id": "trend_ema20_50_adx25",
       "strategy_name": "trend_following",
       "parameters": {
         "ema_fast": 20,
-        "ema_slow": 150,
+        "ema_slow": 50,
         "adx_threshold": 25,
-        "risk_pct": 0.5,
+        "risk_pct": 2.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 205.35,
-        "return_pct": 2.05,
-        "max_drawdown_pct": 2.12,
-        "average_win": 34.68,
-        "average_loss": 14.81
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 671.7,
+        "return_pct": 6.72,
+        "max_drawdown_pct": 4.47,
+        "average_win": 128.71,
+        "average_loss": 62.59
       },
-      "ranking_score": 53.6,
+      "ranking_score": 52.7,
       "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 13.7,
-        "drawdown_score": 78.8,
-        "trade_count_score": 100
+        "pf_score": 67.0,
+        "return_score": 44.8,
+        "drawdown_score": 55.3,
+        "trade_count_score": 38
       },
       "viability": {
         "is_viable": true,
@@ -92,1419 +92,9 @@
         "passes_dd_threshold": true,
         "passes_trade_count": true,
         "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
+        "recommendation": "Excellent - Ready for Phase 2B"
       },
       "rank": 2
-    },
-    {
-      "variation_id": "trend_ema20_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 410.68,
-        "return_pct": 4.11,
-        "max_drawdown_pct": 4.15,
-        "average_win": 69.37,
-        "average_loss": 29.62
-      },
-      "ranking_score": 52.0,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 27.4,
-        "drawdown_score": 58.5,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 3
-    },
-    {
-      "variation_id": "trend_ema20_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 410.68,
-        "return_pct": 4.11,
-        "max_drawdown_pct": 4.15,
-        "average_win": 69.37,
-        "average_loss": 29.62
-      },
-      "ranking_score": 52.0,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 27.4,
-        "drawdown_score": 58.5,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 4
-    },
-    {
-      "variation_id": "trend_ema30_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 190.04,
-        "return_pct": 1.9,
-        "max_drawdown_pct": 2.1,
-        "average_win": 34.11,
-        "average_loss": 17.44
-      },
-      "ranking_score": 51.6,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 12.7,
-        "drawdown_score": 79.0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 5
-    }
-  ],
-  "summary_statistics": {
-    "total_strategies_tested": 72,
-    "viable_strategies": 32,
-    "viability_rate": 44.4,
-    "best_profit_factor": 1.35,
-    "best_return": 8.21,
-    "lowest_drawdown": 2.1
-  },
-  "all_results": [
-    {
-      "variation_id": "trend_ema20_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 205.35,
-        "return_pct": 2.05,
-        "max_drawdown_pct": 2.12,
-        "average_win": 34.68,
-        "average_loss": 14.81
-      },
-      "ranking_score": 53.6,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 13.7,
-        "drawdown_score": 78.8,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 1
-    },
-    {
-      "variation_id": "trend_ema20_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 205.35,
-        "return_pct": 2.05,
-        "max_drawdown_pct": 2.12,
-        "average_win": 34.68,
-        "average_loss": 14.81
-      },
-      "ranking_score": 53.6,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 13.7,
-        "drawdown_score": 78.8,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 2
-    },
-    {
-      "variation_id": "trend_ema20_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 410.68,
-        "return_pct": 4.11,
-        "max_drawdown_pct": 4.15,
-        "average_win": 69.37,
-        "average_loss": 29.62
-      },
-      "ranking_score": 52.0,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 27.4,
-        "drawdown_score": 58.5,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 3
-    },
-    {
-      "variation_id": "trend_ema20_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 410.68,
-        "return_pct": 4.11,
-        "max_drawdown_pct": 4.15,
-        "average_win": 69.37,
-        "average_loss": 29.62
-      },
-      "ranking_score": 52.0,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 27.4,
-        "drawdown_score": 58.5,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 4
-    },
-    {
-      "variation_id": "trend_ema30_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 190.04,
-        "return_pct": 1.9,
-        "max_drawdown_pct": 2.1,
-        "average_win": 34.11,
-        "average_loss": 17.44
-      },
-      "ranking_score": 51.6,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 12.7,
-        "drawdown_score": 79.0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 5
-    },
-    {
-      "variation_id": "trend_ema30_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 190.04,
-        "return_pct": 1.9,
-        "max_drawdown_pct": 2.1,
-        "average_win": 34.11,
-        "average_loss": 17.44
-      },
-      "ranking_score": 51.6,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 12.7,
-        "drawdown_score": 79.0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 6
-    },
-    {
-      "variation_id": "trend_ema20_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 616.02,
-        "return_pct": 6.16,
-        "max_drawdown_pct": 6.08,
-        "average_win": 104.05,
-        "average_loss": 44.43
-      },
-      "ranking_score": 50.6,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 41.1,
-        "drawdown_score": 39.2,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 7
-    },
-    {
-      "variation_id": "trend_ema20_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 616.02,
-        "return_pct": 6.16,
-        "max_drawdown_pct": 6.08,
-        "average_win": 104.05,
-        "average_loss": 44.43
-      },
-      "ranking_score": 50.6,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 41.1,
-        "drawdown_score": 39.2,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 8
-    },
-    {
-      "variation_id": "trend_ema30_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 380.14,
-        "return_pct": 3.8,
-        "max_drawdown_pct": 4.07,
-        "average_win": 68.22,
-        "average_loss": 34.88
-      },
-      "ranking_score": 49.9,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 25.3,
-        "drawdown_score": 59.3,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 9
-    },
-    {
-      "variation_id": "trend_ema30_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 380.14,
-        "return_pct": 3.8,
-        "max_drawdown_pct": 4.07,
-        "average_win": 68.22,
-        "average_loss": 34.88
-      },
-      "ranking_score": 49.9,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 25.3,
-        "drawdown_score": 59.3,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 10
-    },
-    {
-      "variation_id": "trend_ema20_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 821.4,
-        "return_pct": 8.21,
-        "max_drawdown_pct": 7.94,
-        "average_win": 138.73,
-        "average_loss": 59.24
-      },
-      "ranking_score": 49.3,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 54.8,
-        "drawdown_score": 20.6,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 11
-    },
-    {
-      "variation_id": "trend_ema20_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.35,
-        "net_pnl": 821.4,
-        "return_pct": 8.21,
-        "max_drawdown_pct": 7.94,
-        "average_win": 138.73,
-        "average_loss": 59.24
-      },
-      "ranking_score": 49.3,
-      "score_breakdown": {
-        "pf_score": 35.0,
-        "return_score": 54.8,
-        "drawdown_score": 20.6,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Very Good - Proceed to Phase 2B"
-      },
-      "rank": 12
-    },
-    {
-      "variation_id": "trend_ema30_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 570.19,
-        "return_pct": 5.7,
-        "max_drawdown_pct": 5.91,
-        "average_win": 102.33,
-        "average_loss": 52.32
-      },
-      "ranking_score": 48.4,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 38.0,
-        "drawdown_score": 40.9,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 13
-    },
-    {
-      "variation_id": "trend_ema30_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 570.19,
-        "return_pct": 5.7,
-        "max_drawdown_pct": 5.91,
-        "average_win": 102.33,
-        "average_loss": 52.32
-      },
-      "ranking_score": 48.4,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 38.0,
-        "drawdown_score": 40.9,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 14
-    },
-    {
-      "variation_id": "trend_ema30_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 760.33,
-        "return_pct": 7.6,
-        "max_drawdown_pct": 7.63,
-        "average_win": 136.45,
-        "average_loss": 69.76
-      },
-      "ranking_score": 47.3,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 50.7,
-        "drawdown_score": 23.7,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 15
-    },
-    {
-      "variation_id": "trend_ema30_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 25,
-        "losing_trades": 38,
-        "win_rate": 39.68,
-        "profit_factor": 1.29,
-        "net_pnl": 760.33,
-        "return_pct": 7.6,
-        "max_drawdown_pct": 7.63,
-        "average_win": 136.45,
-        "average_loss": 69.76
-      },
-      "ranking_score": 47.3,
-      "score_breakdown": {
-        "pf_score": 29.0,
-        "return_score": 50.7,
-        "drawdown_score": 23.7,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 16
-    },
-    {
-      "variation_id": "trend_ema10_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 136.09,
-        "return_pct": 1.36,
-        "max_drawdown_pct": 2.85,
-        "average_win": 32.23,
-        "average_loss": 13.19
-      },
-      "ranking_score": 44.9,
-      "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 9.1,
-        "drawdown_score": 71.5,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 17
-    },
-    {
-      "variation_id": "trend_ema10_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 136.09,
-        "return_pct": 1.36,
-        "max_drawdown_pct": 2.85,
-        "average_win": 32.23,
-        "average_loss": 13.19
-      },
-      "ranking_score": 44.9,
-      "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 9.1,
-        "drawdown_score": 71.5,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 18
-    },
-    {
-      "variation_id": "trend_ema30_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 70.65,
-        "return_pct": 0.71,
-        "max_drawdown_pct": 2.84,
-        "average_win": 32.28,
-        "average_loss": 16.79
-      },
-      "ranking_score": 42.4,
-      "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 4.7,
-        "drawdown_score": 71.6,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 19
-    },
-    {
-      "variation_id": "trend_ema30_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 70.65,
-        "return_pct": 0.71,
-        "max_drawdown_pct": 2.84,
-        "average_win": 32.28,
-        "average_loss": 16.79
-      },
-      "ranking_score": 42.4,
-      "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 4.7,
-        "drawdown_score": 71.6,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 20
-    },
-    {
-      "variation_id": "trend_ema10_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 272.17,
-        "return_pct": 2.72,
-        "max_drawdown_pct": 5.54,
-        "average_win": 64.45,
-        "average_loss": 26.37
-      },
-      "ranking_score": 40.5,
-      "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 18.1,
-        "drawdown_score": 44.6,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 21
-    },
-    {
-      "variation_id": "trend_ema10_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 272.17,
-        "return_pct": 2.72,
-        "max_drawdown_pct": 5.54,
-        "average_win": 64.45,
-        "average_loss": 26.37
-      },
-      "ranking_score": 40.5,
-      "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 18.1,
-        "drawdown_score": 44.6,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 22
-    },
-    {
-      "variation_id": "trend_ema20_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 14.6,
-        "return_pct": 0.15,
-        "max_drawdown_pct": 2.86,
-        "average_win": 31.01,
-        "average_loss": 17.28
-      },
-      "ranking_score": 38.7,
-      "score_breakdown": {
-        "pf_score": 2.0,
-        "return_score": 1.0,
-        "drawdown_score": 71.4,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 23
-    },
-    {
-      "variation_id": "trend_ema20_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 14.6,
-        "return_pct": 0.15,
-        "max_drawdown_pct": 2.86,
-        "average_win": 31.01,
-        "average_loss": 17.28
-      },
-      "ranking_score": 38.7,
-      "score_breakdown": {
-        "pf_score": 2.0,
-        "return_score": 1.0,
-        "drawdown_score": 71.4,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 24
-    },
-    {
-      "variation_id": "trend_ema10_50_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -67.1,
-        "return_pct": -0.67,
-        "max_drawdown_pct": 2.92,
-        "average_win": 28.94,
-        "average_loss": 14.72
-      },
-      "ranking_score": 37.7,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 70.8,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 25
-    },
-    {
-      "variation_id": "trend_ema10_50_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -67.1,
-        "return_pct": -0.67,
-        "max_drawdown_pct": 2.92,
-        "average_win": 28.94,
-        "average_loss": 14.72
-      },
-      "ranking_score": 37.7,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 70.8,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 26
-    },
-    {
-      "variation_id": "trend_ema30_50_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
-        "adx_threshold": 20,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 14.43,
-        "return_pct": 0.14,
-        "max_drawdown_pct": 3.43,
-        "average_win": 31.68,
-        "average_loss": 20.22
-      },
-      "ranking_score": 37.0,
-      "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 0.9,
-        "drawdown_score": 65.7,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 27
-    },
-    {
-      "variation_id": "trend_ema30_50_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
-        "adx_threshold": 25,
-        "risk_pct": 0.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 14.43,
-        "return_pct": 0.14,
-        "max_drawdown_pct": 3.43,
-        "average_win": 31.68,
-        "average_loss": 20.22
-      },
-      "ranking_score": 37.0,
-      "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 0.9,
-        "drawdown_score": 65.7,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 28
-    },
-    {
-      "variation_id": "trend_ema30_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 141.32,
-        "return_pct": 1.41,
-        "max_drawdown_pct": 5.56,
-        "average_win": 64.56,
-        "average_loss": 33.59
-      },
-      "ranking_score": 36.8,
-      "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 9.4,
-        "drawdown_score": 44.4,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 29
-    },
-    {
-      "variation_id": "trend_ema30_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 1.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 141.32,
-        "return_pct": 1.41,
-        "max_drawdown_pct": 5.56,
-        "average_win": 64.56,
-        "average_loss": 33.59
-      },
-      "ranking_score": 36.8,
-      "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 9.4,
-        "drawdown_score": 44.4,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 30
-    },
-    {
-      "variation_id": "trend_ema10_150_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 150,
-        "adx_threshold": 20,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 408.3,
-        "return_pct": 4.08,
-        "max_drawdown_pct": 8.1,
-        "average_win": 96.68,
-        "average_loss": 39.56
-      },
-      "ranking_score": 36.4,
-      "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 27.2,
-        "drawdown_score": 19.0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 31
-    },
-    {
-      "variation_id": "trend_ema10_150_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 150,
-        "adx_threshold": 25,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 408.3,
-        "return_pct": 4.08,
-        "max_drawdown_pct": 8.1,
-        "average_win": 96.68,
-        "average_loss": 39.56
-      },
-      "ranking_score": 36.4,
-      "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 27.2,
-        "drawdown_score": 19.0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": true,
-        "passes_pf_threshold": true,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Good - Monitor in Phase 2B"
-      },
-      "rank": 32
     },
     {
       "variation_id": "trend_ema20_50_adx20",
@@ -1518,33 +108,73 @@
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -26.19,
-        "return_pct": -0.26,
-        "max_drawdown_pct": 3.58,
-        "average_win": 28.05,
-        "average_loss": 17.2
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 167.91,
+        "return_pct": 1.68,
+        "max_drawdown_pct": 1.21,
+        "average_win": 32.18,
+        "average_loss": 15.65
       },
-      "ranking_score": 36.0,
+      "ranking_score": 52.5,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 64.2,
-        "trade_count_score": 100
+        "pf_score": 67.0,
+        "return_score": 11.2,
+        "drawdown_score": 87.9,
+        "trade_count_score": 38
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
       },
-      "rank": 33
+      "rank": 3
+    },
+    {
+      "variation_id": "trend_ema20_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 503.77,
+        "return_pct": 5.04,
+        "max_drawdown_pct": 3.44,
+        "average_win": 96.53,
+        "average_loss": 46.95
+      },
+      "ranking_score": 52.5,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 33.6,
+        "drawdown_score": 65.6,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 4
     },
     {
       "variation_id": "trend_ema20_50_adx25",
@@ -1558,33 +188,1323 @@
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -26.19,
-        "return_pct": -0.26,
-        "max_drawdown_pct": 3.58,
-        "average_win": 28.05,
-        "average_loss": 17.2
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 167.91,
+        "return_pct": 1.68,
+        "max_drawdown_pct": 1.21,
+        "average_win": 32.18,
+        "average_loss": 15.65
       },
-      "ranking_score": 36.0,
+      "ranking_score": 52.5,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 64.2,
-        "trade_count_score": 100
+        "pf_score": 67.0,
+        "return_score": 11.2,
+        "drawdown_score": 87.9,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 5
+    }
+  ],
+  "summary_statistics": {
+    "total_strategies_tested": 72,
+    "viable_strategies": 40,
+    "viability_rate": 55.6,
+    "best_profit_factor": 1.67,
+    "best_return": 6.72,
+    "lowest_drawdown": 0.67
+  },
+  "all_results": [
+    {
+      "variation_id": "trend_ema20_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 671.7,
+        "return_pct": 6.72,
+        "max_drawdown_pct": 4.47,
+        "average_win": 128.71,
+        "average_loss": 62.59
+      },
+      "ranking_score": 52.7,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 44.8,
+        "drawdown_score": 55.3,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 1
+    },
+    {
+      "variation_id": "trend_ema20_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 671.7,
+        "return_pct": 6.72,
+        "max_drawdown_pct": 4.47,
+        "average_win": 128.71,
+        "average_loss": 62.59
+      },
+      "ranking_score": 52.7,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 44.8,
+        "drawdown_score": 55.3,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 2
+    },
+    {
+      "variation_id": "trend_ema20_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 167.91,
+        "return_pct": 1.68,
+        "max_drawdown_pct": 1.21,
+        "average_win": 32.18,
+        "average_loss": 15.65
+      },
+      "ranking_score": 52.5,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 11.2,
+        "drawdown_score": 87.9,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 3
+    },
+    {
+      "variation_id": "trend_ema20_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 503.77,
+        "return_pct": 5.04,
+        "max_drawdown_pct": 3.44,
+        "average_win": 96.53,
+        "average_loss": 46.95
+      },
+      "ranking_score": 52.5,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 33.6,
+        "drawdown_score": 65.6,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 4
+    },
+    {
+      "variation_id": "trend_ema20_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 167.91,
+        "return_pct": 1.68,
+        "max_drawdown_pct": 1.21,
+        "average_win": 32.18,
+        "average_loss": 15.65
+      },
+      "ranking_score": 52.5,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 11.2,
+        "drawdown_score": 87.9,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 5
+    },
+    {
+      "variation_id": "trend_ema20_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 503.77,
+        "return_pct": 5.04,
+        "max_drawdown_pct": 3.44,
+        "average_win": 96.53,
+        "average_loss": 46.95
+      },
+      "ranking_score": 52.5,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 33.6,
+        "drawdown_score": 65.6,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 6
+    },
+    {
+      "variation_id": "trend_ema20_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 335.88,
+        "return_pct": 3.36,
+        "max_drawdown_pct": 2.35,
+        "average_win": 64.36,
+        "average_loss": 31.3
+      },
+      "ranking_score": 52.4,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 22.4,
+        "drawdown_score": 76.5,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 7
+    },
+    {
+      "variation_id": "trend_ema20_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 13,
+        "losing_trades": 16,
+        "win_rate": 44.83,
+        "profit_factor": 1.67,
+        "net_pnl": 335.88,
+        "return_pct": 3.36,
+        "max_drawdown_pct": 2.35,
+        "average_win": 64.36,
+        "average_loss": 31.3
+      },
+      "ranking_score": 52.4,
+      "score_breakdown": {
+        "pf_score": 67.0,
+        "return_score": 22.4,
+        "drawdown_score": 76.5,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 8
+    },
+    {
+      "variation_id": "trend_ema10_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 130.23,
+        "return_pct": 1.3,
+        "max_drawdown_pct": 1.34,
+        "average_win": 30.4,
+        "average_loss": 11.36
+      },
+      "ranking_score": 49.4,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 8.7,
+        "drawdown_score": 86.6,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 9
+    },
+    {
+      "variation_id": "trend_ema10_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 130.23,
+        "return_pct": 1.3,
+        "max_drawdown_pct": 1.34,
+        "average_win": 30.4,
+        "average_loss": 11.36
+      },
+      "ranking_score": 49.4,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 8.7,
+        "drawdown_score": 86.6,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 10
+    },
+    {
+      "variation_id": "trend_ema10_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 260.42,
+        "return_pct": 2.6,
+        "max_drawdown_pct": 2.63,
+        "average_win": 60.81,
+        "average_loss": 22.73
+      },
+      "ranking_score": 48.4,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 17.3,
+        "drawdown_score": 73.7,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 11
+    },
+    {
+      "variation_id": "trend_ema10_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 260.42,
+        "return_pct": 2.6,
+        "max_drawdown_pct": 2.63,
+        "average_win": 60.81,
+        "average_loss": 22.73
+      },
+      "ranking_score": 48.4,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 17.3,
+        "drawdown_score": 73.7,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 12
+    },
+    {
+      "variation_id": "trend_ema10_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 390.64,
+        "return_pct": 3.91,
+        "max_drawdown_pct": 3.85,
+        "average_win": 91.21,
+        "average_loss": 34.09
+      },
+      "ranking_score": 47.5,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 26.1,
+        "drawdown_score": 61.5,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 13
+    },
+    {
+      "variation_id": "trend_ema10_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 390.64,
+        "return_pct": 3.91,
+        "max_drawdown_pct": 3.85,
+        "average_win": 91.21,
+        "average_loss": 34.09
+      },
+      "ranking_score": 47.5,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 26.1,
+        "drawdown_score": 61.5,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 14
+    },
+    {
+      "variation_id": "trend_ema10_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 520.85,
+        "return_pct": 5.21,
+        "max_drawdown_pct": 5.02,
+        "average_win": 121.62,
+        "average_loss": 45.45
+      },
+      "ranking_score": 46.7,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 34.8,
+        "drawdown_score": 49.8,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 15
+    },
+    {
+      "variation_id": "trend_ema10_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 41,
+        "winning_trades": 14,
+        "losing_trades": 26,
+        "win_rate": 34.15,
+        "profit_factor": 1.44,
+        "net_pnl": 520.85,
+        "return_pct": 5.21,
+        "max_drawdown_pct": 5.02,
+        "average_win": 121.62,
+        "average_loss": 45.45
+      },
+      "ranking_score": 46.7,
+      "score_breakdown": {
+        "pf_score": 44.0,
+        "return_score": 34.8,
+        "drawdown_score": 49.8,
+        "trade_count_score": 62
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Very Good - Proceed to Phase 2B"
+      },
+      "rank": 16
+    },
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 20,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 78.46,
+        "return_pct": 0.78,
+        "max_drawdown_pct": 0.67,
+        "average_win": 30.85,
+        "average_loss": 13.75
+      },
+      "ranking_score": 44.5,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 5.2,
+        "drawdown_score": 93.3,
+        "trade_count_score": 14
       },
       "viability": {
         "is_viable": false,
-        "passes_pf_threshold": false,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
+        "passes_trade_count": false,
+        "passes_return": true,
         "recommendation": "Not Viable - Review strategy"
       },
-      "rank": 34
+      "rank": 17
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 25,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 78.46,
+        "return_pct": 0.78,
+        "max_drawdown_pct": 0.67,
+        "average_win": 30.85,
+        "average_loss": 13.75
+      },
+      "ranking_score": 44.5,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 5.2,
+        "drawdown_score": 93.3,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 18
+    },
+    {
+      "variation_id": "trend_ema30_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 122.78,
+        "return_pct": 1.23,
+        "max_drawdown_pct": 1.12,
+        "average_win": 32.44,
+        "average_loss": 23.41
+      },
+      "ranking_score": 44.3,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 8.2,
+        "drawdown_score": 88.8,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 19
+    },
+    {
+      "variation_id": "trend_ema30_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 122.78,
+        "return_pct": 1.23,
+        "max_drawdown_pct": 1.12,
+        "average_win": 32.44,
+        "average_loss": 23.41
+      },
+      "ranking_score": 44.3,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 8.2,
+        "drawdown_score": 88.8,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 20
+    },
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 20,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 156.95,
+        "return_pct": 1.57,
+        "max_drawdown_pct": 1.34,
+        "average_win": 61.7,
+        "average_loss": 27.49
+      },
+      "ranking_score": 44.2,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 10.5,
+        "drawdown_score": 86.6,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 21
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 156.95,
+        "return_pct": 1.57,
+        "max_drawdown_pct": 1.34,
+        "average_win": 61.7,
+        "average_loss": 27.49
+      },
+      "ranking_score": 44.2,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 10.5,
+        "drawdown_score": 86.6,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 22
+    },
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 235.42,
+        "return_pct": 2.35,
+        "max_drawdown_pct": 2.0,
+        "average_win": 92.55,
+        "average_loss": 41.24
+      },
+      "ranking_score": 43.8,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 15.7,
+        "drawdown_score": 80.0,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 23
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 25,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 235.42,
+        "return_pct": 2.35,
+        "max_drawdown_pct": 2.0,
+        "average_win": 92.55,
+        "average_loss": 41.24
+      },
+      "ranking_score": 43.8,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 15.7,
+        "drawdown_score": 80.0,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 24
+    },
+    {
+      "variation_id": "trend_ema30_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 245.56,
+        "return_pct": 2.46,
+        "max_drawdown_pct": 2.19,
+        "average_win": 64.88,
+        "average_loss": 46.82
+      },
+      "ranking_score": 43.6,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 16.4,
+        "drawdown_score": 78.1,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 25
+    },
+    {
+      "variation_id": "trend_ema30_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 245.56,
+        "return_pct": 2.46,
+        "max_drawdown_pct": 2.19,
+        "average_win": 64.88,
+        "average_loss": 46.82
+      },
+      "ranking_score": 43.6,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 16.4,
+        "drawdown_score": 78.1,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 26
+    },
+    {
+      "variation_id": "trend_ema20_150_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 20,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 313.9,
+        "return_pct": 3.14,
+        "max_drawdown_pct": 2.64,
+        "average_win": 123.4,
+        "average_loss": 54.99
+      },
+      "ranking_score": 43.5,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 20.9,
+        "drawdown_score": 73.6,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 27
+    },
+    {
+      "variation_id": "trend_ema20_150_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 150,
+        "adx_threshold": 25,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 17,
+        "winning_trades": 7,
+        "losing_trades": 10,
+        "win_rate": 41.18,
+        "profit_factor": 1.57,
+        "net_pnl": 313.9,
+        "return_pct": 3.14,
+        "max_drawdown_pct": 2.64,
+        "average_win": 123.4,
+        "average_loss": 54.99
+      },
+      "ranking_score": 43.5,
+      "score_breakdown": {
+        "pf_score": 57.0,
+        "return_score": 20.9,
+        "drawdown_score": 73.6,
+        "trade_count_score": 14
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 28
+    },
+    {
+      "variation_id": "trend_ema30_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 368.37,
+        "return_pct": 3.68,
+        "max_drawdown_pct": 3.22,
+        "average_win": 97.32,
+        "average_loss": 70.22
+      },
+      "ranking_score": 43.1,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 24.5,
+        "drawdown_score": 67.8,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 29
+    },
+    {
+      "variation_id": "trend_ema30_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 368.37,
+        "return_pct": 3.68,
+        "max_drawdown_pct": 3.22,
+        "average_win": 97.32,
+        "average_loss": 70.22
+      },
+      "ranking_score": 43.1,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 24.5,
+        "drawdown_score": 67.8,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 30
+    },
+    {
+      "variation_id": "trend_ema30_50_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 20,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 491.15,
+        "return_pct": 4.91,
+        "max_drawdown_pct": 4.21,
+        "average_win": 129.77,
+        "average_loss": 93.63
+      },
+      "ranking_score": 42.7,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 32.7,
+        "drawdown_score": 57.9,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 31
+    },
+    {
+      "variation_id": "trend_ema30_50_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 50,
+        "adx_threshold": 25,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 11,
+        "losing_trades": 10,
+        "win_rate": 52.38,
+        "profit_factor": 1.52,
+        "net_pnl": 491.15,
+        "return_pct": 4.91,
+        "max_drawdown_pct": 4.21,
+        "average_win": 129.77,
+        "average_loss": 93.63
+      },
+      "ranking_score": 42.7,
+      "score_breakdown": {
+        "pf_score": 52.0,
+        "return_score": 32.7,
+        "drawdown_score": 57.9,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Excellent - Ready for Phase 2B"
+      },
+      "rank": 32
     },
     {
       "variation_id": "trend_ema10_100_adx20",
@@ -1598,33 +1518,33 @@
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -107.97,
-        "return_pct": -1.08,
-        "max_drawdown_pct": 4.17,
-        "average_win": 26.64,
-        "average_loss": 13.83
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 49.89,
+        "return_pct": 0.5,
+        "max_drawdown_pct": 1.18,
+        "average_win": 23.93,
+        "average_loss": 10.05
       },
-      "ranking_score": 34.6,
+      "ranking_score": 40.2,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 58.3,
-        "trade_count_score": 100
+        "pf_score": 19.0,
+        "return_score": 3.3,
+        "drawdown_score": 88.2,
+        "trade_count_score": 58
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
       },
-      "rank": 35
+      "rank": 33
     },
     {
       "variation_id": "trend_ema10_100_adx25",
@@ -1638,63 +1558,143 @@
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -107.97,
-        "return_pct": -1.08,
-        "max_drawdown_pct": 4.17,
-        "average_win": 26.64,
-        "average_loss": 13.83
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 49.89,
+        "return_pct": 0.5,
+        "max_drawdown_pct": 1.18,
+        "average_win": 23.93,
+        "average_loss": 10.05
       },
-      "ranking_score": 34.6,
+      "ranking_score": 40.2,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 58.3,
-        "trade_count_score": 100
+        "pf_score": 19.0,
+        "return_score": 3.3,
+        "drawdown_score": 88.2,
+        "trade_count_score": 58
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
       },
-      "rank": 36
+      "rank": 34
     },
     {
-      "variation_id": "trend_ema10_150_adx20",
+      "variation_id": "trend_ema10_100_adx20",
       "strategy_name": "trend_following",
       "parameters": {
         "ema_fast": 10,
-        "ema_slow": 150,
+        "ema_slow": 100,
         "adx_threshold": 20,
-        "risk_pct": 2.0,
+        "risk_pct": 1.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 544.28,
-        "return_pct": 5.44,
-        "max_drawdown_pct": 10.52,
-        "average_win": 128.91,
-        "average_loss": 52.75
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 99.76,
+        "return_pct": 1.0,
+        "max_drawdown_pct": 2.34,
+        "average_win": 47.86,
+        "average_loss": 20.09
       },
-      "ranking_score": 33.9,
+      "ranking_score": 38.1,
       "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 36.3,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "pf_score": 19.0,
+        "return_score": 6.7,
+        "drawdown_score": 76.6,
+        "trade_count_score": 58
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
+      },
+      "rank": 35
+    },
+    {
+      "variation_id": "trend_ema10_100_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 100,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 99.76,
+        "return_pct": 1.0,
+        "max_drawdown_pct": 2.34,
+        "average_win": 47.86,
+        "average_loss": 20.09
+      },
+      "ranking_score": 38.1,
+      "score_breakdown": {
+        "pf_score": 19.0,
+        "return_score": 6.7,
+        "drawdown_score": 76.6,
+        "trade_count_score": 58
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
+      },
+      "rank": 36
+    },
+    {
+      "variation_id": "trend_ema10_100_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 100,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 149.61,
+        "return_pct": 1.5,
+        "max_drawdown_pct": 3.45,
+        "average_win": 71.79,
+        "average_loss": 30.14
+      },
+      "ranking_score": 36.2,
+      "score_breakdown": {
+        "pf_score": 19.0,
+        "return_score": 10.0,
+        "drawdown_score": 65.5,
+        "trade_count_score": 58
       },
       "viability": {
         "is_viable": true,
@@ -1707,34 +1707,34 @@
       "rank": 37
     },
     {
-      "variation_id": "trend_ema10_150_adx25",
+      "variation_id": "trend_ema10_100_adx25",
       "strategy_name": "trend_following",
       "parameters": {
         "ema_fast": 10,
-        "ema_slow": 150,
+        "ema_slow": 100,
         "adx_threshold": 25,
-        "risk_pct": 2.0,
+        "risk_pct": 1.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 93,
-        "winning_trades": 30,
-        "losing_trades": 63,
-        "win_rate": 32.26,
-        "profit_factor": 1.16,
-        "net_pnl": 544.28,
-        "return_pct": 5.44,
-        "max_drawdown_pct": 10.52,
-        "average_win": 128.91,
-        "average_loss": 52.75
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 149.61,
+        "return_pct": 1.5,
+        "max_drawdown_pct": 3.45,
+        "average_win": 71.79,
+        "average_loss": 30.14
       },
-      "ranking_score": 33.9,
+      "ranking_score": 36.2,
       "score_breakdown": {
-        "pf_score": 16.0,
-        "return_score": 36.3,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "pf_score": 19.0,
+        "return_score": 10.0,
+        "drawdown_score": 65.5,
+        "trade_count_score": 58
       },
       "viability": {
         "is_viable": true,
@@ -1747,82 +1747,82 @@
       "rank": 38
     },
     {
-      "variation_id": "trend_ema20_100_adx20",
+      "variation_id": "trend_ema10_100_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
+        "ema_fast": 10,
         "ema_slow": 100,
         "adx_threshold": 20,
-        "risk_pct": 1.0,
+        "risk_pct": 2.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 29.17,
-        "return_pct": 0.29,
-        "max_drawdown_pct": 5.63,
-        "average_win": 62.01,
-        "average_loss": 34.55
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 199.49,
+        "return_pct": 1.99,
+        "max_drawdown_pct": 4.54,
+        "average_win": 95.73,
+        "average_loss": 40.19
       },
-      "ranking_score": 32.0,
+      "ranking_score": 34.3,
       "score_breakdown": {
-        "pf_score": 2.0,
-        "return_score": 1.9,
-        "drawdown_score": 43.7,
-        "trade_count_score": 100
+        "pf_score": 19.0,
+        "return_score": 13.3,
+        "drawdown_score": 54.6,
+        "trade_count_score": 58
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
         "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
+        "recommendation": "Good - Monitor in Phase 2B"
       },
       "rank": 39
     },
     {
-      "variation_id": "trend_ema20_100_adx25",
+      "variation_id": "trend_ema10_100_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
+        "ema_fast": 10,
         "ema_slow": 100,
         "adx_threshold": 25,
-        "risk_pct": 1.0,
+        "risk_pct": 2.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 29.17,
-        "return_pct": 0.29,
-        "max_drawdown_pct": 5.63,
-        "average_win": 62.01,
-        "average_loss": 34.55
+        "total_trades": 39,
+        "winning_trades": 13,
+        "losing_trades": 26,
+        "win_rate": 33.33,
+        "profit_factor": 1.19,
+        "net_pnl": 199.49,
+        "return_pct": 1.99,
+        "max_drawdown_pct": 4.54,
+        "average_win": 95.73,
+        "average_loss": 40.19
       },
-      "ranking_score": 32.0,
+      "ranking_score": 34.3,
       "score_breakdown": {
-        "pf_score": 2.0,
-        "return_score": 1.9,
-        "drawdown_score": 43.7,
-        "trade_count_score": 100
+        "pf_score": 19.0,
+        "return_score": 13.3,
+        "drawdown_score": 54.6,
+        "trade_count_score": 58
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
         "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
+        "recommendation": "Good - Monitor in Phase 2B"
       },
       "rank": 40
     },
@@ -1833,28 +1833,28 @@
         "ema_fast": 30,
         "ema_slow": 150,
         "adx_threshold": 20,
-        "risk_pct": 1.5,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 212.04,
-        "return_pct": 2.12,
-        "max_drawdown_pct": 8.16,
-        "average_win": 96.84,
-        "average_loss": 50.38
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 26.6,
+        "return_pct": 0.27,
+        "max_drawdown_pct": 0.69,
+        "average_win": 25.85,
+        "average_loss": 11.02
       },
-      "ranking_score": 31.4,
+      "ranking_score": 33.2,
       "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 14.1,
-        "drawdown_score": 18.4,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 1.8,
+        "drawdown_score": 93.1,
+        "trade_count_score": 22
       },
       "viability": {
         "is_viable": true,
@@ -1873,28 +1873,28 @@
         "ema_fast": 30,
         "ema_slow": 150,
         "adx_threshold": 25,
-        "risk_pct": 1.5,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 212.04,
-        "return_pct": 2.12,
-        "max_drawdown_pct": 8.16,
-        "average_win": 96.84,
-        "average_loss": 50.38
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 26.6,
+        "return_pct": 0.27,
+        "max_drawdown_pct": 0.69,
+        "average_win": 25.85,
+        "average_loss": 11.02
       },
-      "ranking_score": 31.4,
+      "ranking_score": 33.2,
       "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 14.1,
-        "drawdown_score": 18.4,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 1.8,
+        "drawdown_score": 93.1,
+        "trade_count_score": 22
       },
       "viability": {
         "is_viable": true,
@@ -1907,114 +1907,114 @@
       "rank": 42
     },
     {
-      "variation_id": "trend_ema10_50_adx20",
+      "variation_id": "trend_ema30_150_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 150,
         "adx_threshold": 20,
         "risk_pct": 1.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -134.25,
-        "return_pct": -1.34,
-        "max_drawdown_pct": 5.85,
-        "average_win": 57.88,
-        "average_loss": 29.44
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 53.27,
+        "return_pct": 0.53,
+        "max_drawdown_pct": 1.38,
+        "average_win": 51.69,
+        "average_loss": 22.04
       },
-      "ranking_score": 30.4,
+      "ranking_score": 31.9,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 41.5,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 3.5,
+        "drawdown_score": 86.2,
+        "trade_count_score": 22
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
       },
       "rank": 43
     },
     {
-      "variation_id": "trend_ema10_50_adx25",
+      "variation_id": "trend_ema30_150_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 150,
         "adx_threshold": 25,
         "risk_pct": 1.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -134.25,
-        "return_pct": -1.34,
-        "max_drawdown_pct": 5.85,
-        "average_win": 57.88,
-        "average_loss": 29.44
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 53.27,
+        "return_pct": 0.53,
+        "max_drawdown_pct": 1.38,
+        "average_win": 51.69,
+        "average_loss": 22.04
       },
-      "ranking_score": 30.4,
+      "ranking_score": 31.9,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 41.5,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 3.5,
+        "drawdown_score": 86.2,
+        "trade_count_score": 22
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
       },
       "rank": 44
     },
     {
-      "variation_id": "trend_ema30_50_adx20",
+      "variation_id": "trend_ema10_150_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
+        "ema_fast": 10,
+        "ema_slow": 150,
         "adx_threshold": 20,
-        "risk_pct": 1.0,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 28.86,
-        "return_pct": 0.29,
-        "max_drawdown_pct": 6.8,
-        "average_win": 63.37,
-        "average_loss": 40.44
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 21.54,
+        "return_pct": 0.22,
+        "max_drawdown_pct": 1.47,
+        "average_win": 32.97,
+        "average_loss": 13.76
       },
-      "ranking_score": 28.8,
+      "ranking_score": 31.7,
       "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 1.9,
-        "drawdown_score": 32.0,
-        "trade_count_score": 100
+        "pf_score": 8.0,
+        "return_score": 1.5,
+        "drawdown_score": 85.3,
+        "trade_count_score": 38
       },
       "viability": {
         "is_viable": false,
@@ -2027,34 +2027,34 @@
       "rank": 45
     },
     {
-      "variation_id": "trend_ema30_50_adx25",
+      "variation_id": "trend_ema10_150_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
+        "ema_fast": 10,
+        "ema_slow": 150,
         "adx_threshold": 25,
-        "risk_pct": 1.0,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 28.86,
-        "return_pct": 0.29,
-        "max_drawdown_pct": 6.8,
-        "average_win": 63.37,
-        "average_loss": 40.44
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 21.54,
+        "return_pct": 0.22,
+        "max_drawdown_pct": 1.47,
+        "average_win": 32.97,
+        "average_loss": 13.76
       },
-      "ranking_score": 28.8,
+      "ranking_score": 31.7,
       "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 1.9,
-        "drawdown_score": 32.0,
-        "trade_count_score": 100
+        "pf_score": 8.0,
+        "return_score": 1.5,
+        "drawdown_score": 85.3,
+        "trade_count_score": 38
       },
       "viability": {
         "is_viable": false,
@@ -2073,28 +2073,28 @@
         "ema_fast": 30,
         "ema_slow": 150,
         "adx_threshold": 20,
-        "risk_pct": 2.0,
+        "risk_pct": 1.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 282.69,
-        "return_pct": 2.83,
-        "max_drawdown_pct": 10.65,
-        "average_win": 129.12,
-        "average_loss": 67.18
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 79.87,
+        "return_pct": 0.8,
+        "max_drawdown_pct": 2.07,
+        "average_win": 77.54,
+        "average_loss": 33.07
       },
-      "ranking_score": 28.0,
+      "ranking_score": 30.7,
       "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 18.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 5.3,
+        "drawdown_score": 79.3,
+        "trade_count_score": 22
       },
       "viability": {
         "is_viable": true,
@@ -2113,28 +2113,28 @@
         "ema_fast": 30,
         "ema_slow": 150,
         "adx_threshold": 25,
-        "risk_pct": 2.0,
+        "risk_pct": 1.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 63,
-        "winning_trades": 23,
-        "losing_trades": 40,
-        "win_rate": 36.51,
-        "profit_factor": 1.11,
-        "net_pnl": 282.69,
-        "return_pct": 2.83,
-        "max_drawdown_pct": 10.65,
-        "average_win": 129.12,
-        "average_loss": 67.18
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 79.87,
+        "return_pct": 0.8,
+        "max_drawdown_pct": 2.07,
+        "average_win": 77.54,
+        "average_loss": 33.07
       },
-      "ranking_score": 28.0,
+      "ranking_score": 30.7,
       "score_breakdown": {
-        "pf_score": 11.0,
-        "return_score": 18.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 5.3,
+        "drawdown_score": 79.3,
+        "trade_count_score": 22
       },
       "viability": {
         "is_viable": true,
@@ -2147,114 +2147,114 @@
       "rank": 48
     },
     {
-      "variation_id": "trend_ema20_50_adx20",
+      "variation_id": "trend_ema30_150_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 150,
         "adx_threshold": 20,
-        "risk_pct": 1.0,
+        "risk_pct": 2.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -52.26,
-        "return_pct": -0.52,
-        "max_drawdown_pct": 7.11,
-        "average_win": 56.09,
-        "average_loss": 34.4
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 106.5,
+        "return_pct": 1.06,
+        "max_drawdown_pct": 2.75,
+        "average_win": 103.39,
+        "average_loss": 44.09
       },
-      "ranking_score": 27.2,
+      "ranking_score": 29.4,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 28.9,
-        "trade_count_score": 100
+        "pf_score": 17.0,
+        "return_score": 7.1,
+        "drawdown_score": 72.5,
+        "trade_count_score": 22
       },
       "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
+        "is_viable": true,
+        "passes_pf_threshold": true,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
       },
       "rank": 49
     },
     {
-      "variation_id": "trend_ema20_50_adx25",
+      "variation_id": "trend_ema30_150_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 150,
         "adx_threshold": 25,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 21,
+        "winning_trades": 7,
+        "losing_trades": 14,
+        "win_rate": 33.33,
+        "profit_factor": 1.17,
+        "net_pnl": 106.5,
+        "return_pct": 1.06,
+        "max_drawdown_pct": 2.75,
+        "average_win": 103.39,
+        "average_loss": 44.09
+      },
+      "ranking_score": 29.4,
+      "score_breakdown": {
+        "pf_score": 17.0,
+        "return_score": 7.1,
+        "drawdown_score": 72.5,
+        "trade_count_score": 22
+      },
+      "viability": {
+        "is_viable": true,
+        "passes_pf_threshold": true,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Good - Monitor in Phase 2B"
+      },
+      "rank": 50
+    },
+    {
+      "variation_id": "trend_ema10_150_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 150,
+        "adx_threshold": 20,
         "risk_pct": 1.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -52.26,
-        "return_pct": -0.52,
-        "max_drawdown_pct": 7.11,
-        "average_win": 56.09,
-        "average_loss": 34.4
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 43.1,
+        "return_pct": 0.43,
+        "max_drawdown_pct": 2.9,
+        "average_win": 65.93,
+        "average_loss": 27.52
       },
-      "ranking_score": 27.2,
+      "ranking_score": 28.5,
       "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 28.9,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 50
-    },
-    {
-      "variation_id": "trend_ema20_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 43.79,
-        "return_pct": 0.44,
-        "max_drawdown_pct": 8.31,
-        "average_win": 93.02,
-        "average_loss": 51.82
-      },
-      "ranking_score": 25.6,
-      "score_breakdown": {
-        "pf_score": 2.0,
+        "pf_score": 8.0,
         "return_score": 2.9,
-        "drawdown_score": 16.9,
-        "trade_count_score": 100
+        "drawdown_score": 71.0,
+        "trade_count_score": 38
       },
       "viability": {
         "is_viable": false,
@@ -2267,34 +2267,34 @@
       "rank": 51
     },
     {
-      "variation_id": "trend_ema20_100_adx25",
+      "variation_id": "trend_ema10_150_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 100,
+        "ema_fast": 10,
+        "ema_slow": 150,
         "adx_threshold": 25,
-        "risk_pct": 1.5,
+        "risk_pct": 1.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 43.79,
-        "return_pct": 0.44,
-        "max_drawdown_pct": 8.31,
-        "average_win": 93.02,
-        "average_loss": 51.82
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 43.1,
+        "return_pct": 0.43,
+        "max_drawdown_pct": 2.9,
+        "average_win": 65.93,
+        "average_loss": 27.52
       },
-      "ranking_score": 25.6,
+      "ranking_score": 28.5,
       "score_breakdown": {
-        "pf_score": 2.0,
+        "pf_score": 8.0,
         "return_score": 2.9,
-        "drawdown_score": 16.9,
-        "trade_count_score": 100
+        "drawdown_score": 71.0,
+        "trade_count_score": 38
       },
       "viability": {
         "is_viable": false,
@@ -2307,34 +2307,34 @@
       "rank": 52
     },
     {
-      "variation_id": "trend_ema10_100_adx20",
+      "variation_id": "trend_ema20_100_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 10,
+        "ema_fast": 20,
         "ema_slow": 100,
         "adx_threshold": 20,
-        "risk_pct": 1.0,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -215.97,
-        "return_pct": -2.16,
-        "max_drawdown_pct": 8.24,
-        "average_win": 53.28,
-        "average_loss": 27.66
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -2.8,
+        "return_pct": -0.03,
+        "max_drawdown_pct": 1.05,
+        "average_win": 25.54,
+        "average_loss": 19.86
       },
-      "ranking_score": 24.4,
+      "ranking_score": 27.6,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 17.6,
-        "trade_count_score": 100
+        "drawdown_score": 89.5,
+        "trade_count_score": 26
       },
       "viability": {
         "is_viable": false,
@@ -2347,34 +2347,34 @@
       "rank": 53
     },
     {
-      "variation_id": "trend_ema10_100_adx25",
+      "variation_id": "trend_ema20_100_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 10,
+        "ema_fast": 20,
         "ema_slow": 100,
         "adx_threshold": 25,
-        "risk_pct": 1.0,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -215.97,
-        "return_pct": -2.16,
-        "max_drawdown_pct": 8.24,
-        "average_win": 53.28,
-        "average_loss": 27.66
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -2.8,
+        "return_pct": -0.03,
+        "max_drawdown_pct": 1.05,
+        "average_win": 25.54,
+        "average_loss": 19.86
       },
-      "ranking_score": 24.4,
+      "ranking_score": 27.6,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 17.6,
-        "trade_count_score": 100
+        "drawdown_score": 89.5,
+        "trade_count_score": 26
       },
       "viability": {
         "is_viable": false,
@@ -2387,74 +2387,194 @@
       "rank": 54
     },
     {
-      "variation_id": "trend_ema10_50_adx20",
+      "variation_id": "trend_ema30_100_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 100,
         "adx_threshold": 20,
-        "risk_pct": 1.5,
+        "risk_pct": 0.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -201.43,
-        "return_pct": -2.01,
-        "max_drawdown_pct": 8.77,
-        "average_win": 86.81,
-        "average_loss": 44.16
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -34.16,
+        "return_pct": -0.34,
+        "max_drawdown_pct": 1.21,
+        "average_win": 24.22,
+        "average_loss": 25.21
       },
-      "ranking_score": 23.1,
+      "ranking_score": 25.6,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 12.3,
-        "trade_count_score": 100
+        "drawdown_score": 87.9,
+        "trade_count_score": 18
       },
       "viability": {
         "is_viable": false,
         "passes_pf_threshold": false,
         "passes_dd_threshold": true,
-        "passes_trade_count": true,
+        "passes_trade_count": false,
         "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
       },
       "rank": 55
     },
     {
-      "variation_id": "trend_ema10_50_adx25",
+      "variation_id": "trend_ema30_100_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 100,
+        "adx_threshold": 25,
+        "risk_pct": 0.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -34.16,
+        "return_pct": -0.34,
+        "max_drawdown_pct": 1.21,
+        "average_win": 24.22,
+        "average_loss": 25.21
+      },
+      "ranking_score": 25.6,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 87.9,
+        "trade_count_score": 18
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 56
+    },
+    {
+      "variation_id": "trend_ema10_150_adx20",
       "strategy_name": "trend_following",
       "parameters": {
         "ema_fast": 10,
-        "ema_slow": 50,
+        "ema_slow": 150,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 64.64,
+        "return_pct": 0.65,
+        "max_drawdown_pct": 4.28,
+        "average_win": 98.9,
+        "average_loss": 41.27
+      },
+      "ranking_score": 25.4,
+      "score_breakdown": {
+        "pf_score": 8.0,
+        "return_score": 4.3,
+        "drawdown_score": 57.2,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 57
+    },
+    {
+      "variation_id": "trend_ema10_150_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 150,
         "adx_threshold": 25,
         "risk_pct": 1.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -201.43,
-        "return_pct": -2.01,
-        "max_drawdown_pct": 8.77,
-        "average_win": 86.81,
-        "average_loss": 44.16
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 64.64,
+        "return_pct": 0.65,
+        "max_drawdown_pct": 4.28,
+        "average_win": 98.9,
+        "average_loss": 41.27
       },
-      "ranking_score": 23.1,
+      "ranking_score": 25.4,
+      "score_breakdown": {
+        "pf_score": 8.0,
+        "return_score": 4.3,
+        "drawdown_score": 57.2,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 58
+    },
+    {
+      "variation_id": "trend_ema20_100_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 100,
+        "adx_threshold": 20,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -5.57,
+        "return_pct": -0.06,
+        "max_drawdown_pct": 2.09,
+        "average_win": 51.08,
+        "average_loss": 39.72
+      },
+      "ranking_score": 25.0,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 12.3,
-        "trade_count_score": 100
+        "drawdown_score": 79.1,
+        "trade_count_score": 26
       },
       "viability": {
         "is_viable": false,
@@ -2464,7 +2584,287 @@
         "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
       },
-      "rank": 56
+      "rank": 59
+    },
+    {
+      "variation_id": "trend_ema20_100_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 100,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -5.57,
+        "return_pct": -0.06,
+        "max_drawdown_pct": 2.09,
+        "average_win": 51.08,
+        "average_loss": 39.72
+      },
+      "ranking_score": 25.0,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 79.1,
+        "trade_count_score": 26
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 60
+    },
+    {
+      "variation_id": "trend_ema30_100_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 100,
+        "adx_threshold": 20,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -68.3,
+        "return_pct": -0.68,
+        "max_drawdown_pct": 2.4,
+        "average_win": 48.44,
+        "average_loss": 50.43
+      },
+      "ranking_score": 22.6,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 76.0,
+        "trade_count_score": 18
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 61
+    },
+    {
+      "variation_id": "trend_ema30_100_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 100,
+        "adx_threshold": 25,
+        "risk_pct": 1.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -68.3,
+        "return_pct": -0.68,
+        "max_drawdown_pct": 2.4,
+        "average_win": 48.44,
+        "average_loss": 50.43
+      },
+      "ranking_score": 22.6,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 76.0,
+        "trade_count_score": 18
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 62
+    },
+    {
+      "variation_id": "trend_ema10_150_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 150,
+        "adx_threshold": 20,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 86.19,
+        "return_pct": 0.86,
+        "max_drawdown_pct": 5.63,
+        "average_win": 131.87,
+        "average_loss": 55.03
+      },
+      "ranking_score": 22.4,
+      "score_breakdown": {
+        "pf_score": 8.0,
+        "return_score": 5.7,
+        "drawdown_score": 43.7,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 63
+    },
+    {
+      "variation_id": "trend_ema10_150_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 10,
+        "ema_slow": 150,
+        "adx_threshold": 25,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 29,
+        "winning_trades": 9,
+        "losing_trades": 20,
+        "win_rate": 31.03,
+        "profit_factor": 1.08,
+        "net_pnl": 86.19,
+        "return_pct": 0.86,
+        "max_drawdown_pct": 5.63,
+        "average_win": 131.87,
+        "average_loss": 55.03
+      },
+      "ranking_score": 22.4,
+      "score_breakdown": {
+        "pf_score": 8.0,
+        "return_score": 5.7,
+        "drawdown_score": 43.7,
+        "trade_count_score": 38
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": true,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 64
+    },
+    {
+      "variation_id": "trend_ema20_100_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 100,
+        "adx_threshold": 20,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -8.34,
+        "return_pct": -0.08,
+        "max_drawdown_pct": 3.11,
+        "average_win": 76.63,
+        "average_loss": 59.58
+      },
+      "ranking_score": 22.4,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 68.9,
+        "trade_count_score": 26
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 65
+    },
+    {
+      "variation_id": "trend_ema20_100_adx25",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 20,
+        "ema_slow": 100,
+        "adx_threshold": 25,
+        "risk_pct": 1.5,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -8.34,
+        "return_pct": -0.08,
+        "max_drawdown_pct": 3.11,
+        "average_win": 76.63,
+        "average_loss": 59.58
+      },
+      "ranking_score": 22.4,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 68.9,
+        "trade_count_score": 26
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": true,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 66
     },
     {
       "variation_id": "trend_ema20_100_adx20",
@@ -2478,33 +2878,33 @@
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 58.36,
-        "return_pct": 0.58,
-        "max_drawdown_pct": 10.9,
-        "average_win": 124.02,
-        "average_loss": 69.1
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -11.14,
+        "return_pct": -0.11,
+        "max_drawdown_pct": 4.12,
+        "average_win": 102.17,
+        "average_loss": 79.45
       },
-      "ranking_score": 21.6,
+      "ranking_score": 19.9,
       "score_breakdown": {
-        "pf_score": 2.0,
-        "return_score": 3.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 58.8,
+        "trade_count_score": 26
       },
       "viability": {
         "is_viable": false,
         "passes_pf_threshold": false,
         "passes_dd_threshold": true,
         "passes_trade_count": true,
-        "passes_return": true,
+        "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
       },
-      "rank": 57
+      "rank": 67
     },
     {
       "variation_id": "trend_ema20_100_adx25",
@@ -2518,428 +2918,28 @@
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 83,
-        "winning_trades": 30,
-        "losing_trades": 53,
-        "win_rate": 36.14,
-        "profit_factor": 1.02,
-        "net_pnl": 58.36,
-        "return_pct": 0.58,
-        "max_drawdown_pct": 10.9,
-        "average_win": 124.02,
-        "average_loss": 69.1
+        "total_trades": 23,
+        "winning_trades": 10,
+        "losing_trades": 13,
+        "win_rate": 43.48,
+        "profit_factor": 0.99,
+        "net_pnl": -11.14,
+        "return_pct": -0.11,
+        "max_drawdown_pct": 4.12,
+        "average_win": 102.17,
+        "average_loss": 79.45
       },
-      "ranking_score": 21.6,
-      "score_breakdown": {
-        "pf_score": 2.0,
-        "return_score": 3.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 58
-    },
-    {
-      "variation_id": "trend_ema30_50_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
-        "adx_threshold": 20,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 57.68,
-        "return_pct": 0.58,
-        "max_drawdown_pct": 13.35,
-        "average_win": 126.73,
-        "average_loss": 80.87
-      },
-      "ranking_score": 21.3,
-      "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 3.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 59
-    },
-    {
-      "variation_id": "trend_ema30_50_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
-        "adx_threshold": 25,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 57.68,
-        "return_pct": 0.58,
-        "max_drawdown_pct": 13.35,
-        "average_win": 126.73,
-        "average_loss": 80.87
-      },
-      "ranking_score": 21.3,
-      "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 3.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 60
-    },
-    {
-      "variation_id": "trend_ema30_50_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
-        "adx_threshold": 20,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 43.29,
-        "return_pct": 0.43,
-        "max_drawdown_pct": 10.1,
-        "average_win": 95.05,
-        "average_loss": 60.65
-      },
-      "ranking_score": 21.0,
-      "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 2.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 61
-    },
-    {
-      "variation_id": "trend_ema30_50_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 30,
-        "ema_slow": 50,
-        "adx_threshold": 25,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 85,
-        "winning_trades": 33,
-        "losing_trades": 51,
-        "win_rate": 38.82,
-        "profit_factor": 1.01,
-        "net_pnl": 43.29,
-        "return_pct": 0.43,
-        "max_drawdown_pct": 10.1,
-        "average_win": 95.05,
-        "average_loss": 60.65
-      },
-      "ranking_score": 21.0,
-      "score_breakdown": {
-        "pf_score": 1.0,
-        "return_score": 2.9,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": true,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 62
-    },
-    {
-      "variation_id": "trend_ema10_50_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
-        "adx_threshold": 20,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -268.6,
-        "return_pct": -2.69,
-        "max_drawdown_pct": 11.69,
-        "average_win": 115.75,
-        "average_loss": 58.87
-      },
-      "ranking_score": 20.0,
+      "ranking_score": 19.9,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "drawdown_score": 58.8,
+        "trade_count_score": 26
       },
       "viability": {
         "is_viable": false,
         "passes_pf_threshold": false,
         "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 63
-    },
-    {
-      "variation_id": "trend_ema10_50_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 50,
-        "adx_threshold": 25,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 143,
-        "winning_trades": 46,
-        "losing_trades": 95,
-        "win_rate": 32.17,
-        "profit_factor": 0.95,
-        "net_pnl": -268.6,
-        "return_pct": -2.69,
-        "max_drawdown_pct": 11.69,
-        "average_win": 115.75,
-        "average_loss": 58.87
-      },
-      "ranking_score": 20.0,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 64
-    },
-    {
-      "variation_id": "trend_ema10_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -324.02,
-        "return_pct": -3.24,
-        "max_drawdown_pct": 12.22,
-        "average_win": 79.92,
-        "average_loss": 41.49
-      },
-      "ranking_score": 20.0,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 65
-    },
-    {
-      "variation_id": "trend_ema10_100_adx20",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 100,
-        "adx_threshold": 20,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -432.04,
-        "return_pct": -4.32,
-        "max_drawdown_pct": 16.1,
-        "average_win": 106.55,
-        "average_loss": 55.32
-      },
-      "ranking_score": 20.0,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": false,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 66
-    },
-    {
-      "variation_id": "trend_ema10_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 1.5,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -324.02,
-        "return_pct": -3.24,
-        "max_drawdown_pct": 12.22,
-        "average_win": 79.92,
-        "average_loss": 41.49
-      },
-      "ranking_score": 20.0,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 67
-    },
-    {
-      "variation_id": "trend_ema10_100_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 10,
-        "ema_slow": 100,
-        "adx_threshold": 25,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 119,
-        "winning_trades": 38,
-        "losing_trades": 81,
-        "win_rate": 31.93,
-        "profit_factor": 0.9,
-        "net_pnl": -432.04,
-        "return_pct": -4.32,
-        "max_drawdown_pct": 16.1,
-        "average_win": 106.55,
-        "average_loss": 55.32
-      },
-      "ranking_score": 20.0,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": false,
         "passes_trade_count": true,
         "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
@@ -2947,160 +2947,160 @@
       "rank": 68
     },
     {
-      "variation_id": "trend_ema20_50_adx20",
+      "variation_id": "trend_ema30_100_adx20",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 100,
         "adx_threshold": 20,
         "risk_pct": 1.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -78.45,
-        "return_pct": -0.78,
-        "max_drawdown_pct": 10.6,
-        "average_win": 84.14,
-        "average_loss": 51.6
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -102.46,
+        "return_pct": -1.02,
+        "max_drawdown_pct": 3.57,
+        "average_win": 72.66,
+        "average_loss": 75.64
       },
-      "ranking_score": 20.0,
+      "ranking_score": 19.7,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "drawdown_score": 64.3,
+        "trade_count_score": 18
       },
       "viability": {
         "is_viable": false,
         "passes_pf_threshold": false,
         "passes_dd_threshold": true,
-        "passes_trade_count": true,
+        "passes_trade_count": false,
         "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
       },
       "rank": 69
     },
     {
-      "variation_id": "trend_ema20_50_adx20",
+      "variation_id": "trend_ema30_100_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 50,
-        "adx_threshold": 20,
-        "risk_pct": 2.0,
-        "stop_loss_atr": 2.0,
-        "take_profit_atr": 3.0
-      },
-      "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -104.52,
-        "return_pct": -1.05,
-        "max_drawdown_pct": 14.05,
-        "average_win": 112.19,
-        "average_loss": 68.8
-      },
-      "ranking_score": 20.0,
-      "score_breakdown": {
-        "pf_score": 0,
-        "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
-      },
-      "viability": {
-        "is_viable": false,
-        "passes_pf_threshold": false,
-        "passes_dd_threshold": true,
-        "passes_trade_count": true,
-        "passes_return": false,
-        "recommendation": "Not Viable - Review strategy"
-      },
-      "rank": 70
-    },
-    {
-      "variation_id": "trend_ema20_50_adx25",
-      "strategy_name": "trend_following",
-      "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 100,
         "adx_threshold": 25,
         "risk_pct": 1.5,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -78.45,
-        "return_pct": -0.78,
-        "max_drawdown_pct": 10.6,
-        "average_win": 84.14,
-        "average_loss": 51.6
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -102.46,
+        "return_pct": -1.02,
+        "max_drawdown_pct": 3.57,
+        "average_win": 72.66,
+        "average_loss": 75.64
       },
-      "ranking_score": 20.0,
+      "ranking_score": 19.7,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "drawdown_score": 64.3,
+        "trade_count_score": 18
       },
       "viability": {
         "is_viable": false,
         "passes_pf_threshold": false,
         "passes_dd_threshold": true,
-        "passes_trade_count": true,
+        "passes_trade_count": false,
+        "passes_return": false,
+        "recommendation": "Not Viable - Review strategy"
+      },
+      "rank": 70
+    },
+    {
+      "variation_id": "trend_ema30_100_adx20",
+      "strategy_name": "trend_following",
+      "parameters": {
+        "ema_fast": 30,
+        "ema_slow": 100,
+        "adx_threshold": 20,
+        "risk_pct": 2.0,
+        "stop_loss_atr": 2.0,
+        "take_profit_atr": 3.0
+      },
+      "performance": {
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -136.59,
+        "return_pct": -1.37,
+        "max_drawdown_pct": 4.73,
+        "average_win": 96.88,
+        "average_loss": 100.85
+      },
+      "ranking_score": 16.8,
+      "score_breakdown": {
+        "pf_score": 0,
+        "return_score": 0,
+        "drawdown_score": 52.7,
+        "trade_count_score": 18
+      },
+      "viability": {
+        "is_viable": false,
+        "passes_pf_threshold": false,
+        "passes_dd_threshold": true,
+        "passes_trade_count": false,
         "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
       },
       "rank": 71
     },
     {
-      "variation_id": "trend_ema20_50_adx25",
+      "variation_id": "trend_ema30_100_adx25",
       "strategy_name": "trend_following",
       "parameters": {
-        "ema_fast": 20,
-        "ema_slow": 50,
+        "ema_fast": 30,
+        "ema_slow": 100,
         "adx_threshold": 25,
         "risk_pct": 2.0,
         "stop_loss_atr": 2.0,
         "take_profit_atr": 3.0
       },
       "performance": {
-        "total_trades": 113,
-        "winning_trades": 42,
-        "losing_trades": 70,
-        "win_rate": 37.17,
-        "profit_factor": 0.98,
-        "net_pnl": -104.52,
-        "return_pct": -1.05,
-        "max_drawdown_pct": 14.05,
-        "average_win": 112.19,
-        "average_loss": 68.8
+        "total_trades": 19,
+        "winning_trades": 9,
+        "losing_trades": 10,
+        "win_rate": 47.37,
+        "profit_factor": 0.86,
+        "net_pnl": -136.59,
+        "return_pct": -1.37,
+        "max_drawdown_pct": 4.73,
+        "average_win": 96.88,
+        "average_loss": 100.85
       },
-      "ranking_score": 20.0,
+      "ranking_score": 16.8,
       "score_breakdown": {
         "pf_score": 0,
         "return_score": 0,
-        "drawdown_score": 0,
-        "trade_count_score": 100
+        "drawdown_score": 52.7,
+        "trade_count_score": 18
       },
       "viability": {
         "is_viable": false,
         "passes_pf_threshold": false,
         "passes_dd_threshold": true,
-        "passes_trade_count": true,
+        "passes_trade_count": false,
         "passes_return": false,
         "recommendation": "Not Viable - Review strategy"
       },
