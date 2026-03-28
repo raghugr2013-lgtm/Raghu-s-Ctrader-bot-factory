@@ -1,13 +1,13 @@
 {
   "optimization_run": {
-    "run_id": "2026-03-28T08:22:20.381211",
+    "run_id": "2026-03-28T08:54:26.184673",
     "run_type": "phase_2a_controlled",
     "phase": "2A",
     "data_info": {
       "source": "/app/trading_system/data/EURUSD_H1.csv",
-      "candles": 10,
-      "start_date": "2025-01-02 22:00:00",
-      "end_date": "2025-01-03 07:00:00"
+      "candles": 50,
+      "start_date": "2025-01-02 00:00:00",
+      "end_date": "2025-01-04 01:00:00"
     },
     "optimization_config": {
       "strategies_tested": 1,

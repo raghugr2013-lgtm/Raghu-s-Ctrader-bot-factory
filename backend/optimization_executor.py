@@ -22,7 +22,7 @@ router = APIRouter(prefix="/api/optimization", tags=["Optimization Execution"])
 SCRIPT_DIR = os.environ.get('OPTIMIZATION_SCRIPT_DIR', '/app/trading_system/backend')
 SCRIPT_NAME = "phase2a_optimizer.py"
 RESULTS_FILE = "results.json"
-PYTHON_CMD = "python3"
+PYTHON_CMD = "/root/.venv/bin/python3"
 TIMEOUT_SECONDS = 300  # 5 minutes
 
 # MongoDB connection
