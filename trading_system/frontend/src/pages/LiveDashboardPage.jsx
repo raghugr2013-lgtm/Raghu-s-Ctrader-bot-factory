@@ -17,6 +17,273 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const WS_URL = process.env.REACT_APP_BACKEND_URL?.replace('https://', 'wss://').replace('http://', 'ws://');
 
+// Paper Trading State
+function usePaperTrading() {
+  const [paperTradingData, setPaperTradingData] = useState(null);
+  const [paperTrades, setPaperTrades] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPaperTradingStatus = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/paper-trading/status`);
+      setPaperTradingData(response.data);
+    } catch (error) {
+      console.error('Failed to fetch paper trading status:', error);
+    }
+  }, []);
+
+  const fetchPaperTrades = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/paper-trading/trades`);
+      setPaperTrades(response.data.slice(0, 10)); // Last 10 trades
+    } catch (error) {
+      console.error('Failed to fetch paper trades:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPaperTradingStatus();
+    fetchPaperTrades();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchPaperTradingStatus();
+      fetchPaperTrades();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchPaperTradingStatus, fetchPaperTrades]);
+
+  return { paperTradingData, paperTrades, loading, refetch: () => {
+    fetchPaperTradingStatus();
+    fetchPaperTrades();
+  }};
+}
+
+// Paper Trading Panel Component
+function PaperTradingPanel({ data, trades, loading, onRefresh }) {
+  if (loading) {
+    return (
+      <div className="bg-[#0A0A0A] border border-white/5 p-6 rounded-sm mb-6">
+        <div className="flex items-center justify-center">
+          <RefreshCw className="w-6 h-6 text-zinc-600 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const isRunning = data.running;
+  const riskStatus = data.risk_status || {};
+  const portfolio = data.portfolio_details || {};
+  const positions = portfolio.positions || {};
+
+  return (
+    <div className="bg-[#0A0A0A] border border-white/5 rounded-sm mb-6 overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 bg-[#18181B] border-b border-white/5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`w-2 h-2 rounded-full ${isRunning ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+          <div>
+            <h3 className="text-sm font-bold text-zinc-200 font-mono">PAPER TRADING ENGINE</h3>
+            <p className="text-[10px] text-zinc-500 font-mono">EMA 10/150 Crossover Strategy</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className={`text-[9px] px-2 py-0.5 font-mono uppercase ${
+            isRunning ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' :
+            'bg-red-500/20 text-red-400 border-red-500/40'
+          }`}>
+            {isRunning ? 'RUNNING' : 'STOPPED'}
+          </Badge>
+          <Button
+            onClick={onRefresh}
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono text-[10px] h-7 px-2"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 p-4">
+        <div className="bg-[#18181B] border border-white/5 p-3 rounded-sm">
+          <div className="flex items-center gap-1.5 mb-1">
+            <DollarSign className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[9px] text-zinc-500 font-mono uppercase">Equity</span>
+          </div>
+          <p className="text-xl font-bold font-mono text-zinc-200">
+            ${(data.total_equity || 0).toFixed(2)}
+          </p>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 p-3 rounded-sm">
+          <div className="flex items-center gap-1.5 mb-1">
+            <TrendingUp className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[9px] text-zinc-500 font-mono uppercase">Total P&L</span>
+          </div>
+          <p className={`text-xl font-bold font-mono ${
+            (data.current_pnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+          }`}>
+            {(data.current_pnl || 0) >= 0 ? '+' : ''}${(data.current_pnl || 0).toFixed(2)}
+          </p>
+          <p className={`text-[10px] font-mono ${
+            (data.total_return_pct || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+          }`}>
+            {(data.total_return_pct || 0) >= 0 ? '+' : ''}{(data.total_return_pct || 0).toFixed(2)}%
+          </p>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 p-3 rounded-sm">
+          <div className="flex items-center gap-1.5 mb-1">
+            <TrendingDown className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[9px] text-zinc-500 font-mono uppercase">Drawdown</span>
+          </div>
+          <p className={`text-xl font-bold font-mono ${
+            (data.drawdown_pct || 0) > 5 ? 'text-red-400' : 
+            (data.drawdown_pct || 0) > 2 ? 'text-amber-400' : 'text-zinc-300'
+          }`}>
+            {(data.drawdown_pct || 0).toFixed(2)}%
+          </p>
+          <p className="text-[10px] text-zinc-500 font-mono">
+            Max: {(riskStatus.max_drawdown_pct || 15).toFixed(0)}%
+          </p>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 p-3 rounded-sm">
+          <div className="flex items-center gap-1.5 mb-1">
+            <BarChart3 className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-[9px] text-zinc-500 font-mono uppercase">Total Trades</span>
+          </div>
+          <p className="text-xl font-bold font-mono text-zinc-200">
+            {data.total_trades || 0}
+          </p>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 p-3 rounded-sm">
+          <div className="flex items-center gap-1.5 mb-1">
+            {riskStatus.trading_enabled ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+            )}
+            <span className="text-[9px] text-zinc-500 font-mono uppercase">Risk Status</span>
+          </div>
+          <p className={`text-sm font-bold font-mono ${
+            riskStatus.trading_enabled ? 'text-emerald-400' : 'text-red-400'
+          }`}>
+            {riskStatus.trading_enabled ? 'ENABLED' : 'DISABLED'}
+          </p>
+          {riskStatus.stop_reason && (
+            <p className="text-[9px] text-red-400 font-mono mt-1">{riskStatus.stop_reason}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Open Positions */}
+      {portfolio.open_positions > 0 && (
+        <div className="px-4 pb-4">
+          <h4 className="text-xs font-bold text-zinc-400 font-mono uppercase mb-2 flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5" />
+            Open Positions ({portfolio.open_positions})
+          </h4>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(positions).map(([symbol, pos]) => (
+              <div key={symbol} className="bg-[#18181B] border border-white/5 p-2 rounded-sm">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-zinc-200 font-mono">{symbol}</span>
+                  <Badge className={`text-[8px] px-1.5 py-0 font-mono ${
+                    pos.signal === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {pos.signal}
+                  </Badge>
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-zinc-500">Entry:</span>
+                    <span className="text-zinc-300">${(pos.entry_price || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-zinc-500">Current:</span>
+                    <span className="text-zinc-300">${(pos.current_price || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-zinc-500">Size:</span>
+                    <span className="text-zinc-300">{(pos.position_size || 0).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Trades */}
+      {trades && trades.length > 0 && (
+        <div className="px-4 pb-4">
+          <h4 className="text-xs font-bold text-zinc-400 font-mono uppercase mb-2 flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5" />
+            Recent Trades (Last 10)
+          </h4>
+          <div className="bg-[#18181B] border border-white/5 rounded-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-[10px] font-mono">
+                <thead className="bg-[#0A0A0A] border-b border-white/5">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left text-zinc-500 uppercase">Time</th>
+                    <th className="px-2 py-1.5 text-left text-zinc-500 uppercase">Symbol</th>
+                    <th className="px-2 py-1.5 text-left text-zinc-500 uppercase">Signal</th>
+                    <th className="px-2 py-1.5 text-right text-zinc-500 uppercase">Entry</th>
+                    <th className="px-2 py-1.5 text-right text-zinc-500 uppercase">Exit</th>
+                    <th className="px-2 py-1.5 text-right text-zinc-500 uppercase">P&L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trades.map((trade, idx) => {
+                    const pnl = trade.pnl || 0;
+                    const timestamp = trade.timestamp ? new Date(trade.timestamp) : null;
+                    return (
+                      <tr key={idx} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                        <td className="px-2 py-1.5 text-zinc-400">
+                          {timestamp ? timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                        </td>
+                        <td className="px-2 py-1.5 text-zinc-300">{trade.symbol || '-'}</td>
+                        <td className="px-2 py-1.5">
+                          <Badge className={`text-[8px] px-1.5 py-0 font-mono ${
+                            trade.signal === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {trade.signal || '-'}
+                          </Badge>
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-zinc-300">
+                          ${(trade.entry_price || 0).toFixed(2)}
+                        </td>
+                        <td className="px-2 py-1.5 text-right text-zinc-300">
+                          {trade.exit_price ? `$${trade.exit_price.toFixed(2)}` : '-'}
+                        </td>
+                        <td className={`px-2 py-1.5 text-right font-bold ${
+                          pnl >= 0 ? 'text-emerald-400' : 'text-red-400'
+                        }`}>
+                          {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Transform API response to component format
 function transformBotData(apiBot) {
   return {
@@ -357,6 +624,9 @@ export default function LiveDashboardPage() {
   const reconnectAttempts = useRef(0);
   const pollIntervalRef = useRef(null);
   const lastHeartbeat = useRef(Date.now());
+
+  // Paper Trading Hook
+  const { paperTradingData, paperTrades, loading: ptLoading, refetch: refetchPaperTrading } = usePaperTrading();
 
   // Fetch bots from API
   const fetchBots = useCallback(async () => {
@@ -704,6 +974,14 @@ export default function LiveDashboardPage() {
             </Button>
           </div>
         </div>
+
+        {/* Paper Trading Panel */}
+        <PaperTradingPanel 
+          data={paperTradingData}
+          trades={paperTrades}
+          loading={ptLoading}
+          onRefresh={refetchPaperTrading}
+        />
 
         {/* Aggregate Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-6">

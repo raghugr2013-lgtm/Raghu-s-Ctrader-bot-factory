@@ -69,6 +69,7 @@ from execution.trade_logging import router as trade_logging_router
 from execution.bot_status import router as bot_status_router
 from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
+from paper_trading_router import router as paper_trading_router
 
 # PRO Validation imports
 from config.symbol_config import get_symbol_config, get_supported_symbols, SYMBOL_CONFIG
@@ -2665,6 +2666,9 @@ app.include_router(trade_logging_router)
 app.include_router(bot_status_router)
 app.include_router(websocket_router)
 app.include_router(alerts_router)
+
+# Include paper trading router
+app.include_router(paper_trading_router)
 
 # Include analyzer router (Phase 1 - cBot Analysis)
 from analyzer.router import router as analyzer_router
