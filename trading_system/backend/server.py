@@ -2670,6 +2670,10 @@ app.include_router(alerts_router)
 # Include paper trading router
 app.include_router(paper_trading_router)
 
+# Include unified pipeline router (Strategy Lifecycle Management)
+from pipeline_router import router as pipeline_router
+app.include_router(pipeline_router)
+
 # Include analyzer router (Phase 1 - cBot Analysis)
 from analyzer.router import router as analyzer_router
 app.include_router(analyzer_router, prefix="/api")
