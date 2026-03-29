@@ -637,8 +637,10 @@ export default function LiveDashboardPage() {
         setBots(transformedBots);
         setLastUpdate(new Date());
         
-        // Calculate max DD today across all bots
-        const maxDD = Math.max(...transformedBots.map(b => b.currentDrawdown || 0));
+        // Calculate max DD today across all bots and paper trading
+        const botsMaxDD = transformedBots.length > 0 ? Math.max(...transformedBots.map(b => b.currentDrawdown || 0)) : 0;
+        const paperTradingDD = paperTradingData?.drawdown_pct || 0;
+        const maxDD = Math.max(botsMaxDD, paperTradingDD);
         setMaxDDToday(maxDD);
       }
     } catch (error) {
@@ -836,23 +838,43 @@ export default function LiveDashboardPage() {
     }
   }, [bots, allBotHistory, fetchBotHistory]);
 
+  // Update maxDDToday when paper trading data changes
+  useEffect(() => {
+    if (paperTradingData) {
+      const botsMaxDD = bots.length > 0 ? Math.max(...bots.map(b => b.currentDrawdown || 0)) : 0;
+      const paperTradingDD = paperTradingData.drawdown_pct || 0;
+      const maxDD = Math.max(botsMaxDD, paperTradingDD);
+      setMaxDDToday(maxDD);
+    }
+  }, [paperTradingData, bots]);
+
   // Calculate aggregate stats
   const aggregateStats = useMemo(() => {
-    if (bots.length === 0) {
-      return { running: 0, warning: 0, stopped: 0, totalBalance: 0, totalDailyPnL: 0, totalPnL: 0, avgDrawdown: 0 };
-    }
-    
-    const running = bots.filter(b => b.status === 'running').length;
+    // Include paper trading data in aggregate stats
+    const running = bots.filter(b => b.status === 'running').length + (paperTradingData?.running ? 1 : 0);
     const warning = bots.filter(b => b.status === 'warning').length;
     const stopped = bots.filter(b => b.status === 'stopped' || b.status === 'paused' || b.status === 'error').length;
     
-    const totalBalance = bots.reduce((sum, b) => sum + (b.currentBalance || 0), 0);
-    const totalDailyPnL = bots.reduce((sum, b) => sum + (b.dailyPnL || 0), 0);
-    const totalPnL = bots.reduce((sum, b) => sum + (b.totalPnL || 0), 0);
-    const avgDrawdown = bots.reduce((sum, b) => sum + (b.currentDrawdown || 0), 0) / bots.length;
+    // Include paper trading balance
+    const botsBalance = bots.reduce((sum, b) => sum + (b.currentBalance || 0), 0);
+    const paperTradingBalance = paperTradingData?.total_equity || 0;
+    const totalBalance = botsBalance + paperTradingBalance;
+    
+    // Include paper trading PnL
+    const botsDailyPnL = bots.reduce((sum, b) => sum + (b.dailyPnL || 0), 0);
+    const paperTradingPnL = paperTradingData?.current_pnl || 0;
+    const totalDailyPnL = botsDailyPnL + paperTradingPnL;
+    
+    const totalPnL = bots.reduce((sum, b) => sum + (b.totalPnL || 0), 0) + paperTradingPnL;
+    
+    // Calculate average drawdown, handling division by zero
+    const botsDrawdown = bots.reduce((sum, b) => sum + (b.currentDrawdown || 0), 0);
+    const paperTradingDrawdown = paperTradingData?.drawdown_pct || 0;
+    const totalCount = bots.length + (paperTradingData ? 1 : 0);
+    const avgDrawdown = totalCount > 0 ? (botsDrawdown + paperTradingDrawdown) / totalCount : 0;
     
     return { running, warning, stopped, totalBalance, totalDailyPnL, totalPnL, avgDrawdown };
-  }, [bots]);
+  }, [bots, paperTradingData]);
 
   // Combine all bot histories for aggregate chart
   const aggregateHistory = useMemo(() => {
@@ -908,11 +930,10 @@ export default function LiveDashboardPage() {
     navigate(`/trade-history?bot=${bot.id}`);
   };
 
-  // Connection status indicator
-  const connectionStatusColor = wsConnected ? 
-    (connectionQuality === 'stable' ? 'emerald' : 'amber') : 'red';
-  const connectionStatusText = wsConnected ?
-    (connectionQuality === 'stable' ? 'LIVE' : 'UNSTABLE') : 'OFFLINE';
+  // Connection status indicator - use paper trading status
+  const isPaperTradingRunning = paperTradingData?.running || false;
+  const connectionStatusColor = isPaperTradingRunning ? 'emerald' : 'red';
+  const connectionStatusText = isPaperTradingRunning ? 'ONLINE' : 'OFFLINE';
 
   return (
     <div className="min-h-screen bg-[#050505] p-4" data-testid="live-dashboard-page">
@@ -933,13 +954,12 @@ export default function LiveDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* WebSocket Status */}
+            {/* System Status */}
             <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-[9px] font-mono ${
               connectionStatusColor === 'emerald' ? 'bg-emerald-500/20 text-emerald-400' :
-              connectionStatusColor === 'amber' ? 'bg-amber-500/20 text-amber-400' :
               'bg-red-500/20 text-red-400'
             }`} data-testid="ws-status">
-              {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {isPaperTradingRunning ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
               {connectionStatusText}
               {lastUpdate && (
                 <span className="ml-2 opacity-60">
