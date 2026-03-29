@@ -18,6 +18,14 @@ except ImportError:
     OPTIMIZATION_ENABLED = False
     print("⚠️  Optimization executor not found - automated optimization disabled")
 
+# Import paper trading router
+try:
+    from paper_trading_router import router as paper_trading_router
+    PAPER_TRADING_ENABLED = True
+except ImportError:
+    PAPER_TRADING_ENABLED = False
+    print("⚠️  Paper trading router not found - paper trading API disabled")
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -83,6 +91,13 @@ if OPTIMIZATION_ENABLED:
     print("✅ Optimization executor enabled at /api/optimization")
 else:
     print("⚠️  Optimization executor disabled")
+
+# Add paper trading router if available (already has /api prefix)
+if PAPER_TRADING_ENABLED:
+    app.include_router(paper_trading_router)
+    print("✅ Paper trading API enabled at /api/paper-trading")
+else:
+    print("⚠️  Paper trading API disabled")
 
 app.add_middleware(
     CORSMiddleware,
