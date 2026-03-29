@@ -1,6 +1,6 @@
 {
   "running": true,
-  "runtime_hours": 0.00013759694444444445,
+  "runtime_hours": 0.016912786944444445,
   "total_trades": 0,
   "portfolio": {
     "initial_capital": 10000.0,
@@ -11,8 +11,21 @@
     "total_return_pct": 0.0,
     "peak_equity": 10000.0,
     "drawdown_pct": 0.0,
-    "open_positions": 0,
-    "positions": {}
+    "open_positions": 2,
+    "positions": {
+      "GOLD": {
+        "signal": "SHORT",
+        "entry_price": 414.6899108886719,
+        "position_size": 3.0143004861663436,
+        "current_price": 414.6899108886719
+      },
+      "SPY": {
+        "signal": "SHORT",
+        "entry_price": 634.0800170898438,
+        "position_size": 3.154176044183109,
+        "current_price": 634.0800170898438
+      }
+    }
   },
   "risk": {
     "trading_enabled": true,
