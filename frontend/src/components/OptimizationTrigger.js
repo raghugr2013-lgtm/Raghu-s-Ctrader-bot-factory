@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Play, StopCircle, Loader, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import PaperTradingMonitor from './PaperTradingMonitor';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -85,13 +87,75 @@ function OptimizationTrigger() {
         </div>
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
-            Phase 2A Optimization
+            Trading Bot Factory
           </h2>
           <p className="text-sm text-gray-600">
-            Automated strategy optimization engine
+            Strategy optimization and live trading system
           </p>
         </div>
       </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="backtest" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsTrigger value="backtest">Backtest</TabsTrigger>
+          <TabsTrigger value="analyze">Analyze</TabsTrigger>
+          <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+          <TabsTrigger value="monitor">Monitor</TabsTrigger>
+        </TabsList>
+
+        {/* Backtest Tab */}
+        <TabsContent value="backtest">
+          <BacktestContent
+            csvPath={csvPath}
+            setCsvPath={setCsvPath}
+            running={running}
+            handleRunOptimization={handleRunOptimization}
+            handleCancel={handleCancel}
+            status={status}
+            error={error}
+            setError={setError}
+            results={results}
+          />
+        </TabsContent>
+
+        {/* Analyze Tab */}
+        <TabsContent value="analyze">
+          <div className="text-center py-12 text-gray-500">
+            <p className="text-sm">Strategy analysis tools coming soon</p>
+          </div>
+        </TabsContent>
+
+        {/* Portfolio Tab */}
+        <TabsContent value="portfolio">
+          <div className="text-center py-12 text-gray-500">
+            <p className="text-sm">Portfolio management tools coming soon</p>
+          </div>
+        </TabsContent>
+
+        {/* Monitor Tab - Paper Trading Dashboard */}
+        <TabsContent value="monitor">
+          <PaperTradingMonitor />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Backtest Content Component
+function BacktestContent({ 
+  csvPath, 
+  setCsvPath, 
+  running, 
+  handleRunOptimization, 
+  handleCancel, 
+  status, 
+  error, 
+  setError, 
+  results 
+}) {
+  return (
+    <div>
 
       {/* CSV Path Input */}
       <div className="mb-6">
