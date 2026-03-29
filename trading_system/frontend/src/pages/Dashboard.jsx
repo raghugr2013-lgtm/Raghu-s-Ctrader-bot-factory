@@ -814,7 +814,13 @@ export default function Dashboard() {
                 return (
                   <button
                     key={mode.value}
-                    onClick={() => setExecutionMode(mode.value)}
+                    onClick={() => {
+                      if (mode.value === 'live') {
+                        navigate('/live');
+                      } else {
+                        setExecutionMode(mode.value);
+                      }
+                    }}
                     className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono uppercase transition-all duration-200 rounded-md ${
                       executionMode === mode.value
                         ? mode.value === 'live' 
