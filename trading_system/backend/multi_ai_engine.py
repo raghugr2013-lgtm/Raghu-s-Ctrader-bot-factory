@@ -72,7 +72,8 @@ class MultiAIOrchestrator:
         model: AIModel,
         prompt: str,
         session_id: str,
-        role: Optional[AIRole] = None
+        role: Optional[AIRole] = None,
+        enable_fallback: bool = False  # Disable fallback by default for single AI mode
     ) -> str:
         """Generate code using specified AI model via direct API"""
         self.total_ai_calls += 1
@@ -84,7 +85,8 @@ class MultiAIOrchestrator:
         response = await self.ai_client.generate(
             provider=provider,
             prompt=prompt,
-            system_message=system_message
+            system_message=system_message,
+            enable_fallback=enable_fallback  # Respect fallback setting
         )
         
         # Clean code
@@ -156,7 +158,12 @@ CRITICAL cTrader API Requirements (MUST FOLLOW EXACTLY):
 
 Return ONLY the C# code, no markdown, no explanations."""
         
-        code = await self.generate_code(ai_model, prompt, session_id)
+        code = await self.generate_code(
+            ai_model, 
+            prompt, 
+            session_id,
+            enable_fallback=False  # DISABLE fallback for single AI mode
+        )
         
         self.log_stage(
             CollaborationStage.GENERATION,
@@ -197,7 +204,8 @@ Return ONLY the C# code, no markdown, no explanations."""
             generator_model,
             gen_prompt,
             session_id,
-            AIRole.STRATEGY_GENERATOR
+            AIRole.STRATEGY_GENERATOR,
+            enable_fallback=True  # Enable fallback for collaboration mode
         )
         
         self.log_stage(
@@ -224,7 +232,8 @@ Return ONLY the C# code, no markdown, no explanations."""
             reviewer_model,
             review_prompt,
             session_id,
-            AIRole.CODE_REVIEWER
+            AIRole.CODE_REVIEWER,
+            enable_fallback=True  # Enable fallback for collaboration mode
         )
         
         review_improvements = [
@@ -259,7 +268,8 @@ Return ONLY the C# code, no markdown, no explanations."""
             optimizer_model,
             opt_prompt,
             session_id,
-            AIRole.OPTIMIZER
+            AIRole.OPTIMIZER,
+            enable_fallback=True  # Enable fallback for collaboration mode
         )
         
         optimizer_improvements = [
