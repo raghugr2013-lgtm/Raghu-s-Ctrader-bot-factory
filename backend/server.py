@@ -262,6 +262,30 @@ async def get_ai_status():
     }
 
 
+@api_router.get("/data/local/status")
+async def get_local_data_status():
+    """Get status of local Dukascopy data"""
+    try:
+        from local_data_provider import get_local_provider
+        provider = get_local_provider()
+        summary = provider.get_data_summary()
+        
+        return {
+            "status": "available" if summary["symbols"] else "no_data",
+            "data_source": "local_dukascopy",
+            "data_root": summary["data_root"],
+            "symbols": summary["symbols"],
+            "details": summary["symbol_details"],
+            "message": f"Local data available for {len(summary['symbols'])} symbols"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "data_source": "local_dukascopy",
+            "error": str(e)
+        }
+
+
 # Bot Builder Routes
 @api_router.post("/bot/generate")
 async def generate_bot(request: BotGenerationRequest):
