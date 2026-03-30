@@ -1,9 +1,10 @@
 """
-Direct AI Client - Uses native OpenAI, Anthropic, and DeepSeek APIs
-NO dependency on emergentintegrations
+Direct AI Client - Uses native OpenAI, Anthropic, DeepSeek APIs
+Also supports Emergent Universal Key via emergentintegrations
 
 Features:
 - Direct API calls to OpenAI, DeepSeek, Anthropic
+- Emergent Universal Key support
 - Automatic fallback: OpenAI → DeepSeek → Claude
 - Clear error messages for insufficient credits
 - Startup logging for key detection
@@ -14,6 +15,13 @@ import logging
 from typing import Optional, List, Tuple
 from openai import AsyncOpenAI
 from anthropic import AsyncAnthropic
+
+# Try to import emergentintegrations for Universal Key support
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    EMERGENT_AVAILABLE = True
+except ImportError:
+    EMERGENT_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +44,8 @@ def _get_api_keys():
     return {
         'openai': os.environ.get('OPENAI_API_KEY'),
         'deepseek': os.environ.get('DEEPSEEK_API_KEY'),
-        'anthropic': os.environ.get('ANTHROPIC_API_KEY')
+        'anthropic': os.environ.get('ANTHROPIC_API_KEY'),
+        'emergent': os.environ.get('EMERGENT_LLM_KEY')
     }
 
 
@@ -76,7 +85,7 @@ class DirectAIClient:
         
         # Initialize OpenAI client
         if keys['openai']:
-            # Use direct OpenAI API with real key
+            # Use direct OpenAI API
             self.openai_client = AsyncOpenAI(api_key=keys['openai'])
             self.available_providers.append("openai")
             logger.info("✅ OpenAI: FOUND (using direct API key)")
