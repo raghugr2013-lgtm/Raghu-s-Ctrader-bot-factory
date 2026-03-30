@@ -76,9 +76,13 @@ class DirectAIClient:
         
         # Initialize OpenAI client
         if keys['openai']:
-            self.openai_client = AsyncOpenAI(api_key=keys['openai'])
+            # Use Emergent integrations proxy for universal key support
+            self.openai_client = AsyncOpenAI(
+                api_key=keys['openai'],
+                base_url="https://integrations.emergentagent.com/openai/v1"
+            )
             self.available_providers.append("openai")
-            logger.info("✅ OpenAI: FOUND (key configured)")
+            logger.info("✅ OpenAI: FOUND (key configured via Emergent proxy)")
         else:
             logger.warning("❌ OpenAI: MISSING (OPENAI_API_KEY not set)")
         
@@ -95,9 +99,13 @@ class DirectAIClient:
         
         # Initialize Anthropic client
         if keys['anthropic']:
-            self.anthropic_client = AsyncAnthropic(api_key=keys['anthropic'])
+            # Use Emergent integrations proxy for universal key support
+            self.anthropic_client = AsyncAnthropic(
+                api_key=keys['anthropic'],
+                base_url="https://integrations.emergentagent.com/anthropic"
+            )
             self.available_providers.append("claude")
-            logger.info("✅ Claude: FOUND (key configured)")
+            logger.info("✅ Claude: FOUND (key configured via Emergent proxy)")
         else:
             logger.warning("❌ Claude: MISSING (ANTHROPIC_API_KEY not set)")
         
