@@ -171,12 +171,69 @@ export default function DiscoveryPage() {
   const [maxBotsPerRepo, setMaxBotsPerRepo] = useState(3);
   const [minStars, setMinStars] = useState(10);
   const [result, setResult] = useState(null);
+  const [discoveryStatus, setDiscoveryStatus] = useState('');
+
+  const pollJobStatus = async (jobId) => {
+    const maxAttempts = 120; // Poll for up to 10 minutes (120 * 5 seconds)
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        const statusResponse = await axios.get(`${API}/discovery/status/${jobId}`);
+        const jobData = statusResponse.data;
+
+        // Update status message
+        setDiscoveryStatus(jobData.message || 'Processing...');
+
+        if (jobData.status === 'completed') {
+          setResult({
+            success: true,
+            message: jobData.message,
+            total_fetched: jobData.total_fetched,
+            total_approved: jobData.total_approved,
+            total_rejected: jobData.total_rejected,
+            total_errors: jobData.total_errors,
+            approved_strategies: jobData.approved_strategies,
+            errors: jobData.errors,
+            duration_seconds: jobData.duration_seconds
+          });
+          
+          if (jobData.total_approved > 0) {
+            toast.success(`Discovery complete! ${jobData.total_approved} strategies approved.`);
+          } else {
+            toast.info('Discovery complete. No strategies met approval criteria.');
+          }
+          return;
+        } else if (jobData.status === 'failed') {
+          toast.error(`Discovery failed: ${jobData.error || 'Unknown error'}`);
+          setIsDiscovering(false);
+          setDiscoveryStatus('');
+          return;
+        }
+
+        // Still running or pending, wait and poll again
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
+        attempts++;
+      } catch (error) {
+        console.error('Polling error:', error);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        attempts++;
+      }
+    }
+
+    // Timeout
+    toast.error('Discovery timed out. Please try again with fewer repositories.');
+    setIsDiscovering(false);
+    setDiscoveryStatus('');
+  };
 
   const handleDiscover = async () => {
     setIsDiscovering(true);
     setResult(null);
+    setDiscoveryStatus('Starting discovery...');
 
     try {
+      // Start discovery job
       const response = await axios.post(`${API}/discovery/discover-bots`, {
         max_repos: maxRepos,
         max_bots_per_repo: maxBotsPerRepo,
@@ -185,18 +242,21 @@ export default function DiscoveryPage() {
         save_to_db: true
       });
       
-      setResult(response.data);
+      const { job_id } = response.data;
       
-      if (response.data.total_approved > 0) {
-        toast.success(`Discovery complete! ${response.data.total_approved} strategies approved.`);
+      if (job_id) {
+        toast.info('Discovery job started. Fetching results...');
+        // Start polling for status
+        await pollJobStatus(job_id);
       } else {
-        toast.info('Discovery complete. No strategies met approval criteria.');
+        toast.error('Failed to start discovery job');
       }
     } catch (error) {
       const detail = error.response?.data?.detail || error.message;
       toast.error(`Discovery failed: ${detail}`);
     } finally {
       setIsDiscovering(false);
+      setDiscoveryStatus('');
     }
   };
 
@@ -314,6 +374,14 @@ export default function DiscoveryPage() {
                     )}
                   </Button>
                 </div>
+                
+                {/* Status message during discovery */}
+                {isDiscovering && discoveryStatus && (
+                  <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                    <Loader2 className="w-4 h-4 text-violet-400 animate-spin flex-shrink-0" />
+                    <p className="text-sm text-violet-300">{discoveryStatus}</p>
+                  </div>
+                )}
               </div>
               
               {/* GitHub icon decoration */}

@@ -5,6 +5,8 @@ REST API endpoints for bot discovery system
 
 import os
 import logging
+import uuid
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from pydantic import BaseModel, Field
@@ -105,21 +107,13 @@ class ProcessCodeResponse(BaseModel):
 # Simple in-memory storage for background task results
 _discovery_tasks: Dict[str, Dict] = {}
 
-
-# ==================== ENDPOINTS ====================
-
-@router.post("/discover-bots", response_model=DiscoverBotsResponse)
-async def discover_bots(request: DiscoverBotsRequest):
-    """
-    Start bot discovery from GitHub
-    
-    Searches GitHub for cTrader/cAlgo bots, analyzes them,
-    and stores high-quality strategies.
-    
-    This is a long-running operation. For large searches,
-    consider using the async endpoint.
-    """
+async def _run_discovery_background(job_id: str, request: DiscoverBotsRequest):
+    """Background task for discovery operation"""
     try:
+        # Update status to running
+        _discovery_tasks[job_id]["status"] = "running"
+        _discovery_tasks[job_id]["message"] = "Discovery in progress..."
+        
         # Create pipeline
         pipeline = create_pipeline(
             github_token=request.github_token or os.environ.get('GITHUB_TOKEN'),
@@ -134,23 +128,106 @@ async def discover_bots(request: DiscoverBotsRequest):
             max_bots_per_repo=request.max_bots_per_repo
         )
         
-        logger.info(f"Discovery complete: {result.total_approved} approved, {result.total_rejected} rejected")
+        # Update task with results
+        _discovery_tasks[job_id].update({
+            "status": "completed",
+            "message": f"Discovery complete. Found {result.total_fetched} bots, approved {result.total_approved}.",
+            "total_fetched": result.total_fetched,
+            "total_approved": result.total_approved,
+            "total_rejected": result.total_rejected,
+            "total_errors": result.total_errors,
+            "approved_strategies": result.approved_strategies,
+            "errors": result.errors[:10],
+            "duration_seconds": result.duration_seconds
+        })
         
-        return DiscoverBotsResponse(
-            success=True,
-            message=f"Discovery complete. Found {result.total_fetched} bots, approved {result.total_approved}.",
-            total_fetched=result.total_fetched,
-            total_approved=result.total_approved,
-            total_rejected=result.total_rejected,
-            total_errors=result.total_errors,
-            approved_strategies=result.approved_strategies,
-            errors=result.errors[:10],  # Limit errors in response
-            duration_seconds=result.duration_seconds
-        )
+        logger.info(f"Discovery job {job_id} complete: {result.total_approved} approved")
         
     except Exception as e:
-        logger.error(f"Discovery failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
+        logger.error(f"Discovery job {job_id} failed: {str(e)}")
+        _discovery_tasks[job_id].update({
+            "status": "failed",
+            "message": f"Discovery failed: {str(e)}",
+            "error": str(e)
+        })
+
+
+# ==================== ENDPOINTS ====================
+
+@router.post("/discover-bots")
+async def discover_bots(request: DiscoverBotsRequest, background_tasks: BackgroundTasks):
+    """
+    Start bot discovery from GitHub (Async)
+    
+    Searches GitHub for cTrader/cAlgo bots, analyzes them,
+    and stores high-quality strategies.
+    
+    Returns immediately with a job_id. Use /discovery/status/{job_id}
+    to check progress and retrieve results.
+    """
+    try:
+        # Generate unique job ID
+        job_id = str(uuid.uuid4())
+        
+        # Initialize task tracking
+        _discovery_tasks[job_id] = {
+            "job_id": job_id,
+            "status": "pending",
+            "message": "Discovery job queued",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "total_fetched": 0,
+            "total_approved": 0,
+            "total_rejected": 0,
+            "total_errors": 0,
+            "approved_strategies": [],
+            "errors": [],
+            "duration_seconds": 0
+        }
+        
+        # Start background task
+        background_tasks.add_task(_run_discovery_background, job_id, request)
+        
+        logger.info(f"Discovery job {job_id} started with max_repos={request.max_repos}")
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": "Discovery job started. Use /discovery/status/{job_id} to check progress.",
+            "status_url": f"/api/discovery/status/{job_id}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to start discovery: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start discovery: {str(e)}")
+
+
+@router.get("/status/{job_id}")
+async def get_discovery_status(job_id: str):
+    """
+    Check status of a discovery job
+    
+    Returns current status and results (if complete)
+    """
+    if job_id not in _discovery_tasks:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = _discovery_tasks[job_id]
+    
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": job["status"],  # pending, running, completed, failed
+        "message": job["message"],
+        "created_at": job["created_at"],
+        "total_fetched": job["total_fetched"],
+        "total_approved": job["total_approved"],
+        "total_rejected": job["total_rejected"],
+        "total_errors": job["total_errors"],
+        "approved_strategies": job["approved_strategies"] if job["status"] == "completed" else [],
+        "errors": job.get("errors", []),
+        "duration_seconds": job["duration_seconds"],
+        "error": job.get("error")  # Present if status is "failed"
+    }
 
 
 @router.post("/process-repo")
