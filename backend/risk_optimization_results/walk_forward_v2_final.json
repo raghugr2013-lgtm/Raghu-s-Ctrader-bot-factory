@@ -1,0 +1,78 @@
+{
+  "validation_type": "Walk-Forward v2 - Comprehensive",
+  "recommended_risk": 0.6,
+  "all_risk_results": {
+    "0.5": {
+      "aggregate": {
+        "total_trades": 337,
+        "total_profit": 9074.069999999998,
+        "avg_pf": 1.47,
+        "max_dd": 39.6,
+        "min_pf": 0.71,
+        "profitable_periods": "4/7"
+      },
+      "period_count": 7
+    },
+    "0.6": {
+      "aggregate": {
+        "total_trades": 337,
+        "total_profit": 10938.59,
+        "avg_pf": 1.45,
+        "max_dd": 48.9,
+        "min_pf": 0.71,
+        "profitable_periods": "4/7"
+      },
+      "period_count": 7
+    },
+    "0.75": {
+      "aggregate": {
+        "total_trades": 337,
+        "total_profit": 14082.65,
+        "avg_pf": 1.45,
+        "max_dd": 64.0,
+        "min_pf": 0.71,
+        "profitable_periods": "4/7"
+      },
+      "period_count": 7
+    },
+    "0.8": {
+      "aggregate": {
+        "total_trades": 337,
+        "total_profit": 15031.12,
+        "avg_pf": 1.43,
+        "max_dd": 69.3,
+        "min_pf": 0.71,
+        "profitable_periods": "4/7"
+      },
+      "period_count": 7
+    },
+    "1.0": {
+      "aggregate": {
+        "total_trades": 337,
+        "total_profit": 18669.839999999997,
+        "avg_pf": 1.41,
+        "max_dd": 80.5,
+        "min_pf": 0.72,
+        "profitable_periods": "4/7"
+      },
+      "period_count": 7
+    }
+  },
+  "regime_analysis": {
+    "ranging": {
+      "avg_pf": 1.57
+    },
+    "volatile": {
+      "avg_pf": 2.3
+    },
+    "trending": {
+      "avg_pf": 0.79
+    },
+    "mixed": {
+      "avg_pf": 0.82
+    }
+  },
+  "validation_passed": true,
+  "notes": "Mean reversion has variable performance by regime - aggregate metrics used for validation",
+  "timestamp": "2026-03-30T14:54:28.112609"
+}

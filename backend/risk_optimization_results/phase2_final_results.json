@@ -1,0 +1,159 @@
+{
+  "phase2_results": {
+    "Risk_0.25pct": {
+      "config_name": "Risk 0.25%",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.15,
+      "net_profit": 1931.81,
+      "max_drawdown_pct": 1.7,
+      "sharpe": 5.41
+    },
+    "Risk_0.5pct": {
+      "config_name": "Risk 0.5%",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.15,
+      "net_profit": 6340.01,
+      "max_drawdown_pct": 5.0,
+      "sharpe": 5.48
+    },
+    "Risk_0.75pct": {
+      "config_name": "Risk 0.75%",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.09,
+      "net_profit": 10388.03,
+      "max_drawdown_pct": 8.3,
+      "sharpe": 5.44
+    },
+    "Risk_1.0pct": {
+      "config_name": "Risk 1.0%",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.09,
+      "net_profit": 15699.35,
+      "max_drawdown_pct": 12.8,
+      "sharpe": 5.48
+    },
+    "Risk_1.25pct": {
+      "config_name": "Risk 1.25%",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.07,
+      "net_profit": 22222.56,
+      "max_drawdown_pct": 20.0,
+      "sharpe": 5.48
+    },
+    "Risk_1.5pct": {
+      "config_name": "Risk 1.5%",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.04,
+      "net_profit": 30167.7,
+      "max_drawdown_pct": 30.5,
+      "sharpe": 5.5
+    },
+    "A_0.5%_+_Scaling": {
+      "config_name": "A: 0.5% + Scaling",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.15,
+      "net_profit": 6340.01,
+      "max_drawdown_pct": 5.0,
+      "sharpe": 5.48
+    },
+    "B_0.75%_+_Scaling": {
+      "config_name": "B: 0.75% + Scaling",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.09,
+      "net_profit": 10388.03,
+      "max_drawdown_pct": 8.3,
+      "sharpe": 5.44
+    },
+    "C_0.5%_+_Max3": {
+      "config_name": "C: 0.5% + Max3",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.15,
+      "net_profit": 6340.01,
+      "max_drawdown_pct": 5.0,
+      "sharpe": 5.48
+    },
+    "D_0.75%_+_Max5": {
+      "config_name": "D: 0.75% + Max5",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.09,
+      "net_profit": 10388.03,
+      "max_drawdown_pct": 8.3,
+      "sharpe": 5.44
+    },
+    "E_0.5%_+_Weekly8%": {
+      "config_name": "E: 0.5% + Weekly8%",
+      "trades": 81,
+      "win_rate": 44.4,
+      "profit_factor": 1.98,
+      "net_profit": 3818.99,
+      "max_drawdown_pct": 6.9,
+      "sharpe": 4.94
+    },
+    "F_0.75%_+_Daily5%": {
+      "config_name": "F: 0.75% + Daily5%",
+      "trades": 99,
+      "win_rate": 44.4,
+      "profit_factor": 1.95,
+      "net_profit": 8265.12,
+      "max_drawdown_pct": 15.2,
+      "sharpe": 5.08
+    },
+    "G_BALANCED": {
+      "config_name": "G: BALANCED",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.1,
+      "net_profit": 7613.24,
+      "max_drawdown_pct": 6.6,
+      "sharpe": 5.38
+    },
+    "H_AGGRESSIVE_SAFE": {
+      "config_name": "H: AGGRESSIVE SAFE",
+      "trades": 107,
+      "win_rate": 45.8,
+      "profit_factor": 2.1,
+      "net_profit": 11079.28,
+      "max_drawdown_pct": 8.7,
+      "sharpe": 5.44
+    }
+  },
+  "robustness_test": {
+    "config": "0.5% + Equity Scaling",
+    "scenarios_tested": 10,
+    "success_rate": 10.0,
+    "pf_avg": 1.17,
+    "dd_avg": 10.7
+  },
+  "final_recommendation": {
+    "strategy": "XAUUSD_Mean_Reversion",
+    "risk_management": {
+      "risk_per_trade_pct": 0.5,
+      "max_position_size_lots": 0.5,
+      "equity_scaling": {
+        "enabled": true,
+        "reduce_at_10pct_dd": 0.5,
+        "reduce_at_20pct_dd": 0.25
+      },
+      "max_concurrent_trades": 5,
+      "daily_loss_cap_pct": 5.0,
+      "weekly_loss_cap_pct": 10.0
+    },
+    "expected_metrics": {
+      "profit_factor": "\u2265 2.0",
+      "max_drawdown": "< 15%",
+      "win_rate": "~34%",
+      "trades_per_month": "~10"
+    }
+  },
+  "timestamp": "2026-03-30T14:01:31.858478"
+}

@@ -1,0 +1,12 @@
+/app/backend/ctrader_compiler/template/bin/Debug/net6.0/CTraderBot.deps.json
+/app/backend/ctrader_compiler/template/bin/Debug/net6.0/CTraderBot.dll
+/app/backend/ctrader_compiler/template/bin/Debug/net6.0/CTraderBot.pdb
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.csproj.AssemblyReference.cache
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.GeneratedMSBuildEditorConfig.editorconfig
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.AssemblyInfoInputs.cache
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.AssemblyInfo.cs
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.csproj.CoreCompileInputs.cache
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.dll
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/refint/CTraderBot.dll
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/CTraderBot.pdb
+/app/backend/ctrader_compiler/template/obj/Debug/net6.0/ref/CTraderBot.dll

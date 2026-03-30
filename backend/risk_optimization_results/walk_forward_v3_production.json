@@ -1,0 +1,70 @@
+{
+  "validation_version": "v3_production",
+  "all_configs_tested": {
+    "Ultra Conservative": {
+      "total_trades": 337,
+      "total_profit": 5024.38,
+      "avg_pf": 1.45,
+      "max_dd": 5.7,
+      "min_pf": 0.67,
+      "dd_compliant": true,
+      "profitable_periods": 4
+    },
+    "Conservative": {
+      "total_trades": 337,
+      "total_profit": 6786.09,
+      "avg_pf": 1.44,
+      "max_dd": 7.5,
+      "min_pf": 0.67,
+      "dd_compliant": true,
+      "profitable_periods": 4
+    },
+    "Balanced": {
+      "total_trades": 337,
+      "total_profit": 8558.41,
+      "avg_pf": 1.44,
+      "max_dd": 9.6,
+      "min_pf": 0.68,
+      "dd_compliant": true,
+      "profitable_periods": 4
+    }
+  },
+  "best_config": "Balanced",
+  "final_configuration": {
+    "strategy": "XAUUSD_Mean_Reversion_Bollinger",
+    "timeframe": "H1",
+    "risk_management": {
+      "risk_per_trade_pct": 0.5,
+      "max_position_lots": 0.3,
+      "equity_scaling": {
+        "enabled": true,
+        "at_5pct_dd": 0.75,
+        "at_10pct_dd": 0.5,
+        "at_15pct_dd": 0.25
+      },
+      "max_concurrent_trades": 3,
+      "max_dd_halt_pct": 20,
+      "daily_loss_cap_pct": 3,
+      "weekly_loss_cap_pct": 8
+    },
+    "entry_logic": {
+      "indicator": "Bollinger Bands",
+      "period": 20,
+      "std_dev": 2.0,
+      "long_signal": "price <= lower_band AND RSI < 35",
+      "short_signal": "price >= upper_band AND RSI > 65"
+    },
+    "exit_logic": {
+      "target": "middle_band",
+      "stop_loss": "1.5 * ATR(14)"
+    },
+    "expected_performance": {
+      "aggregate_pf": "1.2-1.5",
+      "max_drawdown": "<15%",
+      "win_rate": "30-40%",
+      "annual_return": "20-40%"
+    }
+  },
+  "validation_passed": true,
+  "timestamp": "2026-03-30T14:55:21.513286"
+}

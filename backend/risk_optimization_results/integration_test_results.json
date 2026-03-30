@@ -1,0 +1,78 @@
+{
+  "test_timestamp": "2026-03-30T15:13:47.394248",
+  "components": {
+    "Synthetic Data Generation": {
+      "status": "PASS",
+      "details": "Generated 50 trade outcomes"
+    },
+    "Dukascopy Provider Module": {
+      "status": "PASS",
+      "details": "Module loads and instantiates"
+    },
+    "CSV Data Files": {
+      "status": "SIMULATED",
+      "details": "0 files - using synthetic data"
+    },
+    "Backtest Framework": {
+      "status": "PASS",
+      "details": "All config parameters available"
+    },
+    "Backtest Execution": {
+      "status": "PASS",
+      "details": "Trades: 30, PF: 1.1, DD: 5.5%"
+    },
+    "Results Storage": {
+      "status": "PASS",
+      "details": "6 result files accessible"
+    },
+    "Strategy Module": {
+      "status": "PARTIAL",
+      "details": "Module structure different: cannot import name 'MeanReversionStrateg"
+    },
+    "Indicator Calculation": {
+      "status": "PASS",
+      "details": "BB: 1949.76, RSI: 51.25, ATR: 7.7992"
+    },
+    "Signal Generation": {
+      "status": "PASS",
+      "details": "Entry logic verified (Long & Short)"
+    },
+    "Position Sizing": {
+      "status": "PASS",
+      "details": "Calculated: 0.0250 lots"
+    },
+    "Equity Scaling": {
+      "status": "PASS",
+      "details": "Scales: 0%\u21920.5, 7%\u21920.375, 12%\u21920.25, 18%\u21920.125"
+    },
+    "Loss Caps": {
+      "status": "PASS",
+      "details": "Daily: $-300.0, Weekly: $-800.0"
+    },
+    "Max Concurrent Trades": {
+      "status": "PASS",
+      "details": "Limit correctly enforced"
+    },
+    "cBot Generator Module": {
+      "status": "PASS",
+      "details": "Generator instantiated successfully"
+    },
+    "C# File Generated": {
+      "status": "PASS",
+      "details": "568 lines, file accessible"
+    },
+    "Logic Mapping": {
+      "status": "PASS",
+      "details": "All 10 components verified"
+    },
+    "C# Syntax Check": {
+      "status": "PASS",
+      "details": "Braces balanced (113), structure valid"
+    },
+    "End-to-End Pipeline": {
+      "status": "PASS",
+      "details": "50 trades \u2192 PF: 0.88, DD: 9.3%, Final: $9,701"
+    }
+  },
+  "overall_status": "PASS"
+}

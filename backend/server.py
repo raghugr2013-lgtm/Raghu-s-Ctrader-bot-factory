@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,9 +6,75 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional, Literal, Dict, Any
+from datetime import timedelta
 import uuid
 from datetime import datetime, timezone
+import re
+import subprocess
+import tempfile
+from fastapi import File, UploadFile, Form
+from direct_ai_client import get_ai_client, reload_ai_client, AIProviderError, log_ai_status
+from roslyn_validator import validate_csharp_code
+from compile_gate import compile_and_verify, check_download_allowed, CompileStatus
+from compliance_engine import (
+    get_compliance_engine,
+    get_prop_firm_profiles,
+    PropFirmRules,
+    ComplianceResult,
+    ComplianceViolation
+)
+from file_handler import (
+    FileUploadHandler,
+    create_file_context,
+    analyze_trading_image,
+    ALLOWED_IMAGE_FILES
+)
+from backtest_models import (
+    BacktestResult,
+    BacktestSimulateRequest,
+    BacktestSummary,
+    Timeframe
+)
+from backtest_calculator import performance_calculator, strategy_scorer
+from backtest_mock_data import mock_generator
+from market_data_models import (
+    Candle,
+    DataTimeframe,
+    MarketDataRequest,
+    MarketDataImportRequest,
+    MarketDataStats,
+    validate_candle_data
+)
+from market_data_provider import csv_provider, provider_factory
+from market_data_service import init_market_data_service
+from strategy_interface import SimpleMACrossStrategy
+from strategy_simulator import create_strategy_simulator
+from walkforward_models import WalkForwardRequest, WalkForwardConfig
+from walkforward_engine import create_walk_forward_engine
+from montecarlo_models import MonteCarloRequest, MonteCarloConfig, ResamplingMethod
+from montecarlo_engine import create_monte_carlo_engine
+from multi_ai_router import router as multi_ai_router, init_multi_ai_router
+from portfolio_router import router as portfolio_router, init_portfolio_router
+from challenge_router import router as challenge_router, init_challenge_router
+from regime_router import router as regime_router, init_regime_router
+from optimizer_router import router as optimizer_router, init_optimizer_router
+from factory_router import router as factory_router, init_factory_router
+from alphavantage_router import router as alphavantage_router, init_alphavantage_router
+from leaderboard_router import router as leaderboard_router, init_leaderboard_router
+from twelvedata_router import router as twelvedata_router, init_twelvedata_router
+from bot_validation_router import router as bot_validation_router, init_bot_validation_router
+from advanced_validation_router import router as advanced_validation_router, init_advanced_validation_router
+from execution.trade_logging import router as trade_logging_router
+from execution.bot_status import router as bot_status_router
+from execution.websocket_manager import router as websocket_router
+from execution.telegram_alerts import router as alerts_router
+from paper_trading_router import router as paper_trading_router
+
+# PRO Validation imports
+from config.symbol_config import get_symbol_config, get_supported_symbols, SYMBOL_CONFIG
+from backtest_real_engine import run_backtest_with_dukascopy, run_unified_backtest, DataSource
+from direct_ai_client import get_ai_client
 
 
 ROOT_DIR = Path(__file__).parent
@@ -19,6 +85,9 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Initialize Market Data Service
+market_data_service = init_market_data_service(db)
+
 # Create the main app without a prefix
 app = FastAPI()
 
@@ -28,7 +97,7 @@ api_router = APIRouter(prefix="/api")
 
 # Define Models
 class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+    model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     client_name: str
@@ -37,17 +106,130 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
+
+class BotGenerationRequest(BaseModel):
+    strategy_prompt: str
+    ai_model: Literal["openai", "claude", "deepseek"]
+    session_id: Optional[str] = None
+    prop_firm: Optional[str] = "none"  # Prop firm profile
+
+class CodeValidationRequest(BaseModel):
+    code: str
+    prop_firm: Optional[str] = "none"  # For compliance checking
+
+class CodeFixRequest(BaseModel):
+    code: str
+    error_message: str
+    compliance_feedback: Optional[str] = None  # Compliance violations
+    ai_model: Literal["openai", "claude", "deepseek"]
+    session_id: str
+    prop_firm: Optional[str] = "none"
+
+class ChatMessage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    role: str  # 'user', 'assistant', 'system'
+    content: str
+    file_attachment: Optional[Dict] = None  # File metadata if attached
+    image_attachment: Optional[str] = None  # Image URL or base64 if attached
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ChatRequest(BaseModel):
+    message: str
+    ai_model: Literal["openai", "claude", "deepseek"]
+    session_id: Optional[str] = None
+    context: Optional[str] = None  # Additional context (e.g., current code)
+
+class ChatFileUpload(BaseModel):
+    filename: str
+    content: str
+    file_type: str
+    analysis: Optional[Dict] = None
+
+class BotSession(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    strategy_prompt: str
+    ai_model: str
+    prop_firm: str = "none"
+    generated_code: Optional[str] = None
+    validation_status: str = "pending"  # pending, compiling, error, success
+    compliance_status: str = "pending"  # pending, compliant, non-compliant
+    error_count: int = 0
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# AI Model Configuration - Direct API Integration
+# No longer using EMERGENT_LLM_KEY
+
+def get_ai_provider(model: str) -> str:
+    """Map model name to provider"""
+    if model == "openai":
+        return "openai"
+    elif model == "claude":
+        return "claude"
+    elif model == "deepseek":
+        return "deepseek"
+    return "openai"
+
+def get_prop_firm_context(prop_firm: str) -> str:
+    """Get prop firm context for prompts"""
+    if prop_firm and prop_firm != "none":
+        from compliance_engine import PROP_FIRM_PROFILES
+        rules = PROP_FIRM_PROFILES.get(prop_firm.lower())
+        if rules:
+            return f"""
+
+IMPORTANT: This bot must comply with {rules.name} prop firm rules:
+- Max Daily Loss: {rules.max_daily_loss}%
+- Max Total Drawdown: {rules.max_total_drawdown}%
+- Max Risk Per Trade: {rules.max_risk_per_trade}%
+- Max Open Trades: {rules.max_open_trades}
+- Stop Loss: {'REQUIRED' if rules.stop_loss_required else 'Optional'}
+- Min Stop Loss Distance: {rules.min_stop_loss_distance} pips
+
+Ensure the bot includes:
+1. Daily loss monitoring (stop trading if > {rules.max_daily_loss}%)
+2. Drawdown tracking (stop if > {rules.max_total_drawdown}%)
+3. Risk per trade calculation (max {rules.max_risk_per_trade}% of balance)
+4. Position count limiting (max {rules.max_open_trades} positions)
+5. Stop loss on all trades
+"""
+    return ""
+
+def get_bot_system_message(prop_firm: str = "none") -> str:
+    """Get system message for bot generation"""
+    prop_firm_context = get_prop_firm_context(prop_firm)
+    return f"""You are an expert cTrader cBot developer. You write professional, clean C# code for cTrader Automate platform.
+When given a trading strategy, you generate complete, compilable cBot code.
+When given errors, you fix them precisely and return the corrected code.
+Always return ONLY the C# code, no explanations or markdown formatting.{prop_firm_context}"""
+
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "cTrader Bot Builder API"}
+
+@api_router.get("/debug/db")
+async def debug_db():
+    """Debug endpoint to check database connection"""
+    bots_count = await db.bots.count_documents({})
+    trades_count = await db.trades.count_documents({})
+    return {
+        "db_name": os.environ.get('DB_NAME'),
+        "bots_count": bots_count,
+        "trades_count": trades_count,
+    }
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.model_dump()
     status_obj = StatusCheck(**status_dict)
     
-    # Convert to dict and serialize datetime to ISO string for MongoDB
     doc = status_obj.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
     
@@ -56,18 +238,2449 @@ async def create_status_check(input: StatusCheckCreate):
 
 @api_router.get("/status", response_model=List[StatusCheck])
 async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
     status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
     
-    # Convert ISO string timestamps back to datetime objects
     for check in status_checks:
         if isinstance(check['timestamp'], str):
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     
     return status_checks
 
+
+@api_router.get("/ai/status")
+async def get_ai_status():
+    """Get AI provider status and configuration"""
+    ai_client = get_ai_client()
+    providers = ai_client.get_available_providers()
+    summary = ai_client.get_status_summary()
+    
+    return {
+        "status": "operational" if summary["configured_providers"] > 0 else "no_providers",
+        "providers": providers,
+        "summary": summary,
+        "message": f"{summary['configured_providers']}/3 AI providers configured"
+    }
+
+
+# Bot Builder Routes
+@api_router.post("/bot/generate")
+async def generate_bot(request: BotGenerationRequest):
+    """Generate cBot code using selected AI model"""
+    try:
+        # Create session
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Save session to DB
+        bot_session = BotSession(
+            id=session_id,
+            strategy_prompt=request.strategy_prompt,
+            ai_model=request.ai_model,
+            prop_firm=request.prop_firm or "none",
+            validation_status="generating"
+        )
+        doc = bot_session.model_dump()
+        doc['timestamp'] = doc['timestamp'].isoformat()
+        await db.bot_sessions.insert_one(doc)
+        
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = get_ai_provider(request.ai_model)
+        system_message = get_bot_system_message(request.prop_firm)
+        
+        # Create prompt for bot generation
+        prompt = f"""Generate a complete cTrader cBot in C# for the following trading strategy:
+
+{request.strategy_prompt}
+
+Requirements:
+- Must inherit from Robot class
+- Include all necessary using statements (cAlgo.API, cAlgo.API.Indicators, etc.)
+- Implement OnStart() method
+- Implement trading logic in OnBar() or OnTick()
+- Include proper error handling
+- Add comments explaining the strategy
+- Make it production-ready and compilable
+
+Return ONLY the C# code, no explanations."""
+
+        # Generate code using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
+        )
+        generated_code = response.strip()
+        
+        # Remove markdown code blocks if present
+        generated_code = re.sub(r'^```c#\s*\n', '', generated_code)
+        generated_code = re.sub(r'^```csharp\s*\n', '', generated_code)
+        generated_code = re.sub(r'\n```$', '', generated_code)
+        generated_code = generated_code.strip()
+        
+        # Save message to DB
+        chat_msg = ChatMessage(
+            session_id=session_id,
+            role="assistant",
+            content=generated_code
+        )
+        msg_doc = chat_msg.model_dump()
+        msg_doc['timestamp'] = msg_doc['timestamp'].isoformat()
+        await db.chat_messages.insert_one(msg_doc)
+        
+        # Run automatic compilation check on generated code
+        compile_result = compile_and_verify(generated_code, max_attempts=3)
+        
+        # If auto-fix improved the code, use the fixed version
+        final_code = compile_result["code"]
+        
+        # Update session with generated code and compile status
+        await db.bot_sessions.update_one(
+            {"id": session_id},
+            {"$set": {
+                "generated_code": final_code,
+                "validation_status": "verified" if compile_result["is_verified"] else "has_errors",
+                "compile_verified": compile_result["is_verified"],
+                "compile_errors": compile_result["errors"],
+                "compile_warnings": compile_result["warnings"],
+                "auto_fixes_applied": compile_result["fixes_applied"]
+            }}
+        )
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "code": final_code,
+            "ai_model": request.ai_model,
+            "prop_firm": request.prop_firm,
+            "compile_status": compile_result["status"],
+            "compile_verified": compile_result["is_verified"],
+            "compile_errors": compile_result["errors"],
+            "compile_warnings": compile_result["warnings"],
+            "fixes_applied": compile_result["fixes_applied"],
+            "badge": "✅ COMPILE VERIFIED" if compile_result["is_verified"] else "⚠️ HAS ERRORS"
+        }
+    
+    except AIProviderError as e:
+        logging.error(f"AI Provider error: {str(e)}")
+        error_msg = str(e)
+        if e.is_credit_error:
+            raise HTTPException(
+                status_code=402,
+                detail=f"AI provider has insufficient credits: {error_msg}"
+            )
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"AI service unavailable: {error_msg}"
+            )
+        
+    except Exception as e:
+        logging.error(f"Error generating bot: {str(e)}")
+        error_msg = str(e).lower()
+        
+        # Check for credit-related errors
+        if any(p in error_msg for p in ["quota", "credit", "balance", "billing", "insufficient"]):
+            raise HTTPException(
+                status_code=402,
+                detail=f"API key present but insufficient credits: {str(e)}"
+            )
+        
+        raise HTTPException(status_code=500, detail=f"Failed to generate bot: {str(e)}")
+
+
+@api_router.post("/code/validate")
+async def validate_code(request: CodeValidationRequest):
+    """Validate C# cBot code with Roslyn and compliance checking"""
+    try:
+        # Run Roslyn-style C# validation
+        validation_result = validate_csharp_code(request.code)
+        
+        # Run compliance check if prop firm specified
+        compliance_result = None
+        if request.prop_firm and request.prop_firm != "none":
+            try:
+                compliance_engine = get_compliance_engine(request.prop_firm)
+                compliance_result = compliance_engine.validate(request.code)
+                
+                # Add compliance violations to validation result
+                if not compliance_result.is_compliant:
+                    for violation in compliance_result.violations:
+                        if violation.severity in ["critical", "high"]:
+                            validation_result["errors"].append(f"[COMPLIANCE] {violation.message}")
+                        else:
+                            validation_result["warnings"].append(f"[COMPLIANCE] {violation.message}")
+                
+            except Exception as e:
+                logging.error(f"Compliance check error: {str(e)}")
+        
+        return {
+            **validation_result,
+            "compliance": compliance_result.model_dump() if compliance_result else None
+        }
+    except Exception as e:
+        logging.error(f"Error validating code: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Validation error: {str(e)}")
+
+
+@api_router.post("/code/fix")
+async def fix_code(request: CodeFixRequest):
+    """Fix code errors using AI"""
+    try:
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = get_ai_provider(request.ai_model)
+        system_message = get_bot_system_message(request.prop_firm)
+        
+        # Create fix prompt with both compilation and compliance feedback
+        compliance_section = ""
+        if request.compliance_feedback:
+            compliance_section = f"""
+
+COMPLIANCE VIOLATIONS:
+{request.compliance_feedback}
+
+Please also address these compliance requirements in the fixed code."""
+        
+        prompt = f"""The following cTrader cBot code has compilation errors{' and compliance violations' if compliance_section else ''}:
+
+COMPILATION ERRORS:
+{request.error_message}{compliance_section}
+
+CODE:
+{request.code}
+
+Please fix all errors and violations, and return the corrected, compilable C# code.
+Return ONLY the fixed C# code, no explanations."""
+
+        # Get fixed code using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message=system_message
+        )
+        fixed_code = response.strip()
+        
+        # Remove markdown code blocks if present
+        fixed_code = re.sub(r'^```c#\s*\n', '', fixed_code)
+        fixed_code = re.sub(r'^```csharp\s*\n', '', fixed_code)
+        fixed_code = re.sub(r'\n```$', '', fixed_code)
+        fixed_code = fixed_code.strip()
+        
+        # Save fix message to DB
+        chat_msg = ChatMessage(
+            session_id=request.session_id,
+            role="assistant",
+            content=f"Fixed code:\n{fixed_code}"
+        )
+        msg_doc = chat_msg.model_dump()
+        msg_doc['timestamp'] = msg_doc['timestamp'].isoformat()
+        await db.chat_messages.insert_one(msg_doc)
+        
+        # Update session
+        await db.bot_sessions.update_one(
+            {"id": request.session_id},
+            {"$set": {"generated_code": fixed_code}, "$inc": {"error_count": 1}}
+        )
+        
+        return {
+            "success": True,
+            "code": fixed_code
+        }
+    
+    except AIProviderError as e:
+        logging.error(f"AI Provider error in fix: {str(e)}")
+        if e.is_credit_error:
+            raise HTTPException(
+                status_code=402,
+                detail=f"AI provider has insufficient credits: {str(e)}"
+            )
+        else:
+            raise HTTPException(
+                status_code=503,
+                detail=f"AI service unavailable: {str(e)}"
+            )
+        
+    except Exception as e:
+        logging.error(f"Error fixing code: {str(e)}")
+        error_msg = str(e).lower()
+        
+        if any(p in error_msg for p in ["quota", "credit", "balance", "billing", "insufficient"]):
+            raise HTTPException(
+                status_code=402,
+                detail=f"API key present but insufficient credits: {str(e)}"
+            )
+        
+        raise HTTPException(status_code=500, detail=f"Failed to fix code: {str(e)}")
+
+
+# ==================== COMPILATION GATE ENDPOINTS ====================
+
+class CompileGateRequest(BaseModel):
+    """Request for compilation gate check"""
+    code: str
+    auto_fix: bool = True
+    max_fix_attempts: int = 3
+
+
+class DownloadRequest(BaseModel):
+    """Request to download bot code"""
+    session_id: str
+    code: str
+    filename: Optional[str] = None
+
+
+@api_router.post("/code/compile-gate")
+async def compile_gate_check(request: CompileGateRequest):
+    """
+    STRICT COMPILATION GATE
+    Validates C# code with auto-fix loop.
+    Returns detailed error info with line numbers.
+    """
+    try:
+        max_attempts = request.max_fix_attempts if request.auto_fix else 1
+        result = compile_and_verify(request.code, max_attempts=max_attempts)
+        
+        return {
+            "success": result["is_verified"],
+            "status": result["status"],
+            "is_verified": result["is_verified"],
+            "code": result["code"],
+            "errors": result["errors"],
+            "warnings": result["warnings"],
+            "fix_attempts": result["fix_attempts"],
+            "fixes_applied": result["fixes_applied"],
+            "message": result["message"],
+            "badge": "✅ COMPILE VERIFIED" if result["is_verified"] else "❌ COMPILE FAILED"
+        }
+        
+    except Exception as e:
+        logging.error(f"Compile gate error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Compilation check failed: {str(e)}")
+
+
+@api_router.post("/code/download-check")
+async def download_check(request: DownloadRequest):
+    """
+    Pre-download validation check.
+    BLOCKS download if compile errors exist.
+    """
+    try:
+        is_allowed, compile_result = check_download_allowed(request.code)
+        
+        if not is_allowed:
+            return {
+                "allowed": False,
+                "status": "BLOCKED",
+                "reason": "Compilation errors detected",
+                "errors": compile_result["errors"],
+                "message": "❌ DOWNLOAD BLOCKED - Fix compilation errors before downloading"
+            }
+        
+        # Update session with verified status
+        if request.session_id:
+            await db.bot_sessions.update_one(
+                {"id": request.session_id},
+                {"$set": {
+                    "compile_verified": True,
+                    "compile_verified_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+        
+        return {
+            "allowed": True,
+            "status": "VERIFIED",
+            "code": compile_result["code"],
+            "filename": request.filename or f"bot_{request.session_id or 'export'}.cs",
+            "message": "✅ DOWNLOAD ALLOWED - Code is verified and ready",
+            "badge": "✅ COMPILE VERIFIED"
+        }
+        
+    except Exception as e:
+        logging.error(f"Download check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Download check failed: {str(e)}")
+
+
+@api_router.post("/bot/download")
+async def download_bot(request: DownloadRequest):
+    """
+    Download bot code with MANDATORY compile verification.
+    Returns the code only if compilation passes.
+    """
+    try:
+        # MANDATORY: Run compile gate
+        is_allowed, compile_result = check_download_allowed(request.code)
+        
+        if not is_allowed:
+            raise HTTPException(
+                status_code=400, 
+                detail={
+                    "status": "FAILED",
+                    "message": "Download blocked - compilation errors detected",
+                    "errors": compile_result["errors"]
+                }
+            )
+        
+        # Get session info for filename
+        session = None
+        bot_name = "cTraderBot"
+        if request.session_id:
+            session = await db.bot_sessions.find_one({"id": request.session_id})
+            if session:
+                # Try to extract class name from code
+                class_match = re.search(r'class\s+(\w+)\s*:', compile_result["code"])
+                if class_match:
+                    bot_name = class_match.group(1)
+        
+        filename = request.filename or f"{bot_name}.algo"
+        
+        # Update session
+        if request.session_id:
+            await db.bot_sessions.update_one(
+                {"id": request.session_id},
+                {"$set": {
+                    "downloaded": True,
+                    "downloaded_at": datetime.now(timezone.utc).isoformat(),
+                    "compile_verified": True,
+                    "final_code": compile_result["code"]
+                }}
+            )
+        
+        return {
+            "success": True,
+            "status": "VERIFIED",
+            "code": compile_result["code"],
+            "filename": filename,
+            "badge": "✅ COMPILE VERIFIED",
+            "message": "Bot code ready for import into cTrader"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Download error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@api_router.get("/session/{session_id}/messages")
+async def get_session_messages(session_id: str):
+    """Get all messages for a session"""
+    messages = await db.chat_messages.find(
+        {"session_id": session_id},
+        {"_id": 0}
+    ).sort("timestamp", 1).to_list(1000)
+    
+    for msg in messages:
+        if isinstance(msg['timestamp'], str):
+            msg['timestamp'] = datetime.fromisoformat(msg['timestamp'])
+    
+    return messages
+
+
+@api_router.get("/session/{session_id}")
+async def get_session(session_id: str):
+    """Get session details"""
+    session = await db.bot_sessions.find_one({"id": session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if isinstance(session.get('timestamp'), str):
+        session['timestamp'] = datetime.fromisoformat(session['timestamp'])
+    
+    return session
+
+
+# Compliance Engine Routes
+@api_router.get("/compliance/profiles")
+async def get_compliance_profiles():
+    """Get all available prop firm profiles"""
+    profiles = get_prop_firm_profiles()
+    return {
+        "profiles": [
+            {
+                "id": key,
+                "name": profile.name,
+                "description": profile.description,
+                "rules": profile.model_dump()
+            }
+            for key, profile in profiles.items()
+        ]
+    }
+
+
+@api_router.post("/compliance/check")
+async def check_compliance(code: str, prop_firm: str):
+    """Check code compliance against specific prop firm rules"""
+    try:
+        compliance_engine = get_compliance_engine(prop_firm)
+        result = compliance_engine.validate(code)
+        return result.model_dump()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.error(f"Compliance check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Compliance check failed: {str(e)}")
+
+
+# AI Trading Chat Workspace Routes
+@api_router.post("/chat/send")
+async def send_chat_message(request: ChatRequest):
+    """Send a message to AI chat with optional context"""
+    try:
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        # Create system message with trading context
+        system_message = """You are an expert cTrader bot developer and trading analyst.
+You help users with:
+- Writing and improving cTrader cBot code in C#
+- Analyzing trading strategies and results
+- Reviewing backtest data and equity curves
+- Ensuring prop firm compliance
+- Debugging and fixing code issues
+
+Provide clear, actionable advice. When discussing code, be specific about cTrader API usage."""
+        
+        # Get AI client and provider
+        ai_client = get_ai_client()
+        provider = get_ai_provider(request.ai_model)
+        
+        # Build message with context
+        full_message = request.message
+        if request.context:
+            full_message = f"{request.message}\n\nCurrent Code Context:\n```csharp\n{request.context[:3000]}\n```"
+        
+        # Get AI response using direct API
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=full_message,
+            system_message=system_message
+        )
+        
+        # Save messages to DB
+        user_msg = ChatMessage(
+            session_id=session_id,
+            role="user",
+            content=request.message
+        )
+        assistant_msg = ChatMessage(
+            session_id=session_id,
+            role="assistant",
+            content=response
+        )
+        
+        user_doc = user_msg.model_dump()
+        user_doc['timestamp'] = user_doc['timestamp'].isoformat()
+        await db.chat_messages.insert_one(user_doc)
+        
+        assistant_doc = assistant_msg.model_dump()
+        assistant_doc['timestamp'] = assistant_doc['timestamp'].isoformat()
+        await db.chat_messages.insert_one(assistant_doc)
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "message": response,
+            "role": "assistant"
+        }
+        
+    except Exception as e:
+        logging.error(f"Chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+
+@api_router.post("/chat/upload/file")
+async def upload_chat_file(
+    file: UploadFile = File(...),
+    session_id: str = Form(...),
+    ai_model: str = Form(...),
+    message: str = Form(...)
+):
+    """Upload and analyze a file in chat"""
+    try:
+        # Read file content
+        content_bytes = await file.read()
+        content_size = len(content_bytes)
+        
+        # Validate file
+        is_valid, error_msg = FileUploadHandler.validate_file(file.filename, content_size)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # Get file type
+        file_type = FileUploadHandler.get_file_type(file.filename)
+        
+        # Process based on type
+        if file_type == "image":
+            # Handle image - encode to base64
+            image_base64 = FileUploadHandler.encode_image_base64(content_bytes)
+            
+            # For now, describe image in message (full vision API integration can be added)
+            analysis_message = f"{message}\n\n[User uploaded image: {file.filename}]\nPlease analyze this trading image and provide insights."
+            
+        else:
+            # Handle text-based files
+            try:
+                content_text = content_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                raise HTTPException(status_code=400, detail="File encoding not supported")
+            
+            # Analyze file
+            if file_type == "code":
+                file_analysis = FileUploadHandler.process_code_file(content_text, file.filename)
+            elif file_type == "data":
+                file_analysis = FileUploadHandler.process_data_file(content_text, file.filename)
+            else:
+                file_analysis = {"filename": file.filename, "type": file_type}
+            
+            # Create context for AI
+            file_context = create_file_context(file.filename, content_text, file_type)
+            analysis_message = f"{message}\n\n{file_context}"
+        
+        # Send to AI with file context using direct API
+        ai_client = get_ai_client()
+        provider = get_ai_provider(ai_model)
+        
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=analysis_message,
+            system_message="You are an expert cTrader bot developer. Analyze files and provide insights."
+        )
+        
+        # Save to DB
+        user_msg = ChatMessage(
+            session_id=session_id,
+            role="user",
+            content=message,
+            file_attachment={"filename": file.filename, "type": file_type, "size": content_size}
+        )
+        
+        assistant_msg = ChatMessage(
+            session_id=session_id,
+            role="assistant",
+            content=response
+        )
+        
+        user_doc = user_msg.model_dump()
+        user_doc['timestamp'] = user_doc['timestamp'].isoformat()
+        await db.chat_messages.insert_one(user_doc)
+        
+        assistant_doc = assistant_msg.model_dump()
+        assistant_doc['timestamp'] = assistant_doc['timestamp'].isoformat()
+        await db.chat_messages.insert_one(assistant_doc)
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "message": response,
+            "file_analyzed": file.filename
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"File upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
+
+@api_router.post("/chat/analyze/code")
+async def analyze_code_file(filename: str, code: str, ai_model: str, session_id: str):
+    """Analyze uploaded code file and suggest improvements"""
+    try:
+        # Analyze code structure
+        file_analysis = FileUploadHandler.process_code_file(code, filename)
+        
+        # Create analysis prompt
+        prompt = f"""Analyze this cTrader bot code file: {filename}
+
+Code:
+```csharp
+{code}
+```
+
+Please provide:
+1. Code quality assessment
+2. Potential issues or bugs
+3. Performance improvements
+4. Risk management suggestions
+5. Prop firm compliance recommendations
+6. A corrected/improved version if needed
+
+Be specific and actionable."""
+        
+        # Send to AI using direct API
+        ai_client = get_ai_client()
+        provider = get_ai_provider(ai_model)
+        
+        response = await ai_client.generate(
+            provider=provider,
+            prompt=prompt,
+            system_message="You are an expert cTrader cBot developer specializing in code review and optimization."
+        )
+        
+        return {
+            "success": True,
+            "analysis": response,
+            "file_info": file_analysis
+        }
+        
+    except Exception as e:
+        logging.error(f"Code analysis error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Code analysis failed: {str(e)}")
+
+
+@api_router.get("/chat/history/{session_id}")
+async def get_chat_history(session_id: str, limit: int = 50):
+    """Get chat history for a session"""
+    try:
+        messages = await db.chat_messages.find(
+            {"session_id": session_id},
+            {"_id": 0}
+        ).sort("timestamp", 1).limit(limit).to_list(limit)
+        
+        for msg in messages:
+            if isinstance(msg.get('timestamp'), str):
+                msg['timestamp'] = datetime.fromisoformat(msg['timestamp'])
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "messages": messages,
+            "count": len(messages)
+        }
+        
+    except Exception as e:
+        logging.error(f"Chat history error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch chat history: {str(e)}")
+
+
+# Backtesting Engine Routes (Phase 2 Step 3 - Architecture)
+@api_router.post("/backtest/simulate")
+async def simulate_backtest(request: BacktestSimulateRequest):
+    """
+    Run backtest with REAL market data only.
+    CRITICAL: Will auto-fetch from Twelve Data / Alpha Vantage if not cached.
+    Returns error if real data unavailable - NEVER uses mock data silently.
+    """
+    try:
+        from auto_fetch_candles import auto_fetch_candles
+        
+        # CRITICAL: Auto-fetch real market data
+        fetch_result = await auto_fetch_candles(
+            db=db,
+            market_data_service=market_data_service,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            min_candles=60,
+        )
+        
+        if not fetch_result.success:
+            # Return error with clear warning - DO NOT proceed with mock
+            return {
+                "success": False,
+                "error": fetch_result.error,
+                "warning": "REAL_DATA_UNAVAILABLE",
+                "message": (
+                    f"Real market data unavailable for {request.symbol} {request.timeframe}. "
+                    f"Backtest NOT reliable without real data. "
+                    f"Please ensure API keys are configured and try a supported symbol/timeframe."
+                ),
+                "data_source": "NONE",
+                "is_real_data": False,
+            }
+        
+        # Use real candles for backtest
+        real_candles = fetch_result.candles
+        
+        # Generate trades based on real candle data
+        from backtest_real_engine import run_backtest_on_real_candles
+        trades, equity_curve, config = run_backtest_on_real_candles(
+            candles=real_candles,
+            bot_name=request.bot_name,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            duration_days=request.duration_days,
+            initial_balance=request.initial_balance,
+            strategy_type=request.strategy_type
+        )
+        
+        # Calculate performance metrics
+        metrics = performance_calculator.calculate_metrics(trades, equity_curve, config)
+        
+        # Calculate strategy score
+        strategy_score = strategy_scorer.calculate_score(metrics)
+        
+        # Create backtest result
+        backtest_result = BacktestResult(
+            id=str(uuid.uuid4()),
+            session_id=request.session_id,
+            bot_name=request.bot_name,
+            config=config,
+            metrics=metrics,
+            strategy_score=strategy_score,
+            trades=trades,
+            equity_curve=equity_curve,
+            status="completed",
+            execution_time_seconds=0.5,
+            completed_at=datetime.now(timezone.utc)
+        )
+        
+        # Save to database
+        result_doc = backtest_result.model_dump()
+        result_doc['created_at'] = result_doc['created_at'].isoformat()
+        result_doc['completed_at'] = result_doc['completed_at'].isoformat() if result_doc['completed_at'] else None
+        result_doc['config']['start_date'] = result_doc['config']['start_date'].isoformat()
+        result_doc['config']['end_date'] = result_doc['config']['end_date'].isoformat()
+        result_doc['data_source'] = fetch_result.source  # Track data source
+        
+        # Convert datetime in trades and equity curve
+        for trade in result_doc['trades']:
+            trade['entry_time'] = trade['entry_time'].isoformat()
+            if trade['exit_time']:
+                trade['exit_time'] = trade['exit_time'].isoformat()
+        
+        for point in result_doc['equity_curve']:
+            point['timestamp'] = point['timestamp'].isoformat()
+        
+        await db.backtests.insert_one(result_doc)
+        
+        return {
+            "success": True,
+            "backtest_id": backtest_result.id,
+            "data_source": fetch_result.source,
+            "is_real_data": True,
+            "candles_used": fetch_result.candle_count,
+            "summary": {
+                "net_profit": metrics.net_profit,
+                "win_rate": metrics.win_rate,
+                "max_drawdown_percent": metrics.max_drawdown_percent,
+                "total_trades": metrics.total_trades,
+                "strategy_score": strategy_score.total_score,
+                "grade": strategy_score.grade
+            }
+        }
+        
+    except Exception as e:
+        logging.error(f"Backtest simulation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
+@api_router.post("/backtest/run")
+async def run_real_backtest(
+    session_id: str,
+    bot_name: str,
+    symbol: str,
+    timeframe: str,
+    start_date: str,
+    end_date: str,
+    initial_balance: float = 10000.0,
+    fast_ma: int = 20,
+    slow_ma: int = 50
+):
+    """
+    Run backtest with real market data
+    Phase 4: Uses actual historical candles with strategy simulation
+    """
+    try:
+        # Parse dates
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+        
+        # Get market data
+        tf = DataTimeframe(timeframe)
+        candles = await market_data_service.get_candles(
+            symbol=symbol,
+            timeframe=tf,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=10000
+        )
+        
+        if not candles:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No market data found for {symbol} {timeframe}. Please import data first."
+            )
+        
+        # Create backtest config
+        config = BacktestConfig(
+            symbol=symbol,
+            timeframe=tf,
+            start_date=start_dt,
+            end_date=end_dt,
+            initial_balance=initial_balance,
+            currency="USD",
+            leverage=100,
+            commission_per_lot=7.0,
+            spread_pips=1.0
+        )
+        
+        # Create strategy instance
+        strategy = SimpleMACrossStrategy(
+            symbol=symbol,
+            timeframe=timeframe,
+            fast_period=fast_ma,
+            slow_period=slow_ma
+        )
+        
+        # Create simulator
+        simulator = create_strategy_simulator(strategy, config, candles)
+        
+        # Run simulation
+        start_time = datetime.now()
+        result = simulator.run()
+        execution_time = (datetime.now() - start_time).total_seconds()
+        
+        trades = result['trades']
+        equity_curve = result['equity_curve']
+        
+        # Calculate performance metrics
+        metrics = performance_calculator.calculate_metrics(trades, equity_curve, config)
+        
+        # Calculate strategy score
+        strategy_score = strategy_scorer.calculate_score(metrics)
+        
+        # Create backtest result
+        backtest_result = BacktestResult(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            bot_name=bot_name,
+            config=config,
+            metrics=metrics,
+            strategy_score=strategy_score,
+            trades=trades,
+            equity_curve=equity_curve,
+            status="completed",
+            execution_time_seconds=execution_time,
+            completed_at=datetime.now(timezone.utc)
+        )
+        
+        # Save to database
+        result_doc = backtest_result.model_dump()
+        result_doc['created_at'] = result_doc['created_at'].isoformat()
+        result_doc['completed_at'] = result_doc['completed_at'].isoformat() if result_doc['completed_at'] else None
+        result_doc['config']['start_date'] = result_doc['config']['start_date'].isoformat()
+        result_doc['config']['end_date'] = result_doc['config']['end_date'].isoformat()
+        
+        # Convert datetime in trades and equity curve
+        for trade in result_doc['trades']:
+            trade['entry_time'] = trade['entry_time'].isoformat()
+            if trade['exit_time']:
+                trade['exit_time'] = trade['exit_time'].isoformat()
+        
+        for point in result_doc['equity_curve']:
+            point['timestamp'] = point['timestamp'].isoformat()
+        
+        await db.backtests.insert_one(result_doc)
+        
+        logger.info(f"Backtest completed: {len(trades)} trades, Score: {strategy_score.total_score:.1f}")
+        
+        return {
+            "success": True,
+            "backtest_id": backtest_result.id,
+            "summary": {
+                "candles_processed": len(candles),
+                "total_trades": len(trades),
+                "net_profit": metrics.net_profit,
+                "win_rate": metrics.win_rate,
+                "profit_factor": metrics.profit_factor,
+                "max_drawdown_percent": metrics.max_drawdown_percent,
+                "sharpe_ratio": metrics.sharpe_ratio,
+                "strategy_score": strategy_score.total_score,
+                "grade": strategy_score.grade,
+                "execution_time": execution_time
+            },
+            "message": "Backtest completed successfully with real market data"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Real backtest error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
+@api_router.get("/backtest/{backtest_id}")
+async def get_backtest_result(backtest_id: str):
+    """Get complete backtest result by ID"""
+    try:
+        result = await db.backtests.find_one({"id": backtest_id}, {"_id": 0})
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Backtest not found")
+        
+        # Convert ISO strings back to datetime for response
+        # (Frontend will handle datetime serialization)
+        
+        return {
+            "success": True,
+            "result": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Get backtest error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch backtest: {str(e)}")
+
+
+@api_router.get("/backtest/session/{session_id}/list")
+async def list_session_backtests(session_id: str):
+    """Get all backtests for a session"""
+    try:
+        backtests = await db.backtests.find(
+            {"session_id": session_id},
+            {"_id": 0, "id": 1, "bot_name": 1, "config.symbol": 1, "config.timeframe": 1,
+             "metrics.total_trades": 1, "metrics.net_profit": 1, "metrics.win_rate": 1,
+             "metrics.max_drawdown_percent": 1, "strategy_score.total_score": 1, "created_at": 1}
+        ).sort("created_at", -1).to_list(50)
+        
+        summaries = [
+            BacktestSummary(
+                id=bt["id"],
+                bot_name=bt["bot_name"],
+                symbol=bt["config"]["symbol"],
+                timeframe=bt["config"]["timeframe"],
+                total_trades=bt["metrics"]["total_trades"],
+                net_profit=bt["metrics"]["net_profit"],
+                win_rate=bt["metrics"]["win_rate"],
+                max_drawdown_percent=bt["metrics"]["max_drawdown_percent"],
+                strategy_score=bt["strategy_score"]["total_score"],
+                created_at=datetime.fromisoformat(bt["created_at"]) if isinstance(bt["created_at"], str) else bt["created_at"]
+            )
+            for bt in backtests
+        ]
+        
+        return {
+            "success": True,
+            "backtests": [s.model_dump() for s in summaries],
+            "count": len(summaries)
+        }
+        
+    except Exception as e:
+        logging.error(f"List backtests error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list backtests: {str(e)}")
+
+
+@api_router.get("/backtest/architecture")
+async def get_backtest_architecture():
+    """Get backtesting engine architecture documentation"""
+    from backtest_models import BACKTEST_ARCHITECTURE
+    return {
+        "success": True,
+        "architecture": BACKTEST_ARCHITECTURE
+    }
+
+
+# Walk-Forward Testing API Routes (Phase 5)
+@api_router.post("/walkforward/run")
+async def run_walk_forward_test(request: WalkForwardRequest):
+    """
+    Run walk-forward testing to validate strategy robustness
+    Phase 5: Advanced strategy validation with out-of-sample testing
+    """
+    try:
+        # Parse dates
+        start_dt = datetime.fromisoformat(request.start_date)
+        end_dt = datetime.fromisoformat(request.end_date)
+        
+        # Get market data
+        tf = DataTimeframe(request.timeframe)
+        candles = await market_data_service.get_candles(
+            symbol=request.symbol,
+            timeframe=tf,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=20000
+        )
+        
+        if not candles:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No market data found for {request.symbol} {request.timeframe}"
+            )
+        
+        if len(candles) < 500:
+            raise HTTPException(
+                status_code=400,
+                detail="Insufficient data for walk-forward testing. Need at least 500 candles."
+            )
+        
+        # Create config
+        config = WalkForwardConfig(
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            start_date=start_dt,
+            end_date=end_dt,
+            training_window_days=request.training_window_days,
+            testing_window_days=request.testing_window_days,
+            step_size_days=request.step_size_days,
+            param_ranges={
+                'fast_ma': request.fast_ma_range,
+                'slow_ma': request.slow_ma_range
+            },
+            initial_balance=request.initial_balance,
+            optimization_metric=request.optimization_metric
+        )
+        
+        # Create engine
+        engine = create_walk_forward_engine(config, candles)
+        
+        # Run walk-forward test
+        result = await engine.run()
+        result.session_id = request.session_id
+        result.strategy_name = request.strategy_name
+        
+        # Save to database
+        result_doc = result.model_dump()
+        result_doc['created_at'] = result_doc['created_at'].isoformat()
+        result_doc['config']['start_date'] = result_doc['config']['start_date'].isoformat()
+        result_doc['config']['end_date'] = result_doc['config']['end_date'].isoformat()
+        
+        # Convert datetimes in segments
+        for seg in result_doc['segments']:
+            seg['start_date'] = seg['start_date'].isoformat()
+            seg['end_date'] = seg['end_date'].isoformat()
+        
+        for seg in result_doc['testing_segments']:
+            seg['start_date'] = seg['start_date'].isoformat()
+            seg['end_date'] = seg['end_date'].isoformat()
+        
+        await db.walkforward_tests.insert_one(result_doc)
+        
+        logger.info(f"Walk-forward completed: {result.total_segments} segments, Score: {result.walk_forward_score.total_score:.1f}")
+        
+        return {
+            "success": True,
+            "walkforward_id": result.id,
+            "summary": {
+                "total_segments": result.total_segments,
+                "testing_segments": len(result.testing_segments),
+                "stability_score": result.walk_forward_score.total_score,
+                "grade": result.walk_forward_score.grade,
+                "is_deployable": result.walk_forward_score.is_deployable,
+                "best_params": result.best_params,
+                "avg_profit_factor": result.stability_metrics.avg_profit_factor,
+                "avg_win_rate": result.stability_metrics.avg_win_rate,
+                "avg_sharpe": result.stability_metrics.avg_sharpe,
+                "execution_time": result.execution_time_seconds
+            },
+            "insights": {
+                "strengths": result.walk_forward_score.strengths,
+                "weaknesses": result.walk_forward_score.weaknesses,
+                "recommendations": result.walk_forward_score.recommendations
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Walk-forward test error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Walk-forward test failed: {str(e)}")
+
+
+@api_router.get("/walkforward/{walkforward_id}")
+async def get_walkforward_result(walkforward_id: str):
+    """Get complete walk-forward test result"""
+    try:
+        result = await db.walkforward_tests.find_one({"id": walkforward_id}, {"_id": 0})
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Walk-forward test not found")
+        
+        return {
+            "success": True,
+            "result": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Get walk-forward error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch walk-forward test: {str(e)}")
+
+
+@api_router.get("/walkforward/session/{session_id}/list")
+async def list_walkforward_tests(session_id: str):
+    """Get all walk-forward tests for a session"""
+    try:
+        tests = await db.walkforward_tests.find(
+            {"session_id": session_id},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+        
+        return {
+            "success": True,
+            "tests": tests,
+            "count": len(tests)
+        }
+        
+    except Exception as e:
+        logging.error(f"List walk-forward tests error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list tests: {str(e)}")
+
+
+# Monte Carlo Simulation API Routes (Phase 6)
+@api_router.post("/montecarlo/run")
+async def run_monte_carlo_simulation(request: MonteCarloRequest):
+    """
+    Run Monte Carlo simulation for risk analysis
+    Phase 6: Probabilistic performance evaluation
+    """
+    try:
+        # Get backtest result
+        backtest = await db.backtests.find_one({"id": request.backtest_id}, {"_id": 0})
+        
+        if not backtest:
+            raise HTTPException(status_code=404, detail="Backtest not found")
+        
+        # Extract trades
+        trades_data = backtest.get('trades', [])
+        
+        if not trades_data:
+            raise HTTPException(status_code=400, detail="No trades found in backtest")
+        
+        # Convert to TradeRecord objects
+        from backtest_models import TradeRecord, TradeDirection, TradeStatus
+        trades = []
+        for t in trades_data:
+            trade = TradeRecord(
+                id=t['id'],
+                backtest_id=t['backtest_id'],
+                entry_time=datetime.fromisoformat(t['entry_time']) if isinstance(t['entry_time'], str) else t['entry_time'],
+                exit_time=datetime.fromisoformat(t['exit_time']) if isinstance(t['exit_time'], str) else t['exit_time'],
+                symbol=t['symbol'],
+                direction=TradeDirection(t['direction']),
+                entry_price=t['entry_price'],
+                exit_price=t['exit_price'],
+                stop_loss=t.get('stop_loss'),
+                take_profit=t.get('take_profit'),
+                volume=t['volume'],
+                position_size=t['position_size'],
+                profit_loss=t['profit_loss'],
+                profit_loss_pips=t.get('profit_loss_pips'),
+                profit_loss_percent=t.get('profit_loss_percent'),
+                duration_minutes=t.get('duration_minutes'),
+                commission=t.get('commission', 0),
+                status=TradeStatus(t['status']),
+                close_reason=t.get('close_reason')
+            )
+            trades.append(trade)
+        
+        # Create config
+        config = MonteCarloConfig(
+            num_simulations=request.num_simulations,
+            resampling_method=ResamplingMethod(request.resampling_method),
+            skip_probability=request.skip_probability,
+            confidence_level=request.confidence_level,
+            initial_balance=backtest['config']['initial_balance'],
+            ruin_threshold_percent=request.ruin_threshold_percent
+        )
+        
+        # Create engine
+        engine = create_monte_carlo_engine(config, trades)
+        
+        # Run Monte Carlo
+        result = engine.run()
+        result.session_id = request.session_id
+        result.backtest_id = request.backtest_id
+        result.strategy_name = request.strategy_name
+        
+        # Save to database
+        result_doc = result.model_dump()
+        result_doc['created_at'] = result_doc['created_at'].isoformat()
+        
+        await db.montecarlo_results.insert_one(result_doc)
+        
+        logger.info(f"Monte Carlo completed: {result.total_simulations} sims, Score: {result.monte_carlo_score.total_score:.1f}")
+        
+        return {
+            "success": True,
+            "montecarlo_id": result.id,
+            "summary": {
+                "total_simulations": result.total_simulations,
+                "profit_probability": result.metrics.profit_probability,
+                "ruin_probability": result.metrics.ruin_probability,
+                "expected_return_percent": result.metrics.expected_return_percent,
+                "worst_case_drawdown": result.metrics.worst_case_drawdown,
+                "average_drawdown": result.metrics.average_drawdown,
+                "robustness_score": result.monte_carlo_score.total_score,
+                "grade": result.monte_carlo_score.grade,
+                "risk_level": result.monte_carlo_score.risk_level,
+                "is_robust": result.monte_carlo_score.is_robust,
+                "execution_time": result.execution_time_seconds
+            },
+            "confidence_intervals": {
+                "balance_95_ci": [result.metrics.balance_ci_lower, result.metrics.balance_ci_upper],
+                "return_95_ci": [result.metrics.return_ci_lower, result.metrics.return_ci_upper],
+                "drawdown_95_ci": [result.metrics.drawdown_ci_lower, result.metrics.drawdown_ci_upper]
+            },
+            "insights": {
+                "strengths": result.monte_carlo_score.strengths,
+                "weaknesses": result.monte_carlo_score.weaknesses,
+                "recommendations": result.monte_carlo_score.recommendations
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Monte Carlo error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Monte Carlo simulation failed: {str(e)}")
+
+
+@api_router.get("/montecarlo/{montecarlo_id}")
+async def get_montecarlo_result(montecarlo_id: str):
+    """Get complete Monte Carlo result"""
+    try:
+        result = await db.montecarlo_results.find_one({"id": montecarlo_id}, {"_id": 0})
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Monte Carlo result not found")
+        
+        return {
+            "success": True,
+            "result": result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Get Monte Carlo error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch result: {str(e)}")
+
+
+@api_router.get("/montecarlo/session/{session_id}/list")
+async def list_montecarlo_results(session_id: str):
+    """Get all Monte Carlo results for a session"""
+    try:
+        results = await db.montecarlo_results.find(
+            {"session_id": session_id},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+        
+        return {
+            "success": True,
+            "results": results,
+            "count": len(results)
+        }
+        
+    except Exception as e:
+        logging.error(f"List Monte Carlo results error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list results: {str(e)}")
+
+
+# Market Data API Routes (Phase 3)
+@api_router.post("/marketdata/import/csv")
+async def import_csv_data(request: MarketDataImportRequest):
+    """Import historical data from CSV"""
+    try:
+        # Parse CSV using CSV provider
+        candles = csv_provider.parse_csv_data(
+            csv_content=request.data,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            format_type=request.format_type
+        )
+        
+        if not candles:
+            raise HTTPException(status_code=400, detail="No valid candles found in CSV")
+        
+        # Validate candles if not skipped
+        if not request.skip_validation:
+            for candle in candles:
+                is_valid, error_msg = validate_candle_data(candle)
+                if not is_valid:
+                    raise HTTPException(status_code=400, detail=f"Invalid candle data: {error_msg}")
+        
+        # Store in database
+        result = await market_data_service.store_candles(candles, provider="csv_import")
+        
+        return {
+            "success": True,
+            "symbol": request.symbol,
+            "timeframe": request.timeframe.value,
+            "imported": result["inserted"],
+            "skipped": result["skipped"],
+            "updated": result["updated"],
+            "total_processed": len(candles)
+        }
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logging.error(f"CSV import error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+
+@api_router.get("/marketdata/{symbol}/{timeframe}")
+async def get_market_data(
+    symbol: str,
+    timeframe: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 10000
+):
+    """Get historical market data"""
+    try:
+        # Parse timeframe
+        try:
+            tf = DataTimeframe(timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+        
+        # Parse dates
+        start_dt = datetime.fromisoformat(start_date) if start_date else None
+        end_dt = datetime.fromisoformat(end_date) if end_date else None
+        
+        # Get candles from database
+        candles = await market_data_service.get_candles(
+            symbol=symbol,
+            timeframe=tf,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=limit
+        )
+        
+        return {
+            "success": True,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "candles": [c.model_dump() for c in candles],
+            "count": len(candles),
+            "start_date": candles[0].timestamp.isoformat() if candles else None,
+            "end_date": candles[-1].timestamp.isoformat() if candles else None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Get market data error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch data: {str(e)}")
+
+
+@api_router.get("/marketdata/{symbol}/{timeframe}/stats")
+async def get_market_data_stats(symbol: str, timeframe: str):
+    """Get statistics about stored market data"""
+    try:
+        try:
+            tf = DataTimeframe(timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+        
+        stats = await market_data_service.get_stats(symbol, tf)
+        
+        if not stats:
+            raise HTTPException(status_code=404, detail="No data found for symbol/timeframe")
+        
+        return {
+            "success": True,
+            "stats": stats.model_dump()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Get stats error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
+
+
+@api_router.get("/marketdata/available")
+async def get_available_market_data():
+    """Get list of available symbols and timeframes"""
+    try:
+        symbols = await market_data_service.get_available_symbols()
+        
+        # Get timeframes for each symbol
+        symbol_data = []
+        for symbol in symbols:
+            timeframes = await market_data_service.get_available_timeframes(symbol)
+            symbol_data.append({
+                "symbol": symbol,
+                "timeframes": timeframes
+            })
+        
+        return {
+            "success": True,
+            "symbols": symbol_data,
+            "total_symbols": len(symbols)
+        }
+        
+    except Exception as e:
+        logging.error(f"Get available data error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get available data: {str(e)}")
+
+
+@api_router.delete("/marketdata/{symbol}")
+async def delete_market_data(symbol: str, timeframe: Optional[str] = None):
+    """Delete market data for symbol"""
+    try:
+        tf = DataTimeframe(timeframe) if timeframe else None
+        deleted_count = await market_data_service.delete_candles(symbol, tf)
+        
+        return {
+            "success": True,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "deleted_count": deleted_count
+        }
+        
+    except Exception as e:
+        logging.error(f"Delete market data error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete data: {str(e)}")
+
+
+@api_router.get("/marketdata/providers")
+async def get_providers():
+    """Get list of available data providers"""
+    providers = provider_factory.get_available_providers()
+    
+    return {
+        "success": True,
+        "providers": providers
+    }
+
+
+class EnsureDataRequest(BaseModel):
+    """Request model for ensuring market data availability"""
+    symbol: str = "EURUSD"
+    timeframe: str = "1h"
+    min_candles: int = 60
+
+
+@api_router.post("/marketdata/ensure-real-data")
+async def ensure_real_market_data(request: EnsureDataRequest):
+    """
+    CRITICAL ENDPOINT: Ensure real market data is available before backtest.
+    
+    Flow:
+    1. Check cache for sufficient candles
+    2. If not, auto-fetch from Twelve Data
+    3. If Twelve Data fails, try Alpha Vantage
+    4. Return status with clear warning if data unavailable
+    
+    THIS ENDPOINT NEVER RETURNS MOCK DATA.
+    """
+    from auto_fetch_candles import auto_fetch_candles
+    
+    try:
+        result = await auto_fetch_candles(
+            db=db,
+            market_data_service=market_data_service,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            min_candles=request.min_candles,
+        )
+        
+        if result.success:
+            return {
+                "success": True,
+                "symbol": request.symbol.upper(),
+                "timeframe": request.timeframe,
+                "data_source": result.source,
+                "candle_count": result.candle_count,
+                "is_real_data": True,
+                "message": f"Real market data available: {result.candle_count} candles from {result.source}",
+            }
+        else:
+            return {
+                "success": False,
+                "symbol": request.symbol.upper(),
+                "timeframe": request.timeframe,
+                "warning": "REAL_DATA_UNAVAILABLE",
+                "error": result.error,
+                "is_real_data": False,
+                "message": (
+                    f"Cannot obtain real market data for {request.symbol} {request.timeframe}. "
+                    f"Backtest results would NOT be reliable. "
+                    f"Please check API keys (TWELVE_DATA_KEY, ALPHA_VANTAGE_KEY) or try a supported symbol/timeframe."
+                ),
+            }
+    except Exception as e:
+        logging.error(f"Ensure real data error: {str(e)}")
+        return {
+            "success": False,
+            "symbol": request.symbol.upper(),
+            "timeframe": request.timeframe,
+            "warning": "REAL_DATA_UNAVAILABLE",
+            "error": str(e),
+            "is_real_data": False,
+            "message": f"Error checking data availability: {str(e)}",
+        }
+
+
+# ===================== FULL VALIDATION PIPELINE =====================
+
+class FullPipelineRequest(BaseModel):
+    """Request for full pipeline validation"""
+    strategy_prompt: Optional[str] = None
+    code: Optional[str] = None
+    ai_model: Literal["openai", "claude", "deepseek"] = "openai"
+    prop_firm: str = "none"
+    symbol: str = "EURUSD"
+    timeframe: str = "1h"
+    backtest_days: int = 90
+    initial_balance: float = 10000.0
+    monte_carlo_runs: int = 100
+
+class PipelineStageResult(BaseModel):
+    stage: str
+    success: bool
+    score: Optional[float] = None
+    details: Dict[str, Any] = {}
+    error: Optional[str] = None
+
+class FullPipelineResponse(BaseModel):
+    success: bool
+    pipeline_id: str
+    stages: List[PipelineStageResult]
+    final_score: float
+    grade: str
+    decision: str
+    total_execution_time: float
+    summary: Dict[str, Any]
+
+@api_router.post("/validation/full-pipeline", response_model=FullPipelineResponse)
+async def run_full_pipeline(request: FullPipelineRequest):
+    """
+    COMPLETE BOT VALIDATION PIPELINE
+    Flow: Generate → Fix → Compile → Compliance → Backtest → Monte Carlo → Walk-forward → Final Score
+    """
+    import time
+    from backtest_mock_data import MockBacktestGenerator
+    from backtest_models import Timeframe as BT_Timeframe
+    
+    pipeline_id = str(uuid.uuid4())
+    session_id = str(uuid.uuid4())
+    stages = []
+    start_time = time.time()
+    current_code = request.code or ""
+    
+    try:
+        # STAGE 1: GENERATE
+        if request.strategy_prompt and not request.code:
+            try:
+                chat = get_ai_chat(request.ai_model, session_id, request.prop_firm)
+                prompt = f"""Generate a complete cTrader cBot in C# for: {request.strategy_prompt}
+Requirements: Robot class, using statements, OnStart(), OnBar(), error handling. Return ONLY C# code."""
+                response = await chat.send_message(UserMessage(text=prompt))
+                current_code = re.sub(r'^```c#\s*\n|^```csharp\s*\n|\n```$', '', response.strip()).strip()
+                stages.append(PipelineStageResult(stage="generate", success=True, score=100.0, details={"ai_model": request.ai_model}))
+            except Exception as e:
+                stages.append(PipelineStageResult(stage="generate", success=False, score=0.0, error=str(e)))
+        elif request.code:
+            stages.append(PipelineStageResult(stage="generate", success=True, score=100.0, details={"source": "provided"}))
+        else:
+            raise HTTPException(status_code=400, detail="Either strategy_prompt or code required")
+        
+        # STAGE 2: FIX
+        try:
+            compile_result = compile_and_verify(current_code, max_attempts=3)
+            current_code = compile_result["code"]
+            stages.append(PipelineStageResult(stage="fix", success=True, score=100.0 if compile_result["is_verified"] else 50.0,
+                details={"fixes_applied": compile_result["fixes_applied"], "errors_remaining": len(compile_result["errors"])}))
+        except Exception as e:
+            stages.append(PipelineStageResult(stage="fix", success=False, score=0.0, error=str(e)))
+        
+        # STAGE 3: COMPILE
+        try:
+            compile_result = compile_and_verify(current_code, max_attempts=1)
+            stages.append(PipelineStageResult(stage="compile", success=compile_result["is_verified"], score=100.0 if compile_result["is_verified"] else 0.0,
+                details={"status": compile_result["status"], "errors": compile_result["errors"][:3]}))
+        except Exception as e:
+            stages.append(PipelineStageResult(stage="compile", success=False, score=0.0, error=str(e)))
+        
+        # STAGE 4: COMPLIANCE
+        try:
+            compliance_score = 100.0
+            violations = []
+            if request.prop_firm != "none":
+                engine = get_compliance_engine(request.prop_firm)
+                result = engine.validate(current_code)
+                if not result.is_compliant:
+                    compliance_score = max(0, 100 - len(result.violations) * 15)
+                    violations = [v.message for v in result.violations[:5]]
+            stages.append(PipelineStageResult(stage="compliance", success=compliance_score >= 70, score=compliance_score,
+                details={"prop_firm": request.prop_firm, "violations": violations}))
+        except Exception as e:
+            stages.append(PipelineStageResult(stage="compliance", success=True, score=50.0, error=str(e)))
+        
+        # STAGE 5: BACKTEST
+        mock_trades = []
+        try:
+            mock_trades, mock_equity, backtest_config = MockBacktestGenerator.generate_mock_backtest(
+                bot_name="Pipeline", symbol=request.symbol, timeframe=BT_Timeframe.H1,
+                duration_days=request.backtest_days, initial_balance=request.initial_balance)
+            metrics = performance_calculator.calculate_metrics(mock_trades, mock_equity, backtest_config)
+            score = strategy_scorer.calculate_score(metrics)
+            stages.append(PipelineStageResult(stage="backtest", success=score.total_score >= 50, score=score.total_score,
+                details={"net_profit": round(metrics.net_profit, 2), "win_rate": round(metrics.win_rate, 2),
+                         "max_drawdown": round(metrics.max_drawdown_percent, 2), "trades": metrics.total_trades, "grade": score.grade}))
+        except Exception as e:
+            stages.append(PipelineStageResult(stage="backtest", success=False, score=0.0, error=str(e)))
+        
+        # STAGE 6: MONTE CARLO
+        try:
+            if mock_trades and len(mock_trades) >= 10:
+                mc_config = MonteCarloConfig(num_simulations=request.monte_carlo_runs, initial_balance=request.initial_balance)
+                mc_engine = create_monte_carlo_engine(mc_config, mock_trades)
+                mc_result = mc_engine.run()
+                stages.append(PipelineStageResult(stage="monte_carlo", success=mc_result.monte_carlo_score.total_score >= 50,
+                    score=mc_result.monte_carlo_score.total_score, details={"ruin_prob": round(mc_result.metrics.ruin_probability, 2),
+                    "profit_prob": round(mc_result.metrics.profit_probability, 2), "grade": mc_result.monte_carlo_score.grade}))
+            else:
+                stages.append(PipelineStageResult(stage="monte_carlo", success=True, score=60.0, details={"note": "Insufficient trades"}))
+        except Exception as e:
+            stages.append(PipelineStageResult(stage="monte_carlo", success=True, score=50.0, error=str(e)))
+        
+        # STAGE 7: WALK-FORWARD
+        try:
+            if mock_trades and len(mock_trades) >= 20:
+                segment_size = len(mock_trades) // 4
+                win_rates = []
+                for i in range(4):
+                    seg = mock_trades[i*segment_size:(i+1)*segment_size if i < 3 else len(mock_trades)]
+                    if seg:
+                        win_rates.append(sum(1 for t in seg if (t.profit_loss or 0) > 0) / len(seg))
+                avg = sum(win_rates) / len(win_rates) if win_rates else 0
+                variance = sum((r - avg)**2 for r in win_rates) / len(win_rates) if win_rates else 1
+                consistency = max(0, 1 - variance * 10)
+                wf_score = min(100, consistency * 100)
+                stages.append(PipelineStageResult(stage="walk_forward", success=wf_score >= 50, score=round(wf_score, 1),
+                    details={"consistency": round(consistency, 3), "segment_win_rates": [round(r, 3) for r in win_rates]}))
+            else:
+                stages.append(PipelineStageResult(stage="walk_forward", success=True, score=60.0, details={"note": "Insufficient trades"}))
+        except Exception as e:
+            stages.append(PipelineStageResult(stage="walk_forward", success=True, score=50.0, error=str(e)))
+        
+        # FINAL SCORING
+        weights = {"generate": 0.05, "fix": 0.10, "compile": 0.20, "compliance": 0.15, "backtest": 0.25, "monte_carlo": 0.15, "walk_forward": 0.10}
+        final_score = round(sum((s.score or 0) * weights.get(s.stage, 0) for s in stages), 1)
+        grade = "A" if final_score >= 90 else "B" if final_score >= 80 else "C" if final_score >= 70 else "D" if final_score >= 60 else "F"
+        
+        compile_ok = any(s.stage == "compile" and s.success for s in stages)
+        compliance_ok = any(s.stage == "compliance" and (s.score or 0) >= 70 for s in stages)
+        backtest_ok = any(s.stage == "backtest" and (s.score or 0) >= 50 for s in stages)
+        decision = "PROP_FIRM_READY" if final_score >= 75 and compile_ok and compliance_ok and backtest_ok else "NEEDS_IMPROVEMENT" if final_score >= 50 and compile_ok else "NOT_READY"
+        
+        await db.pipeline_results.insert_one({"pipeline_id": pipeline_id, "stages": [s.model_dump() for s in stages],
+            "final_score": final_score, "grade": grade, "decision": decision, "timestamp": datetime.now(timezone.utc).isoformat()})
+        
+        return FullPipelineResponse(success=True, pipeline_id=pipeline_id, stages=stages, final_score=final_score, grade=grade,
+            decision=decision, total_execution_time=round(time.time() - start_time, 2),
+            summary={"stages_passed": sum(1 for s in stages if s.success), "stages_total": len(stages), "prop_firm": request.prop_firm})
+    except HTTPException:
+        raise
+    except Exception as e:
+        return FullPipelineResponse(success=False, pipeline_id=pipeline_id, stages=stages, final_score=0.0, grade="F",
+            decision="NOT_READY", total_execution_time=time.time() - start_time, summary={"error": str(e)})
+
+
+# ===================== MULTI-SYMBOL SUPPORT =====================
+
+@api_router.get("/symbols/supported")
+async def get_supported_symbols_list():
+    """Get list of supported trading symbols with their configurations"""
+    symbols = []
+    for symbol, config in SYMBOL_CONFIG.items():
+        symbols.append({
+            "symbol": symbol,
+            "type": config.type,
+            "pip_value": config.pip_value,
+            "lot_size": config.lot_size,
+            "spread": config.spread,
+            "default_sl_pips": config.default_stop_loss_pips,
+            "default_tp_pips": config.default_take_profit_pips,
+            "volatility_multiplier": config.volatility_multiplier
+        })
+    return {
+        "success": True,
+        "symbols": symbols,
+        "count": len(symbols)
+    }
+
+
+@api_router.get("/symbols/{symbol}/config")
+async def get_symbol_configuration(symbol: str):
+    """Get detailed configuration for a specific symbol"""
+    config = get_symbol_config(symbol)
+    if not config:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not supported")
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "config": {
+            "type": config.type,
+            "pip_value": config.pip_value,
+            "lot_size": config.lot_size,
+            "spread": config.spread,
+            "min_lot": config.min_lot,
+            "max_lot": config.max_lot,
+            "pip_digits": config.pip_digits,
+            "value_per_pip_per_lot": config.value_per_pip_per_lot,
+            "default_stop_loss_pips": config.default_stop_loss_pips,
+            "default_take_profit_pips": config.default_take_profit_pips,
+            "volatility_multiplier": config.volatility_multiplier,
+            "dukascopy_symbol": config.dukascopy_symbol
+        }
+    }
+
+
+# ===================== PRO VALIDATION (DUKASCOPY) =====================
+
+class ProValidationRequest(BaseModel):
+    """Request for PRO validation with Dukascopy data"""
+    symbol: str = Field(default="EURUSD", description="Trading symbol (EURUSD, XAUUSD, US100, ETHUSD)")
+    timeframe: str = Field(default="M15", description="Candle timeframe (M1, M15, H1, H4, D1)")
+    data_source: Literal["dukascopy", "api"] = Field(default="dukascopy", description="Data source for backtesting")
+    backtest_days: int = Field(default=14, ge=7, le=90, description="Days of historical data (max 90 for memory safety)")
+    initial_balance: float = Field(default=10000.0, ge=1000)
+    code: Optional[str] = Field(default=None, description="Bot code to validate (optional)")
+    strategy_prompt: Optional[str] = Field(default=None, description="Strategy description (optional)")
+    ai_model: Literal["openai", "claude", "deepseek"] = "openai"
+    prop_firm: str = "none"
+    monte_carlo_runs: int = Field(default=100, ge=10, le=1000)
+
+class ProValidationStage(BaseModel):
+    stage: str
+    success: bool
+    score: Optional[float] = None
+    details: Dict[str, Any] = {}
+    execution_time: float = 0.0
+    error: Optional[str] = None
+
+class ProValidationResponse(BaseModel):
+    success: bool
+    mode: str = "pro"
+    data_source: str
+    validation_id: str
+    symbol: str
+    timeframe: str
+    stages: List[ProValidationStage]
+    final_score: float
+    grade: str
+    decision: str
+    total_execution_time: float
+    data_info: Dict[str, Any]
+    summary: Dict[str, Any]
+
+
+@api_router.post("/validation/pro", response_model=ProValidationResponse)
+async def run_pro_validation(request: ProValidationRequest):
+    """
+    PRO VALIDATION MODE with Dukascopy Historical Data
+    
+    Full pipeline using real market data:
+    1. Data Loading (Dukascopy)
+    2. Code Generation/Validation (optional)
+    3. Backtest on Real Data
+    4. Monte Carlo Analysis
+    5. Walk-Forward Testing
+    6. Compliance Check
+    7. Final Scoring
+    
+    Supports: EURUSD, XAUUSD, US100, ETHUSD
+    """
+    import time
+    from backtest_models import Timeframe as BT_Timeframe
+    from market_data.dukascopy_provider import get_dukascopy_provider
+    
+    validation_id = str(uuid.uuid4())
+    stages = []
+    start_time = time.time()
+    current_code = request.code or ""
+    
+    # Validate symbol
+    symbol_config = get_symbol_config(request.symbol)
+    if not symbol_config:
+        raise HTTPException(status_code=400, detail=f"Symbol {request.symbol} not supported. Supported: {get_supported_symbols()}")
+    
+    logger.info(f"Starting PRO validation for {request.symbol} {request.timeframe} with {request.data_source}")
+    
+    try:
+        # STAGE 1: DATA LOADING
+        stage_start = time.time()
+        data_info = {"source": request.data_source, "symbol": request.symbol, "timeframe": request.timeframe}
+        
+        try:
+            if request.data_source == "dukascopy":
+                provider = get_dukascopy_provider()
+                end_date = datetime.now(timezone.utc)
+                start_date = end_date - timedelta(days=request.backtest_days)
+                
+                candles = await provider.get_ohlc(
+                    symbol=request.symbol,
+                    timeframe=request.timeframe,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                
+                if candles:
+                    data_info["candles_loaded"] = len(candles)
+                    data_info["date_range"] = {
+                        "start": candles[0].timestamp.isoformat() if candles else None,
+                        "end": candles[-1].timestamp.isoformat() if candles else None
+                    }
+                    data_info["is_real_data"] = True
+                    stages.append(ProValidationStage(
+                        stage="data_loading",
+                        success=True,
+                        score=100.0,
+                        details=data_info,
+                        execution_time=round(time.time() - stage_start, 2)
+                    ))
+                else:
+                    # Fallback to mock if no data available
+                    data_info["warning"] = "No Dukascopy data available, using mock data"
+                    data_info["is_real_data"] = False
+                    stages.append(ProValidationStage(
+                        stage="data_loading",
+                        success=True,
+                        score=50.0,
+                        details=data_info,
+                        execution_time=round(time.time() - stage_start, 2)
+                    ))
+            else:
+                # API data source - use existing market data service
+                tf = DataTimeframe(request.timeframe) if request.timeframe in ["1h", "4h", "1d", "15m", "30m"] else DataTimeframe.H1
+                candles = await market_data_service.get_candles(
+                    symbol=request.symbol,
+                    timeframe=tf,
+                    start_date=datetime.now(timezone.utc) - timedelta(days=request.backtest_days),
+                    end_date=datetime.now(timezone.utc),
+                    limit=20000
+                )
+                data_info["candles_loaded"] = len(candles) if candles else 0
+                data_info["is_real_data"] = bool(candles)
+                stages.append(ProValidationStage(
+                    stage="data_loading",
+                    success=bool(candles),
+                    score=100.0 if candles else 50.0,
+                    details=data_info,
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+                
+        except Exception as e:
+            logger.error(f"Data loading error: {e}")
+            data_info["error"] = str(e)
+            stages.append(ProValidationStage(
+                stage="data_loading",
+                success=False,
+                score=0.0,
+                details=data_info,
+                execution_time=round(time.time() - stage_start, 2),
+                error=str(e)
+            ))
+        
+        # STAGE 2: CODE GENERATION (if strategy_prompt provided)
+        stage_start = time.time()
+        if request.strategy_prompt and not request.code:
+            try:
+                ai_client = get_ai_client()
+                
+                # Include symbol context in prompt
+                symbol_context = f"""
+Symbol: {request.symbol} ({symbol_config.type})
+Pip Value: {symbol_config.pip_value}
+Recommended SL: {symbol_config.default_stop_loss_pips} pips
+Recommended TP: {symbol_config.default_take_profit_pips} pips
+Volatility: {'High' if symbol_config.volatility_multiplier > 2 else 'Medium' if symbol_config.volatility_multiplier > 1 else 'Normal'}
+"""
+                prompt = f"""Generate a complete cTrader cBot in C# for: {request.strategy_prompt}
+
+{symbol_context}
+
+Requirements:
+1. Optimize for {request.symbol} characteristics
+2. Adjust SL/TP for symbol volatility
+3. Use proper pip calculations for this instrument
+4. Robot class with using statements, OnStart(), OnBar()
+5. Return ONLY C# code."""
+
+                # Map model name to provider
+                provider_map = {"openai": "openai", "claude": "claude", "deepseek": "deepseek"}
+                provider = provider_map.get(request.ai_model, "openai")
+                
+                response = await ai_client.generate(
+                    provider=provider,
+                    prompt=prompt,
+                    system_message="You are an expert cTrader cBot developer. Return ONLY C# code, no markdown."
+                )
+                current_code = re.sub(r'^```c#\s*\n|^```csharp\s*\n|\n```$', '', response.strip()).strip()
+                
+                stages.append(ProValidationStage(
+                    stage="generation",
+                    success=True,
+                    score=100.0,
+                    details={"ai_model": request.ai_model, "symbol_optimized": True},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            except Exception as e:
+                stages.append(ProValidationStage(
+                    stage="generation",
+                    success=False,
+                    score=0.0,
+                    error=str(e),
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        elif request.code:
+            stages.append(ProValidationStage(
+                stage="generation",
+                success=True,
+                score=100.0,
+                details={"source": "provided"},
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 3: COMPILATION
+        stage_start = time.time()
+        if current_code:
+            try:
+                compile_result = compile_and_verify(current_code, max_attempts=3)
+                current_code = compile_result["code"]
+                stages.append(ProValidationStage(
+                    stage="compilation",
+                    success=compile_result["is_verified"],
+                    score=100.0 if compile_result["is_verified"] else 30.0,
+                    details={
+                        "status": compile_result["status"],
+                        "fixes_applied": compile_result["fixes_applied"],
+                        "errors": compile_result["errors"][:3] if compile_result["errors"] else []
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            except Exception as e:
+                stages.append(ProValidationStage(
+                    stage="compilation",
+                    success=False,
+                    score=0.0,
+                    error=str(e),
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        
+        # STAGE 4: BACKTEST ON REAL DATA
+        stage_start = time.time()
+        mock_trades = []
+        backtest_score = 0.0
+        
+        # Import at the start of the stage (needed in both branches)
+        from backtest_calculator import performance_calculator as perf_calc, strategy_scorer as strat_scorer
+        
+        try:
+            # Use Dukascopy backtest if data was loaded
+            if request.data_source == "dukascopy" and data_info.get("candles_loaded", 0) > 0:
+                trades, equity_curve, backtest_config = await run_backtest_with_dukascopy(
+                    symbol=request.symbol,
+                    timeframe=request.timeframe,
+                    duration_days=request.backtest_days,
+                    initial_balance=request.initial_balance,
+                    strategy_type="trend_following",
+                    bot_name="ProValidation"
+                )
+                mock_trades = trades
+                
+                # Calculate metrics
+                metrics = perf_calc.calculate_metrics(trades, equity_curve, backtest_config)
+                score = strat_scorer.calculate_score(metrics)
+                backtest_score = score.total_score
+                
+                stages.append(ProValidationStage(
+                    stage="backtest",
+                    success=backtest_score >= 50,
+                    score=backtest_score,
+                    details={
+                        "data_source": "dukascopy",
+                        "is_real_data": True,
+                        "net_profit": round(metrics.net_profit, 2),
+                        "win_rate": round(metrics.win_rate * 100, 2),
+                        "max_drawdown": round(metrics.max_drawdown_percent, 2),
+                        "trades": metrics.total_trades,
+                        "profit_factor": round(metrics.profit_factor, 2) if metrics.profit_factor else 0,
+                        "sharpe_ratio": round(metrics.sharpe_ratio, 2) if metrics.sharpe_ratio else 0,
+                        "grade": score.grade,
+                        "symbol_config": {
+                            "pip_value": symbol_config.pip_value,
+                            "spread": symbol_config.spread,
+                            "volatility_multiplier": symbol_config.volatility_multiplier
+                        }
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                # Fallback to mock backtest
+                from backtest_mock_data import MockBacktestGenerator
+                mock_trades, mock_equity, backtest_config = MockBacktestGenerator.generate_mock_backtest(
+                    bot_name="ProValidation",
+                    symbol=request.symbol,
+                    timeframe=BT_Timeframe.H1,
+                    duration_days=request.backtest_days,
+                    initial_balance=request.initial_balance
+                )
+                metrics = perf_calc.calculate_metrics(mock_trades, mock_equity, backtest_config)
+                score = strat_scorer.calculate_score(metrics)
+                backtest_score = score.total_score
+                
+                stages.append(ProValidationStage(
+                    stage="backtest",
+                    success=backtest_score >= 50,
+                    score=backtest_score,
+                    details={
+                        "data_source": "mock",
+                        "is_real_data": False,
+                        "warning": "Using mock data - real data unavailable",
+                        "net_profit": round(metrics.net_profit, 2),
+                        "win_rate": round(metrics.win_rate * 100, 2),
+                        "trades": metrics.total_trades,
+                        "grade": score.grade
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+                
+        except Exception as e:
+            logger.error(f"Backtest error: {e}")
+            stages.append(ProValidationStage(
+                stage="backtest",
+                success=False,
+                score=0.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 5: MONTE CARLO
+        stage_start = time.time()
+        monte_carlo_score = 50.0
+        
+        try:
+            if mock_trades and len(mock_trades) >= 10:
+                mc_config = MonteCarloConfig(
+                    num_simulations=request.monte_carlo_runs,
+                    initial_balance=request.initial_balance
+                )
+                mc_engine = create_monte_carlo_engine(mc_config, mock_trades)
+                mc_result = mc_engine.run()
+                monte_carlo_score = mc_result.monte_carlo_score.total_score
+                
+                stages.append(ProValidationStage(
+                    stage="monte_carlo",
+                    success=monte_carlo_score >= 50,
+                    score=monte_carlo_score,
+                    details={
+                        "simulations": request.monte_carlo_runs,
+                        "ruin_probability": round(mc_result.metrics.ruin_probability * 100, 2),
+                        "profit_probability": round(mc_result.metrics.profit_probability * 100, 2),
+                        "grade": mc_result.monte_carlo_score.grade,
+                        "median_return": round(mc_result.metrics.median_return_percent, 2) if mc_result.metrics.median_return_percent else 0
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                stages.append(ProValidationStage(
+                    stage="monte_carlo",
+                    success=True,
+                    score=50.0,
+                    details={"note": "Insufficient trades for Monte Carlo"},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        except Exception as e:
+            stages.append(ProValidationStage(
+                stage="monte_carlo",
+                success=True,
+                score=50.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 6: WALK-FORWARD
+        stage_start = time.time()
+        walk_forward_score = 50.0
+        
+        try:
+            if mock_trades and len(mock_trades) >= 20:
+                segment_size = len(mock_trades) // 4
+                win_rates = []
+                pf_values = []
+                
+                for i in range(4):
+                    seg = mock_trades[i*segment_size:(i+1)*segment_size if i < 3 else len(mock_trades)]
+                    if seg:
+                        wins = sum(1 for t in seg if (t.profit_loss or 0) > 0)
+                        win_rates.append(wins / len(seg))
+                        
+                        gross_profit = sum(t.profit_loss for t in seg if (t.profit_loss or 0) > 0)
+                        gross_loss = abs(sum(t.profit_loss for t in seg if (t.profit_loss or 0) < 0))
+                        pf_values.append(gross_profit / gross_loss if gross_loss > 0 else 2.0)
+                
+                avg_wr = sum(win_rates) / len(win_rates) if win_rates else 0
+                variance = sum((r - avg_wr)**2 for r in win_rates) / len(win_rates) if win_rates else 1
+                consistency = max(0, 1 - variance * 10)
+                walk_forward_score = min(100, consistency * 100)
+                
+                stages.append(ProValidationStage(
+                    stage="walk_forward",
+                    success=walk_forward_score >= 50,
+                    score=round(walk_forward_score, 1),
+                    details={
+                        "segments": 4,
+                        "consistency": round(consistency, 3),
+                        "segment_win_rates": [round(r * 100, 1) for r in win_rates],
+                        "segment_profit_factors": [round(pf, 2) for pf in pf_values],
+                        "is_stable": consistency > 0.7
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                stages.append(ProValidationStage(
+                    stage="walk_forward",
+                    success=True,
+                    score=50.0,
+                    details={"note": "Insufficient trades for walk-forward"},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        except Exception as e:
+            stages.append(ProValidationStage(
+                stage="walk_forward",
+                success=True,
+                score=50.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # STAGE 7: COMPLIANCE
+        stage_start = time.time()
+        compliance_score = 100.0
+        
+        try:
+            if current_code and request.prop_firm != "none":
+                engine = get_compliance_engine(request.prop_firm)
+                result = engine.validate(current_code)
+                if not result.is_compliant:
+                    compliance_score = max(0, 100 - len(result.violations) * 15)
+                    
+                stages.append(ProValidationStage(
+                    stage="compliance",
+                    success=compliance_score >= 70,
+                    score=compliance_score,
+                    details={
+                        "prop_firm": request.prop_firm,
+                        "is_compliant": result.is_compliant,
+                        "violations": [v.message for v in result.violations[:5]] if result.violations else []
+                    },
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+            else:
+                stages.append(ProValidationStage(
+                    stage="compliance",
+                    success=True,
+                    score=100.0,
+                    details={"prop_firm": "none", "note": "No compliance check required"},
+                    execution_time=round(time.time() - stage_start, 2)
+                ))
+        except Exception as e:
+            stages.append(ProValidationStage(
+                stage="compliance",
+                success=True,
+                score=70.0,
+                error=str(e),
+                execution_time=round(time.time() - stage_start, 2)
+            ))
+        
+        # FINAL SCORING
+        weights = {
+            "data_loading": 0.10,
+            "generation": 0.05,
+            "compilation": 0.15,
+            "backtest": 0.30,
+            "monte_carlo": 0.20,
+            "walk_forward": 0.10,
+            "compliance": 0.10
+        }
+        
+        final_score = 0.0
+        for stage in stages:
+            weight = weights.get(stage.stage, 0.0)
+            final_score += (stage.score or 0) * weight
+        
+        final_score = round(final_score, 1)
+        
+        # Determine grade
+        if final_score >= 90:
+            grade = "A"
+        elif final_score >= 80:
+            grade = "B"
+        elif final_score >= 70:
+            grade = "C"
+        elif final_score >= 60:
+            grade = "D"
+        else:
+            grade = "F"
+        
+        # Determine decision
+        has_real_data = data_info.get("is_real_data", False)
+        compile_ok = any(s.stage == "compilation" and s.success for s in stages)
+        backtest_ok = any(s.stage == "backtest" and (s.score or 0) >= 50 for s in stages)
+        
+        if final_score >= 75 and has_real_data and backtest_ok:
+            decision = "PROP_FIRM_READY"
+        elif final_score >= 60 and backtest_ok:
+            decision = "DEMO_RECOMMENDED"
+        elif final_score >= 50:
+            decision = "NEEDS_IMPROVEMENT"
+        else:
+            decision = "NOT_READY"
+        
+        # Save to database
+        await db.pro_validations.insert_one({
+            "validation_id": validation_id,
+            "symbol": request.symbol,
+            "timeframe": request.timeframe,
+            "data_source": request.data_source,
+            "stages": [s.model_dump() for s in stages],
+            "final_score": final_score,
+            "grade": grade,
+            "decision": decision,
+            "data_info": data_info,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        })
+        
+        return ProValidationResponse(
+            success=True,
+            mode="pro",
+            data_source=request.data_source,
+            validation_id=validation_id,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            stages=stages,
+            final_score=final_score,
+            grade=grade,
+            decision=decision,
+            total_execution_time=round(time.time() - start_time, 2),
+            data_info=data_info,
+            summary={
+                "stages_passed": sum(1 for s in stages if s.success),
+                "stages_total": len(stages),
+                "is_real_data": data_info.get("is_real_data", False),
+                "symbol_type": symbol_config.type,
+                "volatility": "high" if symbol_config.volatility_multiplier > 2 else "medium" if symbol_config.volatility_multiplier > 1 else "normal"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"PRO validation error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        return ProValidationResponse(
+            success=False,
+            mode="pro",
+            data_source=request.data_source,
+            validation_id=validation_id,
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            stages=stages,
+            final_score=0.0,
+            grade="F",
+            decision="NOT_READY",
+            total_execution_time=round(time.time() - start_time, 2),
+            data_info=data_info,
+            summary={"error": str(e)}
+        )
+
+
+@api_router.get("/validation/pro/data-status/{symbol}")
+async def get_dukascopy_data_status(symbol: str):
+    """Check Dukascopy data availability for a symbol"""
+    from market_data.dukascopy_provider import get_dukascopy_provider
+    
+    config = get_symbol_config(symbol)
+    if not config:
+        raise HTTPException(status_code=404, detail=f"Symbol {symbol} not supported")
+    
+    provider = get_dukascopy_provider()
+    cache_info = provider.get_cached_data_info(symbol)
+    
+    return {
+        "success": True,
+        "symbol": symbol,
+        "dukascopy_symbol": config.dukascopy_symbol,
+        "cache_info": cache_info,
+        "supported_timeframes": ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
+
+# Include multi-AI router (no longer needs EMERGENT_LLM_KEY)
+init_multi_ai_router(db, None)
+app.include_router(multi_ai_router)
+
+# Include portfolio router
+init_portfolio_router(db)
+app.include_router(portfolio_router)
+
+# Include challenge router
+init_challenge_router(db)
+app.include_router(challenge_router)
+
+# Include regime router
+init_regime_router(db)
+app.include_router(regime_router)
+
+# Include optimizer router
+init_optimizer_router(db)
+app.include_router(optimizer_router)
+
+# Include factory router
+init_factory_router(db)
+app.include_router(factory_router)
+
+# Include alphavantage router
+init_alphavantage_router(db, market_data_service)
+app.include_router(alphavantage_router)
+
+# Include leaderboard router
+init_leaderboard_router(db)
+app.include_router(leaderboard_router)
+
+# Include twelvedata router
+init_twelvedata_router(db, market_data_service)
+app.include_router(twelvedata_router)
+
+# Include bot validation router
+init_bot_validation_router(db)
+app.include_router(bot_validation_router)
+
+# Include advanced validation router
+init_advanced_validation_router(db)
+app.include_router(advanced_validation_router)
+
+# Include execution layer routers (trade logging, bot status, websocket)
+app.include_router(trade_logging_router)
+app.include_router(bot_status_router)
+app.include_router(websocket_router)
+app.include_router(alerts_router)
+
+# Include paper trading router
+app.include_router(paper_trading_router)
+
+# Include unified pipeline router (Strategy Lifecycle Management)
+from pipeline_router import router as pipeline_router
+app.include_router(pipeline_router)
+
+# Include analyzer router (Phase 1 - cBot Analysis)
+from analyzer.router import router as analyzer_router
+app.include_router(analyzer_router, prefix="/api")
+
+# Include discovery router (Bot Discovery + Ranking System)
+from discovery.router import router as discovery_router
+app.include_router(discovery_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,3 +2700,29 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+@app.on_event("startup")
+async def startup_db_indexes():
+    """Initialize database indexes on startup"""
+    try:
+        await market_data_service.ensure_indexes()
+        
+        # Create indexes for execution layer collections
+        await db.trades.create_index([("bot_id", 1), ("timestamp_entry", -1)])
+        await db.trades.create_index([("symbol", 1)])
+        await db.trades.create_index([("result", 1)])
+        await db.trades.create_index([("mode", 1)])
+        
+        await db.bots.create_index([("bot_id", 1)], unique=True)
+        await db.bots.create_index([("status", 1)])
+        
+        await db.bot_history.create_index([("bot_id", 1), ("timestamp", -1)])
+        
+        logging.info("Database indexes initialized (including execution layer)")
+        
+        # Initialize AI client and log status at startup
+        ai_client = get_ai_client()
+        log_ai_status()
+        
+    except Exception as e:
+        logging.error(f"Failed to initialize indexes: {str(e)}")

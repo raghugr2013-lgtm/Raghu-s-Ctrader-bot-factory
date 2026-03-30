@@ -81,3 +81,5 @@ memory/test_credentials.md
 # Mobile development
 android-sdk/trading_strategy/.git/objects/pack/pack-e87ae82a237b3c2dfb9290591534b514a526a618.pack
 trading_strategy/.git/objects/pack/pack-e87ae82a237b3c2dfb9290591534b514a526a618.pack
+frontend/node_modules/.cache/default-development/1.pack
+frontend/node_modules/.cache/default-development/0.pack

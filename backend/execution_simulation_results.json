@@ -1,0 +1,655 @@
+{
+  "metrics": {
+    "initial_balance": 10000,
+    "final_balance": 10110.27,
+    "net_return_pct": 1.1,
+    "net_return_dollars": 110.27,
+    "total_trades": 93,
+    "winning_trades": 29,
+    "losing_trades": 64,
+    "win_rate_pct": 31.18,
+    "profit_factor": 1.05,
+    "avg_win": 75.89,
+    "avg_loss": 32.67,
+    "max_drawdown_pct": 7.12,
+    "total_costs": 143.0,
+    "spread_costs": 143.0,
+    "commissions": 0,
+    "sharpe_like_ratio": 0.232,
+    "peak_balance": 10581.38
+  },
+  "enhanced_trades": [
+    {
+      "entry_time": "2025-03-31 01:00:00",
+      "exit_time": "2025-04-23 08:00:00",
+      "direction": "LONG",
+      "entry_price_signal": 1.08354,
+      "exit_price_signal": 1.14181,
+      "entry_price_actual": 1.08361,
+      "exit_price_actual": 1.1419,
+      "position_size": 10000.0,
+      "raw_pnl": 582.88,
+      "spread_cost": 1.5,
+      "commission": 0,
+      "net_pnl": 581.38,
+      "balance_after": 10581.38,
+      "drawdown_pct": 0.0
+    },
+    {
+      "entry_time": "2025-04-23 08:00:00",
+      "exit_time": "2025-04-23 09:00:00",
+      "direction": "SHORT",
+      "entry_price_signal": 1.14181,
+      "exit_price_signal": 1.14233,
+      "entry_price_actual": 1.14175,
+      "exit_price_actual": 1.14238,
+      "position_size": 10581.38,
+      "raw_pnl": -6.67,
+      "spread_cost": 1.59,
+      "commission": 0,
+      "net_pnl": -8.26,
+      "balance_after": 10573.12,
+      "drawdown_pct": 0.08
+    },
+    {
+      "entry_time": "2025-04-23 09:00:00",
+      "exit_time": "2025-04-23 14:00:00",
+      "direction": "LONG",
+      "entry_price_signal": 1.14233,
+      "exit_price_signal": 1.13533,
+      "entry_price_actual": 1.14241,
+      "exit_price_actual": 1.13538,
+      "position_size": 10573.12,
+      "raw_pnl": -74.32,
+      "spread_cost": 1.59,
+      "commission": 0,
+      "net_pnl": -75.9,
+      "balance_after": 10497.21,
+      "drawdown_pct": 0.8
+    },
+    {
+      "entry_time": "2025-04-23 14:00:00",
+      "exit_time": "2025-04-28 17:00:00",
+      "direction": "SHORT",
+      "entry_price_signal": 1.13533,
+      "exit_price_signal": 1.14038,
+      "entry_price_actual": 1.13524,
+      "exit_price_actual": 1.14032,
+      "position_size": 10497.21,
+      "raw_pnl": -53.35,
+      "spread_cost": 1.57,
+      "commission": 0,
+      "net_pnl": -54.93,
+      "balance_after": 10442.29,
+      "drawdown_pct": 1.31
+    },
+    {
+      "entry_time": "2025-04-28 17:00:00",
+      "exit_time": "2025-04-30 05:00:00",
+      "direction": "LONG",
+      "entry_price_signal": 1.14038,
+      "exit_price_signal": 1.13856,
+      "entry_price_actual": 1.14045,
+      "exit_price_actual": 1.13849,
+      "position_size": 10442.29,
+      "raw_pnl": -20.43,
+      "spread_cost": 1.57,
+      "commission": 0,
+      "net_pnl": -22.0,
+      "balance_after": 10420.29,
+      "drawdown_pct": 1.52
+    },
+    {
+      "entry_time": "2025-04-30 05:00:00",
+      "exit_time": "2025-04-30 06:00:00",
+      "direction": "SHORT",
+      "entry_price_signal": 1.13856,
+      "exit_price_signal": 1.13921,
+      "entry_price_actual": 1.13848,
+      "exit_price_actual": 1.13915,
+      "position_size": 10420.29,
+      "raw_pnl": -6.94,
+      "spread_cost": 1.56,
+      "commission": 0,
+      "net_pnl": -8.5,
+      "balance_after": 10411.78,
+      "drawdown_pct": 1.6
+    },
+    {
+      "entry_time": "2025-04-30 06:00:00",
+      "exit_time": "2025-04-30 10:00:00",
+      "direction": "LONG",
+      "entry_price_signal": 1.13921,
+      "exit_price_signal": 1.13649,
+      "entry_price_actual": 1.13928,
+      "exit_price_actual": 1.13655,
+      "position_size": 10411.78,
+      "raw_pnl": -28.45,
+      "spread_cost": 1.56,
+      "commission": 0,
+      "net_pnl": -30.02,
+      "balance_after": 10381.77,
+      "drawdown_pct": 1.89
+    },
+    {
+      "entry_time": "2025-04-30 10:00:00",
+      "exit_time": "2025-05-06 18:00:00",
+      "direction": "SHORT",
+      "entry_price_signal": 1.13649,
+      "exit_price_signal": 1.1374,
+      "entry_price_actual": 1.13641,
+      "exit_price_actual": 1.13732,
+      "position_size": 10381.77,
+      "raw_pnl": -9.44,
+      "spread_cost": 1.56,
+      "commission": 0,
+      "net_pnl": -11.0,
+      "balance_after": 10370.77,
+      "drawdown_pct": 1.99
+    },
+    {
+      "entry_time": "2025-05-06 18:00:00",
+      "exit_time": "2025-05-07 21:00:00",
+      "direction": "LONG",
+      "entry_price_signal": 1.1374,
+      "exit_price_signal": 1.13173,
+      "entry_price_actual": 1.13745,
+      "exit_price_actual": 1.13183,
+      "position_size": 10370.77,
+      "raw_pnl": -58.34,
+      "spread_cost": 1.56,
+      "commission": 0,
+      "net_pnl": -59.89,
+      "balance_after": 10310.88,
+      "drawdown_pct": 2.56
+    },
+    {
+      "entry_time": "2025-05-07 21:00:00",
+      "exit_time": "2025-05-19 09:00:00",
+      "direction": "SHORT",
+      "entry_price_signal": 1.13173,
+      "exit_price_signal": 1.12816,
+      "entry_price_actual": 1.13166,
+      "exit_price_actual": 1.12808,
+      "position_size": 10310.88,
+      "raw_pnl": 37.01,
+      "spread_cost": 1.55,
+      "commission": 0,
+      "net_pnl": 35.46,
+      "balance_after": 10346.34,
+      "drawdown_pct": 2.22
+    }
+  ],
+  "equity_curve": [
+    {
+      "timestamp": "2025-04-23 08:00:00",
+      "balance": 10581.378726911482,
+      "drawdown_pct": 0.0
+    },
+    {
+      "timestamp": "2025-04-23 09:00:00",
+      "balance": 10573.117790440703,
+      "drawdown_pct": 0.07807051126304322
+    },
+    {
+      "timestamp": "2025-04-23 14:00:00",
+      "balance": 10497.213097361957,
+      "drawdown_pct": 0.7954126935790288
+    },
+    {
+      "timestamp": "2025-04-28 17:00:00",
+      "balance": 10442.286105637446,
+      "drawdown_pct": 1.3145037604625525
+    },
+    {
+      "timestamp": "2025-04-30 05:00:00",
+      "balance": 10420.286199498127,
+      "drawdown_pct": 1.5224152879402248
+    },
+    {
+      "timestamp": "2025-04-30 06:00:00",
+      "balance": 10411.783397967249,
+      "drawdown_pct": 1.602771560504716
+    },
+    {
+      "timestamp": "2025-04-30 10:00:00",
+      "balance": 10381.768102529088,
+      "drawdown_pct": 1.8864330399093188
+    },
+    {
+      "timestamp": "2025-05-06 18:00:00",
+      "balance": 10370.7712822949,
+      "drawdown_pct": 1.9903591965851009
+    },
+    {
+      "timestamp": "2025-05-07 21:00:00",
+      "balance": 10310.880379120215,
+      "drawdown_pct": 2.5563620277886057
+    },
+    {
+      "timestamp": "2025-05-19 09:00:00",
+      "balance": 10346.339300454405,
+      "drawdown_pct": 2.221255211849701
+    },
+    {
+      "timestamp": "2025-05-28 05:00:00",
+      "balance": 10381.597776290591,
+      "drawdown_pct": 1.8880427189775395
+    },
+    {
+      "timestamp": "2025-05-29 16:00:00",
+      "balance": 10318.554002321865,
+      "drawdown_pct": 2.483841958337411
+    },
+    {
+      "timestamp": "2025-06-17 21:00:00",
+      "balance": 10433.356322591646,
+      "drawdown_pct": 1.3988952492870563
+    },
+    {
+      "timestamp": "2025-06-20 02:00:00",
+      "balance": 10394.618104693272,
+      "drawdown_pct": 1.7649932682517406
+    },
+    {
+      "timestamp": "2025-06-23 05:00:00",
+      "balance": 10386.117004115815,
+      "drawdown_pct": 1.8453334658465679
+    },
+    {
+      "timestamp": "2025-06-23 06:00:00",
+      "balance": 10391.642449634326,
+      "drawdown_pct": 1.793114887709311
+    },
+    {
+      "timestamp": "2025-06-23 08:00:00",
+      "balance": 10365.278847395854,
+      "drawdown_pct": 2.0422658057406484
+    },
+    {
+      "timestamp": "2025-06-23 17:00:00",
+      "balance": 10274.295951490933,
+      "drawdown_pct": 2.9021055133349467
+    },
+    {
+      "timestamp": "2025-07-07 12:00:00",
+      "balance": 10430.722793278106,
+      "drawdown_pct": 1.4237835873903133
+    },
+    {
+      "timestamp": "2025-07-10 07:00:00",
+      "balance": 10418.929398450586,
+      "drawdown_pct": 1.5352378234770192
+    },
+    {
+      "timestamp": "2025-07-10 08:00:00",
+      "balance": 10411.43089420677,
+      "drawdown_pct": 1.6061029199577426
+    },
+    {
+      "timestamp": "2025-07-21 13:00:00",
+      "balance": 10473.87835035384,
+      "drawdown_pct": 1.0159392205123308
+    },
+    {
+      "timestamp": "2025-07-28 10:00:00",
+      "balance": 10468.226020823131,
+      "drawdown_pct": 1.069356924165006
+    },
+    {
+      "timestamp": "2025-08-04 00:00:00",
+      "balance": 10575.803662662358,
+      "drawdown_pct": 0.05268750314120134
+    },
+    {
+      "timestamp": "2025-08-05 10:00:00",
+      "balance": 10560.308689808884,
+      "drawdown_pct": 0.19912374035918998
+    },
+    {
+      "timestamp": "2025-08-05 16:00:00",
+      "balance": 10517.60125607416,
+      "drawdown_pct": 0.6027330887903798
+    },
+    {
+      "timestamp": "2025-08-12 01:00:00",
+      "balance": 10556.052527895115,
+      "drawdown_pct": 0.23934687217984793
+    },
+    {
+      "timestamp": "2025-08-12 02:00:00",
+      "balance": 10551.651157138589,
+      "drawdown_pct": 0.2809423095053491
+    },
+    {
+      "timestamp": "2025-08-12 10:00:00",
+      "balance": 10537.14459207344,
+      "drawdown_pct": 0.41803753536900945
+    },
+    {
+      "timestamp": "2025-08-12 13:00:00",
+      "balance": 10486.620969439628,
+      "drawdown_pct": 0.895514279541457
+    },
+    {
+      "timestamp": "2025-08-15 00:00:00",
+      "balance": 10480.577821496932,
+      "drawdown_pct": 0.9526254377247073
+    },
+    {
+      "timestamp": "2025-08-15 02:00:00",
+      "balance": 10471.750057036817,
+      "drawdown_pct": 1.0360527933457977
+    },
+    {
+      "timestamp": "2025-08-19 01:00:00",
+      "balance": 10461.893855750877,
+      "drawdown_pct": 1.1291994573138213
+    },
+    {
+      "timestamp": "2025-08-19 09:00:00",
+      "balance": 10430.938704308019,
+      "drawdown_pct": 1.4217431063198882
+    },
+    {
+      "timestamp": "2025-08-19 19:00:00",
+      "balance": 10396.644301603772,
+      "drawdown_pct": 1.7458445640725178
+    },
+    {
+      "timestamp": "2025-08-22 17:00:00",
+      "balance": 10300.961281598084,
+      "drawdown_pct": 2.6501030966807404
+    },
+    {
+      "timestamp": "2025-08-25 20:00:00",
+      "balance": 10177.295359630174,
+      "drawdown_pct": 3.8188158434742334
+    },
+    {
+      "timestamp": "2025-08-28 11:00:00",
+      "balance": 10127.9643741081,
+      "drawdown_pct": 4.2850214939402855
+    },
+    {
+      "timestamp": "2025-09-02 11:00:00",
+      "balance": 10106.776290012076,
+      "drawdown_pct": 4.485260845000809
+    },
+    {
+      "timestamp": "2025-09-05 05:00:00",
+      "balance": 10073.845632486786,
+      "drawdown_pct": 4.7964741412562235
+    },
+    {
+      "timestamp": "2025-09-11 01:00:00",
+      "balance": 10091.709455300188,
+      "drawdown_pct": 4.627650935184131
+    },
+    {
+      "timestamp": "2025-09-11 15:00:00",
+      "balance": 10055.384886939046,
+      "drawdown_pct": 4.970938604008973
+    },
+    {
+      "timestamp": "2025-09-19 06:00:00",
+      "balance": 10087.200959567943,
+      "drawdown_pct": 4.67025876398038
+    },
+    {
+      "timestamp": "2025-09-22 18:00:00",
+      "balance": 10054.888164587801,
+      "drawdown_pct": 4.97563291052672
+    },
+    {
+      "timestamp": "2025-09-24 11:00:00",
+      "balance": 10005.797288546664,
+      "drawdown_pct": 5.439569390905071
+    },
+    {
+      "timestamp": "2025-09-30 09:00:00",
+      "balance": 10005.364157608983,
+      "drawdown_pct": 5.443662722680254
+    },
+    {
+      "timestamp": "2025-10-01 18:00:00",
+      "balance": 9991.736491719606,
+      "drawdown_pct": 5.572451855373497
+    },
+    {
+      "timestamp": "2025-10-02 08:00:00",
+      "balance": 9969.643386800948,
+      "drawdown_pct": 5.781244163907632
+    },
+    {
+      "timestamp": "2025-10-02 15:00:00",
+      "balance": 9908.908594526378,
+      "drawdown_pct": 6.355222223308382
+    },
+    {
+      "timestamp": "2025-10-03 15:00:00",
+      "balance": 9858.2933292029,
+      "drawdown_pct": 6.833565042611782
+    },
+    {
+      "timestamp": "2025-10-06 00:00:00",
+      "balance": 9828.325921727375,
+      "drawdown_pct": 7.116773953746473
+    },
+    {
+      "timestamp": "2025-10-15 07:00:00",
+      "balance": 9904.638990024758,
+      "drawdown_pct": 6.395572395169835
+    },
+    {
+      "timestamp": "2025-10-20 21:00:00",
+      "balance": 9913.82742227808,
+      "drawdown_pct": 6.308736525379508
+    },
+    {
+      "timestamp": "2025-10-24 18:00:00",
+      "balance": 9931.107331516918,
+      "drawdown_pct": 6.1454316320872
+    },
+    {
+      "timestamp": "2025-10-29 20:00:00",
+      "balance": 9904.255719311115,
+      "drawdown_pct": 6.3991945196919255
+    },
+    {
+      "timestamp": "2025-11-06 21:00:00",
+      "balance": 9957.21936443589,
+      "drawdown_pct": 5.898658186084722
+    },
+    {
+      "timestamp": "2025-11-18 00:00:00",
+      "balance": 9995.401413306927,
+      "drawdown_pct": 5.537816278272383
+    },
+    {
+      "timestamp": "2025-11-18 05:00:00",
+      "balance": 9981.856262653408,
+      "drawdown_pct": 5.6658255954237475
+    },
+    {
+      "timestamp": "2025-11-18 11:00:00",
+      "balance": 9968.2670368404,
+      "drawdown_pct": 5.794251447703721
+    },
+    {
+      "timestamp": "2025-11-18 15:00:00",
+      "balance": 9970.940874915865,
+      "drawdown_pct": 5.768982169054195
+    },
+    {
+      "timestamp": "2025-11-18 16:00:00",
+      "balance": 9964.831019876741,
+      "drawdown_pct": 5.826723746941246
+    },
+    {
+      "timestamp": "2025-11-25 16:00:00",
+      "balance": 9989.836404351454,
+      "drawdown_pct": 5.59040875321442
+    },
+    {
+      "timestamp": "2025-12-09 19:00:00",
+      "balance": 10061.934018265716,
+      "drawdown_pct": 4.909045617322711
+    },
+    {
+      "timestamp": "2025-12-10 09:00:00",
+      "balance": 10049.346222150645,
+      "drawdown_pct": 5.028007393854312
+    },
+    {
+      "timestamp": "2025-12-19 05:00:00",
+      "balance": 10129.687621887948,
+      "drawdown_pct": 4.268735829998731
+    },
+    {
+      "timestamp": "2025-12-22 09:00:00",
+      "balance": 10118.582912940257,
+      "drawdown_pct": 4.373681595898293
+    },
+    {
+      "timestamp": "2025-12-29 19:00:00",
+      "balance": 10154.615005909101,
+      "drawdown_pct": 4.033157984573388
+    },
+    {
+      "timestamp": "2025-12-29 20:00:00",
+      "balance": 10147.217951596476,
+      "drawdown_pct": 4.103064321956554
+    },
+    {
+      "timestamp": "2025-12-30 16:00:00",
+      "balance": 10139.934415578993,
+      "drawdown_pct": 4.171897847392696
+    },
+    {
+      "timestamp": "2026-01-02 04:00:00",
+      "balance": 10148.29799993285,
+      "drawdown_pct": 4.092857255710756
+    },
+    {
+      "timestamp": "2026-01-19 22:00:00",
+      "balance": 10256.217831026974,
+      "drawdown_pct": 3.0729539531321253
+    },
+    {
+      "timestamp": "2026-02-02 21:00:00",
+      "balance": 10405.570863844629,
+      "drawdown_pct": 1.6614835136722164
+    },
+    {
+      "timestamp": "2026-02-09 07:00:00",
+      "balance": 10335.394154695867,
+      "drawdown_pct": 2.3246930155708894
+    },
+    {
+      "timestamp": "2026-02-13 05:00:00",
+      "balance": 10338.262051426751,
+      "drawdown_pct": 2.2975897731211097
+    },
+    {
+      "timestamp": "2026-02-13 21:00:00",
+      "balance": 10326.400393180049,
+      "drawdown_pct": 2.409689137039863
+    },
+    {
+      "timestamp": "2026-02-16 01:00:00",
+      "balance": 10322.10923343638,
+      "drawdown_pct": 2.4502430181022152
+    },
+    {
+      "timestamp": "2026-02-23 08:00:00",
+      "balance": 10377.251175321555,
+      "drawdown_pct": 1.9291205509048837
+    },
+    {
+      "timestamp": "2026-02-23 10:00:00",
+      "balance": 10361.455035020701,
+      "drawdown_pct": 2.0784029904482284
+    },
+    {
+      "timestamp": "2026-02-25 22:00:00",
+      "balance": 10346.529032979628,
+      "drawdown_pct": 2.219462132421021
+    },
+    {
+      "timestamp": "2026-02-26 18:00:00",
+      "balance": 10316.34433606843,
+      "drawdown_pct": 2.504724551338408
+    },
+    {
+      "timestamp": "2026-02-27 06:00:00",
+      "balance": 10293.446912725176,
+      "drawdown_pct": 2.7211181228587225
+    },
+    {
+      "timestamp": "2026-02-27 14:00:00",
+      "balance": 10283.050268228331,
+      "drawdown_pct": 2.819372280139786
+    },
+    {
+      "timestamp": "2026-02-27 17:00:00",
+      "balance": 10258.589167926519,
+      "drawdown_pct": 3.050543481295275
+    },
+    {
+      "timestamp": "2026-03-02 03:00:00",
+      "balance": 10227.079085915055,
+      "drawdown_pct": 3.3483315373198153
+    },
+    {
+      "timestamp": "2026-03-10 11:00:00",
+      "balance": 10380.347019691813,
+      "drawdown_pct": 1.8998630746330556
+    },
+    {
+      "timestamp": "2026-03-10 21:00:00",
+      "balance": 10343.8696571058,
+      "drawdown_pct": 2.2445947351041067
+    },
+    {
+      "timestamp": "2026-03-18 00:00:00",
+      "balance": 10418.673211592568,
+      "drawdown_pct": 1.5376589338505309
+    },
+    {
+      "timestamp": "2026-03-18 13:00:00",
+      "balance": 10397.798630729581,
+      "drawdown_pct": 1.7349355024502016
+    },
+    {
+      "timestamp": "2026-03-19 19:00:00",
+      "balance": 10319.85191677604,
+      "drawdown_pct": 2.4715759343374
+    },
+    {
+      "timestamp": "2026-03-23 10:00:00",
+      "balance": 10214.338509793766,
+      "drawdown_pct": 3.4687371711233346
+    },
+    {
+      "timestamp": "2026-03-23 13:00:00",
+      "balance": 10097.042111145287,
+      "drawdown_pct": 4.5772543282510805
+    },
+    {
+      "timestamp": "2026-03-26 08:00:00",
+      "balance": 10058.22032479838,
+      "drawdown_pct": 4.944142116211758
+    },
+    {
+      "timestamp": "2026-03-27 21:00:00",
+      "balance": 10110.274122929352,
+      "drawdown_pct": 4.452204350119103
+    }
+  ],
+  "strategy_parameters": {
+    "ema_fast": 10,
+    "ema_slow": 150,
+    "risk_pct": 0.5
+  }
+}

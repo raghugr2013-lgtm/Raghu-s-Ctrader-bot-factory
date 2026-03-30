@@ -1,0 +1,100 @@
+{
+  "validation_type": "Walk-Forward",
+  "config_tested": {
+    "risk_pct": 0.8,
+    "equity_scaling": true,
+    "max_concurrent": 5,
+    "daily_cap": 5.0,
+    "weekly_cap": 10.0
+  },
+  "periods_tested": 7,
+  "period_results": [
+    {
+      "period": "2022 H1 (Baseline)",
+      "trades": 30,
+      "win_rate": 26.7,
+      "profit_factor": 0.93,
+      "net_profit": -174.54,
+      "final_balance": 9825.46,
+      "max_drawdown_pct": 11.0,
+      "sharpe": -0.38
+    },
+    {
+      "period": "2022 H2 (High Vol)",
+      "trades": 31,
+      "win_rate": 45.2,
+      "profit_factor": 2.33,
+      "net_profit": 3809.77,
+      "final_balance": 13809.77,
+      "max_drawdown_pct": 8.0,
+      "sharpe": 5.66
+    },
+    {
+      "period": "2023 H1 (Trending)",
+      "trades": 33,
+      "win_rate": 30.3,
+      "profit_factor": 1.21,
+      "net_profit": 423.6,
+      "final_balance": 10423.6,
+      "max_drawdown_pct": 4.6,
+      "sharpe": 1.4
+    },
+    {
+      "period": "2023 H2 (Ranging)",
+      "trades": 46,
+      "win_rate": 43.5,
+      "profit_factor": 1.91,
+      "net_profit": 2628.6,
+      "final_balance": 12628.6,
+      "max_drawdown_pct": 6.5,
+      "sharpe": 4.53
+    },
+    {
+      "period": "2024 H1 (Mixed)",
+      "trades": 31,
+      "win_rate": 25.8,
+      "profit_factor": 0.73,
+      "net_profit": -584.49,
+      "final_balance": 9415.51,
+      "max_drawdown_pct": 12.0,
+      "sharpe": -2.08
+    },
+    {
+      "period": "2024 H2 (Forward)",
+      "trades": 36,
+      "win_rate": 41.7,
+      "profit_factor": 2.04,
+      "net_profit": 3153.03,
+      "final_balance": 13153.03,
+      "max_drawdown_pct": 7.9,
+      "sharpe": 5.11
+    },
+    {
+      "period": "2025 Q1 (OOS)",
+      "trades": 18,
+      "win_rate": 27.8,
+      "profit_factor": 0.88,
+      "net_profit": -164.81,
+      "final_balance": 9835.19,
+      "max_drawdown_pct": 5.0,
+      "sharpe": -0.8
+    }
+  ],
+  "aggregate_metrics": {
+    "total_trades": 225,
+    "total_profit": 9091.160000000002,
+    "avg_profit_factor": 1.43,
+    "max_drawdown": 12.0,
+    "min_pf": 0.73
+  },
+  "validation_criteria": {
+    "pf_threshold": 1.8,
+    "dd_threshold": 25,
+    "collapse_threshold": 1.2,
+    "pf_pass": false,
+    "dd_pass": true,
+    "collapse_pass": false,
+    "overall_pass": false
+  },
+  "timestamp": "2026-03-30T14:53:27.937189"
+}
