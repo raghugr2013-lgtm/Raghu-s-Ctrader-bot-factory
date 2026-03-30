@@ -30,18 +30,21 @@ def run_baseline_backtests():
     print("TASK 2: BASELINE BACKTEST (STRICT - NO CHANGES)")
     print("="*70)
     
-    # Configuration with realistic conditions
+    # Configuration with realistic conditions and risk-based position sizing
     config = BacktestConfig(
         initial_balance=10000,
-        position_size=0.01,  # 0.01 lots (micro lot)
+        risk_per_trade_pct=1.0,  # 1% risk per trade
         spread_pips=2.0,     # 2 pip spread
         slippage_pips=1.0,   # 1 pip slippage
-        commission_per_lot=7.0  # $7 per lot commission
+        commission_per_lot=7.0,  # $7 per lot commission
+        max_position_size=0.1  # Cap at 0.1 lots
     )
     
-    print("\n⚙️  REALISTIC CONDITIONS:")
+    print("\n⚙️  REALISTIC CONDITIONS (RISK-BASED SIZING):")
     print(f"   Initial Balance: ${config.initial_balance}")
-    print(f"   Position Size: {config.position_size} lots")
+    print(f"   Risk Per Trade: {config.risk_per_trade_pct}% of account")
+    print(f"   Position Sizing: DYNAMIC (based on stop loss)")
+    print(f"   Max Position Size: {config.max_position_size} lots")
     print(f"   Spread: {config.spread_pips} pips")
     print(f"   Slippage: {config.slippage_pips} pip")
     print(f"   Commission: ${config.commission_per_lot} per lot")
