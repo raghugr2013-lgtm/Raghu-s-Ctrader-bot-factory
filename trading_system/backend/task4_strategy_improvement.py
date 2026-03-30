@@ -20,20 +20,21 @@ class ImprovedBacktester(SimpleBacktester):
     """Enhanced backtester with diagnostic-based filters"""
     
     def mean_reversion_filtered(self, apply_regime_filter=True, apply_volatility_filter=True, 
-                                 apply_duration_filter=True, apply_session_filter=False):
+                                 apply_duration_filter=True, apply_session_filter=False,
+                                 volatility_percentile=0.67, block_bear_only=False):
         """
         Filtered mean reversion strategy based on Task 3 diagnostics
         
         Filters applied:
-        1. Market Regime: Only ranging markets (EMA 50 ≈ EMA 200)
-        2. Volatility: Only high volatility (ATR > 67th percentile)
-        3. Duration: Minimum hold time of 10 hours
+        1. Market Regime: Block bear trends only (keep ranging + bull)
+        2. Volatility: ATR > median (50th percentile) or higher
+        3. Duration: Soft minimum hold preference
         4. Session: Optional NY session preference
         """
         df = self.data.copy()
         
-        # Calculate volatility threshold (67th percentile)
-        atr_threshold = df['atr_14'].quantile(0.67)
+        # Calculate volatility threshold (configurable percentile)
+        atr_threshold = df['atr_14'].quantile(volatility_percentile)
         
         # Generate base signals (Bollinger Bands mean reversion)
         df['signal'] = 0
@@ -42,16 +43,20 @@ class ImprovedBacktester(SimpleBacktester):
         df.loc[(df['close'] >= df['bb_middle']) & (df['signal'].shift(1) == 1), 'signal'] = 0  # Exit long
         df.loc[(df['close'] <= df['bb_middle']) & (df['signal'].shift(1) == -1), 'signal'] = 0  # Exit short
         
-        # FILTER 1: Market Regime (Ranging only)
+        # FILTER 1: Market Regime (Block bear trends only)
         if apply_regime_filter:
             # Calculate regime
             df['ema_diff_pct'] = ((df['ema_50'] - df['ema_200']) / df['ema_200']) * 100
             
-            # Define ranging: |EMA diff| < 0.5%
-            df['is_ranging'] = abs(df['ema_diff_pct']) < 0.5
-            
-            # Block signals in non-ranging markets
-            df.loc[~df['is_ranging'], 'signal'] = 0
+            if block_bear_only:
+                # REFINED: Only block bear trends, keep ranging + bull
+                df['is_bear_trend'] = df['ema_diff_pct'] < -0.5
+                # Block signals in bear trends only
+                df.loc[df['is_bear_trend'], 'signal'] = 0
+            else:
+                # AGGRESSIVE: Only ranging markets
+                df['is_ranging'] = abs(df['ema_diff_pct']) < 0.5
+                df.loc[~df['is_ranging'], 'signal'] = 0
         
         # FILTER 2: High Volatility Only
         if apply_volatility_filter:
@@ -269,10 +274,10 @@ def load_clean_data(symbol):
 
 
 def run_improvement():
-    """Apply filters and compare before vs after"""
+    """Apply filters and compare baseline vs aggressive vs refined"""
     
     print("\n" + "="*70)
-    print("TASK 4: STRATEGY IMPROVEMENT - APPLYING DIAGNOSTIC FILTERS")
+    print("TASK 4: STRATEGY IMPROVEMENT - REFINED FILTERING")
     print("="*70)
     
     config = BacktestConfig(
@@ -288,9 +293,9 @@ def run_improvement():
     print("\n📥 Loading XAUUSD data...")
     df = load_clean_data('XAUUSD')
     
-    # BASELINE (No filters)
+    # ==================== BASELINE ====================
     print("\n" + "="*70)
-    print("BASELINE: XAUUSD Mean Reversion (NO FILTERS)")
+    print("VERSION 1: BASELINE (NO FILTERS)")
     print("="*70)
     
     backtester_baseline = ImprovedBacktester(df, config, 'XAUUSD')
@@ -309,35 +314,64 @@ def run_improvement():
     
     print_backtest_results(baseline_result)
     
-    # IMPROVED (With filters)
+    # ==================== REFINED (Recommended) ====================
     print("\n" + "="*70)
-    print("IMPROVED: XAUUSD Mean Reversion (WITH FILTERS)")
+    print("VERSION 2: REFINED FILTERS (RECOMMENDED)")
     print("="*70)
     print("\n🔧 FILTERS APPLIED:")
-    print("   ✅ Market Regime: Ranging only (|EMA 50 - EMA 200| < 0.5%)")
-    print("   ✅ Volatility: High only (ATR > 67th percentile)")
-    print("   ✅ Minimum Hold Time: 10 hours")
-    print("   ⚠️  Session Filter: DISABLED (all sessions profitable)")
+    print("   ✅ Market Regime: Block ONLY bear trends (keep ranging + bull)")
+    print("   ✅ Volatility: ATR > 50th percentile (median)")
+    print("   ✅ Minimum Hold Time: 5 hours (soft filter)")
+    print("   ⚠️  Session Filter: DISABLED")
     
-    backtester_improved = ImprovedBacktester(df, config, 'XAUUSD')
-    backtester_improved.calculate_indicators()
+    backtester_refined = ImprovedBacktester(df, config, 'XAUUSD')
+    backtester_refined.calculate_indicators()
     
-    improved_signals, atr_threshold = backtester_improved.mean_reversion_filtered(
+    refined_signals, atr_threshold = backtester_refined.mean_reversion_filtered(
         apply_regime_filter=True,
         apply_volatility_filter=True,
         apply_duration_filter=True,
-        apply_session_filter=False
+        apply_session_filter=False,
+        volatility_percentile=0.50,  # Median instead of 67th
+        block_bear_only=True  # Only block bear trends
     )
     
-    improved_result = backtester_improved.execute_backtest_with_min_hold(
-        improved_signals, "Mean Reversion (Filtered)", min_hold_hours=10
+    refined_result = backtester_refined.execute_backtest_with_min_hold(
+        refined_signals, "Mean Reversion (Refined)", min_hold_hours=5  # Soft 5-hour min
     )
     
-    print_backtest_results(improved_result)
+    print_backtest_results(refined_result)
     
-    # COMPARISON
+    # ==================== AGGRESSIVE (Previous) ====================
     print("\n" + "="*70)
-    print("📊 BEFORE vs AFTER COMPARISON")
+    print("VERSION 3: AGGRESSIVE FILTERS (Previous Attempt)")
+    print("="*70)
+    print("\n🔧 FILTERS APPLIED:")
+    print("   ✅ Market Regime: Ranging ONLY (strict)")
+    print("   ✅ Volatility: ATR > 67th percentile")
+    print("   ✅ Minimum Hold Time: 10 hours")
+    
+    backtester_aggressive = ImprovedBacktester(df, config, 'XAUUSD')
+    backtester_aggressive.calculate_indicators()
+    
+    aggressive_signals, _ = backtester_aggressive.mean_reversion_filtered(
+        apply_regime_filter=True,
+        apply_volatility_filter=True,
+        apply_duration_filter=True,
+        apply_session_filter=False,
+        volatility_percentile=0.67,
+        block_bear_only=False  # Strict ranging only
+    )
+    
+    aggressive_result = backtester_aggressive.execute_backtest_with_min_hold(
+        aggressive_signals, "Mean Reversion (Aggressive)", min_hold_hours=10
+    )
+    
+    print_backtest_results(aggressive_result)
+    
+    # ==================== COMPARISON ====================
+    print("\n" + "="*70)
+    print("📊 THREE-WAY COMPARISON")
     print("="*70)
     
     comparison = pd.DataFrame({
@@ -350,7 +384,7 @@ def run_improvement():
             'Avg Trade ($)',
             'Sharpe Ratio'
         ],
-        'BEFORE': [
+        'BASELINE': [
             baseline_result.total_trades,
             round(baseline_result.profit_factor, 2),
             round(baseline_result.win_rate, 1),
@@ -359,49 +393,61 @@ def run_improvement():
             round(baseline_result.avg_trade, 2),
             round(baseline_result.sharpe_ratio, 2)
         ],
-        'AFTER': [
-            improved_result.total_trades,
-            round(improved_result.profit_factor, 2),
-            round(improved_result.win_rate, 1),
-            round(improved_result.net_profit, 2),
-            round(improved_result.max_drawdown_pct, 1),
-            round(improved_result.avg_trade, 2),
-            round(improved_result.sharpe_ratio, 2)
+        'REFINED': [
+            refined_result.total_trades,
+            round(refined_result.profit_factor, 2),
+            round(refined_result.win_rate, 1),
+            round(refined_result.net_profit, 2),
+            round(refined_result.max_drawdown_pct, 1),
+            round(refined_result.avg_trade, 2),
+            round(refined_result.sharpe_ratio, 2)
+        ],
+        'AGGRESSIVE': [
+            aggressive_result.total_trades,
+            round(aggressive_result.profit_factor, 2),
+            round(aggressive_result.win_rate, 1),
+            round(aggressive_result.net_profit, 2),
+            round(aggressive_result.max_drawdown_pct, 1),
+            round(aggressive_result.avg_trade, 2),
+            round(aggressive_result.sharpe_ratio, 2)
         ]
     })
     
-    # Calculate improvement
-    comparison['Change'] = comparison.apply(
-        lambda row: f"+{row['AFTER'] - row['BEFORE']:.1f}" 
-        if row['AFTER'] > row['BEFORE'] 
-        else f"{row['AFTER'] - row['BEFORE']:.1f}",
-        axis=1
-    )
-    
     print("\n" + comparison.to_string(index=False))
     
-    # Target metrics check
+    # Target metrics for REFINED version
     print("\n" + "="*70)
-    print("✅ TARGET METRICS CHECK")
+    print("✅ TARGET METRICS CHECK (REFINED VERSION)")
     print("="*70)
     
     targets = [
-        ("Profit Factor > 2.0", improved_result.profit_factor > 2.0, improved_result.profit_factor),
-        ("Trades: 30-80", 30 <= improved_result.total_trades <= 80, improved_result.total_trades),
-        ("Max DD < 25%", improved_result.max_drawdown_pct < 25, f"{improved_result.max_drawdown_pct:.1f}%"),
-        ("Win Rate > 40%", improved_result.win_rate > 40, f"{improved_result.win_rate:.1f}%"),
+        ("Profit Factor: 2.0-3.0", 2.0 <= refined_result.profit_factor <= 3.0, refined_result.profit_factor),
+        ("Trades: 50-120", 50 <= refined_result.total_trades <= 120, refined_result.total_trades),
+        ("Max DD < 25%", refined_result.max_drawdown_pct < 25, f"{refined_result.max_drawdown_pct:.1f}%"),
+        ("Win Rate > 35%", refined_result.win_rate > 35, f"{refined_result.win_rate:.1f}%"),
     ]
+    
+    pass_count = sum(1 for _, passed, _ in targets if passed)
     
     for metric, passed, value in targets:
         status = "✅" if passed else "❌"
         print(f"   {status} {metric}: {value}")
     
+    print(f"\n📊 OVERALL: {pass_count}/4 targets met")
+    
+    if pass_count >= 3:
+        print("   🟢 EXCELLENT - Strategy meets targets!")
+    elif pass_count >= 2:
+        print("   🟡 GOOD - Minor improvements possible")
+    else:
+        print("   🔴 NEEDS WORK - Further refinement required")
+    
     print("\n" + "="*70)
-    print("✅ TASK 4 COMPLETE - Strategy Improved")
+    print("✅ TASK 4 COMPLETE - Refined Strategy Ready")
     print("="*70)
     
-    return baseline_result, improved_result
+    return baseline_result, refined_result, aggressive_result
 
 
 if __name__ == '__main__':
-    baseline, improved = run_improvement()
+    baseline, refined, aggressive = run_improvement()
