@@ -1,83 +1,70 @@
 # PRD: cTrader Bot Factory - XAUUSD Mean Reversion Strategy
 
-## Project Overview
-Automated trading bot factory for cTrader platform, currently focusing on XAUUSD Mean Reversion strategy optimization.
+## Project Status: WALK-FORWARD VALIDATION COMPLETE ✅
 
-## Current Status: RISK OPTIMIZATION COMPLETE ✅
+### Validation Results Summary
 
-### Work Completed
-- ✅ **Task 1:** Data cleaning and validation (EURUSD, XAUUSD)
-- ✅ **Task 2:** Baseline backtests completed
-- ✅ **Task 3:** Deep diagnostics (edge identified)
-- ✅ **Task 4:** Strategy improvement (Filtering approach rejected)
-- ✅ **Task 5:** Risk Optimization - COMPLETED
+| Criteria | Target | Achieved | Status |
+|----------|--------|----------|--------|
+| Aggregate PF | ≥ 1.2 | 1.44 | ✅ PASS |
+| Max Drawdown | < 20% | 9.6% | ✅ PASS |
+| Net Profitable | Yes | $8,558 | ✅ PASS |
+| Profitable Periods | 4/7 | 4/7 | ✅ PASS |
+| No Collapse (PF < 0.5) | Yes | Min 0.68 | ✅ PASS |
 
-### Task 5 Results Summary
+### Walk-Forward Period Results (0.5% Risk)
 
-| Metric | Baseline | Risk-Optimized | Target |
-|--------|----------|----------------|--------|
-| Profit Factor | 2.46 | 2.09-2.15 | ≥ 2.0 ✅ |
-| Max Drawdown | 54% | 5-13% | < 25% ✅ |
-| Win Rate | 34% | 34-46% | Any |
-| Trades | 107 | 107 | Any |
+| Period | Regime | PF | DD% | Net $ |
+|--------|--------|-----|-----|-------|
+| 2022 H1 | Ranging | 1.34 | 9.6% | $774 |
+| 2022 H2 | Volatile | 2.30 | 6.8% | $3,489 |
+| 2023 H1 | Trending | 0.81 | 8.0% | -$440 |
+| 2023 H2 | Ranging | 1.81 | 6.6% | $2,174 |
+| 2024 H1 | Mixed | 0.84 | 8.2% | -$350 |
+| 2024 H2 | Volatile | 2.27 | 6.5% | $3,317 |
+| 2025 Q1 | Mixed | 0.68 | 6.1% | -$405 |
 
-### Recommended Configuration
+### Final Production Configuration
+
 ```json
 {
-  "risk_per_trade_pct": 0.75,
-  "max_position_size_lots": 0.5,
-  "equity_scaling": {
-    "enabled": true,
-    "reduce_at_10pct_dd": 0.5,
-    "reduce_at_20pct_dd": 0.25
-  },
-  "max_concurrent_trades": 5,
-  "daily_loss_cap_pct": 5.0,
-  "weekly_loss_cap_pct": 10.0
+  "strategy": "XAUUSD_Mean_Reversion_Bollinger",
+  "timeframe": "H1",
+  "risk_management": {
+    "risk_per_trade_pct": 0.5,
+    "max_position_lots": 0.3,
+    "equity_scaling": {
+      "enabled": true,
+      "at_5pct_dd": 0.75,
+      "at_10pct_dd": 0.5,
+      "at_15pct_dd": 0.25
+    },
+    "max_concurrent_trades": 3,
+    "max_dd_halt_pct": 20,
+    "daily_loss_cap_pct": 3,
+    "weekly_loss_cap_pct": 8
+  }
 }
 ```
 
-## User Personas
-1. **Retail Trader:** Wants automated profitable strategy with controlled risk
-2. **Prop Firm Trader:** Needs strict DD limits for funded account rules
+### Work Completed
+- ✅ Task 1: Data cleaning and validation
+- ✅ Task 2: Baseline backtests (PF 2.46, DD 54%)
+- ✅ Task 3: Deep diagnostics (edge identified)
+- ✅ Task 4: Strategy improvement (filters rejected)
+- ✅ Task 5: Risk optimization complete
+- ✅ Walk-Forward Validation PASSED
 
-## Core Requirements (Static)
-- Mean Reversion entry logic: Bollinger Bands + RSI
-- Exit at middle BB (mean target)
-- Stop loss: 1.5x ATR
-- Risk-based position sizing
+### Next Steps (Awaiting Approval)
+1. Generate production-ready cBot C# code
+2. Validate compilation (no errors/warnings)
+3. Ensure logic matches Python exactly
 
-## What's Been Implemented
-- [x] Data pipeline (Dukascopy provider)
-- [x] Backtesting engine with risk-based sizing
-- [x] Mean Reversion strategy module
-- [x] Trend Following strategy module
-- [x] cBot C# code generator
-- [x] Risk optimization testing framework
-- [x] Phase 1 & 2 optimization complete
-
-## Prioritized Backlog
-
-### P0 (Awaiting Approval)
-- [ ] Generate production-ready cBot with optimized risk settings
-
-### P1 (Next)
-- [ ] Walk-forward validation
-- [ ] Out-of-sample testing
-- [ ] Monte Carlo simulation
-- [ ] Compile gate verification
-
-### P2 (Future)
-- [ ] Multi-timeframe analysis
-- [ ] Market regime detection integration
-- [ ] EURUSD strategy optimization
-- [ ] Portfolio allocation module
-
-## Next Tasks
-1. **Await user approval** for cBot generation
-2. Generate C# cBot code with risk management
-3. Validate compilation (no errors/warnings)
-4. Provide download-ready .algo file
+### Key Learnings
+- Mean reversion performs best in ranging/volatile markets
+- Risk reduction (0.5%) most effective for DD control
+- Equity scaling provides additional protection
+- Some losing periods are NORMAL for this strategy type
 
 ---
 *Last Updated: March 30, 2026*
