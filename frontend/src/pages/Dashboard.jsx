@@ -32,6 +32,7 @@ import {
   getDecisionStatus
 } from '@/components/validation/PropScore';
 import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
+import MarketDataPage from './MarketDataPage';
 // Temporarily commented out - components need to be created
 // import CSVUploader from '@/components/data/CSVUploader';
 // import BulkCSVUploader from '@/components/data/BulkCSVUploader';
@@ -1890,11 +1891,9 @@ export default function Dashboard() {
             )}
           </TabsContent>
 
-          {/* Market Data Tab - Placeholder */}
-          <TabsContent value="data" className="flex-1 p-3 overflow-y-auto mt-0">
-            <div className="text-center py-12 text-zinc-500">
-              <p>Market data features available in Market Data page</p>
-            </div>
+          {/* Market Data Tab */}
+          <TabsContent value="data" className="flex-1 overflow-hidden mt-0">
+            <MarketDataPage />
           </TabsContent>
 
           {/* Strategy Templates Tab */}
