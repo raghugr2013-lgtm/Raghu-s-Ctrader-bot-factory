@@ -1768,6 +1768,112 @@ async def ensure_real_market_data(request: EnsureDataRequest):
         }
 
 
+@api_router.get("/marketdata/coverage")
+async def get_data_coverage():
+    """Get complete coverage report for all available market data"""
+    try:
+        from data_coverage_engine import DataCoverageEngine
+        
+        coverage_engine = DataCoverageEngine()
+        coverage = await coverage_engine.get_full_coverage()
+        
+        return {
+            "success": True,
+            **coverage
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting coverage: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/marketdata/export")
+async def export_market_data(
+    symbol: str,
+    timeframe: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Export market data as CSV"""
+    try:
+        from datetime import datetime
+        import csv
+        from io import StringIO
+        from fastapi.responses import StreamingResponse
+        
+        # Parse dates
+        start_dt = datetime.fromisoformat(start_date) if start_date else None
+        end_dt = datetime.fromisoformat(end_date) if end_date else None
+        
+        # Get candles
+        candles = await market_data_service.get_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            start_date=start_dt,
+            end_date=end_dt,
+            limit=100000  # Large limit for export
+        )
+        
+        if not candles:
+            raise HTTPException(status_code=404, detail="No data found for export")
+        
+        # Create CSV
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(['Timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
+        
+        # Write data
+        for candle in candles:
+            writer.writerow([
+                candle.timestamp.isoformat(),
+                candle.open,
+                candle.high,
+                candle.low,
+                candle.close,
+                candle.volume
+            ])
+        
+        # Prepare response
+        output.seek(0)
+        filename = f"{symbol}_{timeframe}_{datetime.now().strftime('%Y%m%d')}.csv"
+        
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting data: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/marketdata/missing/{symbol}/{timeframe}")
+async def get_missing_data_ranges(symbol: str, timeframe: str):
+    """Get missing date ranges for a symbol+timeframe"""
+    try:
+        from data_coverage_engine import DataCoverageEngine
+        
+        coverage_engine = DataCoverageEngine()
+        missing_ranges = await coverage_engine.get_missing_data_for_download(symbol, timeframe)
+        
+        return {
+            "success": True,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "missing_ranges": missing_ranges
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting missing ranges: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # ===================== FULL VALIDATION PIPELINE =====================
 
 class FullPipelineRequest(BaseModel):
