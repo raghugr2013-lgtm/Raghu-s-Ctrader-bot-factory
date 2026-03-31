@@ -727,7 +727,7 @@ export default function Dashboard() {
   }, [propScore, advancedValidation, canDownload]);
 
   return (
-    <div className="h-screen w-screen bg-[#050505] overflow-hidden flex flex-col">
+    <div className="min-h-screen w-full bg-[#050505] overflow-y-auto flex flex-col">
       {/* Header - Professional SaaS Navigation */}
       <div className="flex-shrink-0 bg-[#0A0A0A] border-b border-white/5 z-50" data-testid="app-header">
         <div className="flex items-center justify-between h-14 px-4">
@@ -852,10 +852,11 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Area with Vertical Split */}
-      <PanelGroup 
-        orientation="vertical" 
-        className="flex-1 p-2"
-      >
+      <div className="flex-1 overflow-y-auto p-2">
+        <PanelGroup 
+          orientation="vertical" 
+          className="h-full"
+        >
         {/* Top Section: Left + Center + Right Panels */}
         <Panel 
           defaultSize={60} 
@@ -1827,7 +1828,8 @@ export default function Dashboard() {
             </Tabs>
           </div>
         </Panel>
-      </PanelGroup>
+        </PanelGroup>
+      </div>
     </div>
   );
 }

@@ -324,9 +324,9 @@ export default function MarketDataPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-white">
+    <div className="min-h-screen bg-[#0A0A0B] text-white overflow-y-auto">
       {/* Header */}
-      <div className="border-b border-white/10 bg-[#0F0F10]/50 backdrop-blur-sm">
+      <div className="border-b border-white/10 bg-[#0F0F10]/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -353,9 +353,9 @@ export default function MarketDataPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8 overflow-y-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-[#0F0F10] border border-white/10 p-1">
+          <TabsList className="bg-[#0F0F10] border border-white/10 p-1 sticky top-0 z-10">
             <TabsTrigger value="download" className="data-[state=active]:bg-blue-600">
               <Download className="w-4 h-4 mr-2" />
               Download
@@ -375,7 +375,7 @@ export default function MarketDataPage() {
           </TabsList>
 
           {/* Download Tab */}
-          <TabsContent value="download" className="space-y-6">
+          <TabsContent value="download" className="space-y-6 overflow-y-auto">
             <Card className="bg-[#0F0F10] border-white/10 p-6">
               <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                 <Download className="w-5 h-5 text-blue-400" />
@@ -512,7 +512,7 @@ export default function MarketDataPage() {
           </TabsContent>
 
           {/* Upload Tab */}
-          <TabsContent value="upload">
+          <TabsContent value="upload" className="overflow-y-auto">
             <Card className="bg-[#0F0F10] border-white/10 p-6">
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-blue-400" />
@@ -656,7 +656,7 @@ export default function MarketDataPage() {
           </TabsContent>
 
           {/* Coverage Tab */}
-          <TabsContent value="coverage">
+          <TabsContent value="coverage" className="overflow-y-auto">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold flex items-center gap-2">
@@ -782,7 +782,7 @@ export default function MarketDataPage() {
           </TabsContent>
 
           {/* Export Tab */}
-          <TabsContent value="export">
+          <TabsContent value="export" className="overflow-y-auto">
             <Card className="bg-[#0F0F10] border-white/10 p-6">
               <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                 <FileDown className="w-5 h-5 text-blue-400" />
