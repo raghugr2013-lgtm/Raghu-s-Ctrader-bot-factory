@@ -911,39 +911,43 @@ async def get_chat_history(session_id: str, limit: int = 50):
 @api_router.post("/backtest/simulate")
 async def simulate_backtest(request: BacktestSimulateRequest):
     """
-    Run backtest with REAL market data only.
-    CRITICAL: Will auto-fetch from Twelve Data / Alpha Vantage if not cached.
-    Returns error if real data unavailable - NEVER uses mock data silently.
+    Run backtest with LOCAL CSV market data ONLY.
+    CRITICAL: Uses ONLY locally stored CSV data from Market Data module.
+    Returns error if local data unavailable - NO external API fallback.
     """
     try:
-        from auto_fetch_candles import auto_fetch_candles
+        # Convert timeframe string to DataTimeframe enum
+        try:
+            tf = DataTimeframe(request.timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {request.timeframe}")
         
-        # CRITICAL: Auto-fetch real market data
-        fetch_result = await auto_fetch_candles(
-            db=db,
-            market_data_service=market_data_service,
-            symbol=request.symbol,
-            timeframe=request.timeframe,
-            min_candles=60,
+        # CRITICAL: Check for LOCAL CSV data ONLY - NO external fetching
+        local_candles = await market_data_service.get_candles(
+            symbol=request.symbol.upper(),
+            timeframe=tf,
+            limit=10000  # Get sufficient data for backtest
         )
         
-        if not fetch_result.success:
-            # Return error with clear warning - DO NOT proceed with mock
+        if not local_candles or len(local_candles) < 60:
+            # Return error with clear instruction - NO fallback to external APIs
             return {
                 "success": False,
-                "error": fetch_result.error,
-                "warning": "REAL_DATA_UNAVAILABLE",
+                "error": "NO_LOCAL_DATA_AVAILABLE",
+                "warning": "LOCAL_DATA_REQUIRED",
                 "message": (
-                    f"Real market data unavailable for {request.symbol} {request.timeframe}. "
-                    f"Backtest NOT reliable without real data. "
-                    f"Please ensure API keys are configured and try a supported symbol/timeframe."
+                    f"⚠️ No local market data found for {request.symbol.upper()} {request.timeframe}. "
+                    f"Please upload Dukascopy CSV data via the Market Data page. "
+                    f"Backtest requires at least 60 candles from local storage."
                 ),
                 "data_source": "NONE",
                 "is_real_data": False,
+                "candles_found": len(local_candles) if local_candles else 0,
+                "min_required": 60
             }
         
-        # Use real candles for backtest
-        real_candles = fetch_result.candles
+        # Use local CSV candles for backtest
+        real_candles = local_candles
         
         # Generate trades based on real candle data
         from backtest_real_engine import run_backtest_on_real_candles
@@ -984,7 +988,7 @@ async def simulate_backtest(request: BacktestSimulateRequest):
         result_doc['completed_at'] = result_doc['completed_at'].isoformat() if result_doc['completed_at'] else None
         result_doc['config']['start_date'] = result_doc['config']['start_date'].isoformat()
         result_doc['config']['end_date'] = result_doc['config']['end_date'].isoformat()
-        result_doc['data_source'] = fetch_result.source  # Track data source
+        result_doc['data_source'] = "local_csv"  # Track data source (local CSV only)
         
         # Convert datetime in trades and equity curve
         for trade in result_doc['trades']:
@@ -1000,9 +1004,9 @@ async def simulate_backtest(request: BacktestSimulateRequest):
         return {
             "success": True,
             "backtest_id": backtest_result.id,
-            "data_source": fetch_result.source,
+            "data_source": "local_csv",
             "is_real_data": True,
-            "candles_used": fetch_result.candle_count,
+            "candles_used": len(real_candles),
             "summary": {
                 "net_profit": metrics.net_profit,
                 "win_rate": metrics.win_rate,
@@ -1757,49 +1761,58 @@ class EnsureDataRequest(BaseModel):
 @api_router.post("/marketdata/ensure-real-data")
 async def ensure_real_market_data(request: EnsureDataRequest):
     """
-    CRITICAL ENDPOINT: Ensure real market data is available before backtest.
+    CRITICAL ENDPOINT: Check if local CSV market data is available.
     
     Flow:
-    1. Check cache for sufficient candles
-    2. If not, auto-fetch from Twelve Data
-    3. If Twelve Data fails, try Alpha Vantage
-    4. Return status with clear warning if data unavailable
+    1. Check local CSV storage for sufficient candles
+    2. Return status with clear warning if data unavailable
     
-    THIS ENDPOINT NEVER RETURNS MOCK DATA.
+    NO EXTERNAL API FETCHING - LOCAL CSV DATA ONLY.
     """
-    from auto_fetch_candles import auto_fetch_candles
-    
     try:
-        result = await auto_fetch_candles(
-            db=db,
-            market_data_service=market_data_service,
-            symbol=request.symbol,
-            timeframe=request.timeframe,
-            min_candles=request.min_candles,
+        # Convert timeframe string to DataTimeframe enum
+        try:
+            tf = DataTimeframe(request.timeframe)
+        except ValueError:
+            return {
+                "success": False,
+                "symbol": request.symbol.upper(),
+                "timeframe": request.timeframe,
+                "error": f"Invalid timeframe: {request.timeframe}",
+                "is_real_data": False
+            }
+        
+        # Check for LOCAL CSV data ONLY
+        local_candles = await market_data_service.get_candles(
+            symbol=request.symbol.upper(),
+            timeframe=tf,
+            limit=request.min_candles
         )
         
-        if result.success:
+        if local_candles and len(local_candles) >= request.min_candles:
             return {
                 "success": True,
                 "symbol": request.symbol.upper(),
                 "timeframe": request.timeframe,
-                "data_source": result.source,
-                "candle_count": result.candle_count,
+                "data_source": "local_csv",
+                "candle_count": len(local_candles),
                 "is_real_data": True,
-                "message": f"Real market data available: {result.candle_count} candles from {result.source}",
+                "message": f"Local CSV data available: {len(local_candles)} candles",
             }
         else:
             return {
                 "success": False,
                 "symbol": request.symbol.upper(),
                 "timeframe": request.timeframe,
-                "warning": "REAL_DATA_UNAVAILABLE",
-                "error": result.error,
+                "warning": "NO_LOCAL_DATA",
+                "error": "Insufficient local data",
                 "is_real_data": False,
+                "candles_found": len(local_candles) if local_candles else 0,
+                "min_required": request.min_candles,
                 "message": (
-                    f"Cannot obtain real market data for {request.symbol} {request.timeframe}. "
-                    f"Backtest results would NOT be reliable. "
-                    f"Please check API keys (TWELVE_DATA_KEY, ALPHA_VANTAGE_KEY) or try a supported symbol/timeframe."
+                    f"⚠️ No local CSV data found for {request.symbol.upper()} {request.timeframe}. "
+                    f"Please upload Dukascopy CSV data via the Market Data page. "
+                    f"Found {len(local_candles) if local_candles else 0} candles, need at least {request.min_candles}."
                 ),
             }
     except Exception as e:

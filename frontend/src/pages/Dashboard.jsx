@@ -378,11 +378,11 @@ export default function Dashboard() {
     setDataAvailability(null);
 
     try {
-      // STEP 1: Check real market data availability FIRST
+      // STEP 1: Check LOCAL CSV market data availability FIRST
       setIsCheckingData(true);
       const dataCheckResponse = await axios.post(`${API}/marketdata/ensure-real-data`, {
-        symbol: 'EURUSD',
-        timeframe: '1h',
+        symbol: selectedPair,
+        timeframe: selectedTimeframe,
         min_candles: 60
       });
       
@@ -390,12 +390,18 @@ export default function Dashboard() {
       setIsCheckingData(false);
       
       if (!dataCheckResponse.data.success) {
-        // Show warning but continue with validation
-        toast.warning(`⚠️ Real market data unavailable - backtest results may not be reliable`, {
-          duration: 8000
+        // Show clear error message for missing local data
+        toast.error(dataCheckResponse.data.message || '⚠️ No local market data found. Please upload Dukascopy CSV data.', {
+          duration: 10000
         });
+        
+        // Block validation if no local data
+        toast.warning('Validation blocked - local CSV data required', {
+          duration: 6000
+        });
+        return; // Stop here - don't proceed without data
       } else {
-        toast.success(`✓ Real data loaded: ${dataCheckResponse.data.candle_count} candles from ${dataCheckResponse.data.data_source}`);
+        toast.success(`✓ Local CSV data loaded: ${dataCheckResponse.data.candle_count} candles`);
       }
 
       // STEP 2: Run validation
@@ -410,11 +416,7 @@ export default function Dashboard() {
       setCanDownload(data.is_deployable && dataCheckResponse.data.success);
 
       if (data.is_deployable) {
-        if (dataCheckResponse.data.success) {
-          toast.success('✅ Bot validated with REAL market data - ready for deployment!');
-        } else {
-          toast.warning('⚠️ Bot validated but real data unavailable - results may not be reliable');
-        }
+        toast.success('✅ Bot validated with local CSV market data - ready for deployment!');
       } else {
         toast.warning(`⚠️ Validation failed: ${data.failed_checks} check(s) failed`);
       }
