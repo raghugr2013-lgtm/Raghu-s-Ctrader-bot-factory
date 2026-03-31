@@ -852,10 +852,10 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Area with Vertical Split */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2" style={{ minHeight: '600px' }}>
         <PanelGroup 
           orientation="vertical" 
-          className="h-full"
+          className="h-full min-h-full"
         >
         {/* Top Section: Left + Center + Right Panels */}
         <Panel 
@@ -871,7 +871,7 @@ export default function Dashboard() {
               defaultSize={18} 
               minSize={14}
             >
-              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden rounded-sm" data-testid="strategy-panel">
+              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col rounded-sm" data-testid="strategy-panel">
                 <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex-shrink-0">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-200 truncate" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
                     Strategy Config
@@ -978,7 +978,7 @@ export default function Dashboard() {
               defaultSize={53} 
               minSize={35}
             >
-              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden rounded-sm" data-testid="code-panel">
+              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col rounded-sm" data-testid="code-panel">
                 <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex items-center justify-between flex-shrink-0 overflow-x-auto">
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200 whitespace-nowrap" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
@@ -1147,7 +1147,7 @@ export default function Dashboard() {
             </Button>
                   </div>
                 </div>
-                <div className="flex-1 overflow-hidden" data-testid="code-editor">
+                <div className="flex-1" data-testid="code-editor">
                   <Editor
                     height="100%"
                     defaultLanguage="csharp"
@@ -1177,7 +1177,7 @@ export default function Dashboard() {
               defaultSize={20} 
               minSize={12}
             >
-              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col overflow-hidden rounded-sm" data-testid="logs-panel">
+              <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col rounded-sm" data-testid="logs-panel">
                 <div className="border-b border-white/5 px-3 py-2 bg-[#18181B] flex items-center justify-between flex-shrink-0">
                   <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
                     Pipeline Logs
@@ -1215,7 +1215,7 @@ export default function Dashboard() {
           defaultSize={40} 
           minSize={20}
         >
-          <div className="h-full bg-[#0A0A0A] border border-white/5 overflow-hidden flex flex-col rounded-sm" data-testid="results-panel">
+          <div className="h-full bg-[#0A0A0A] border border-white/5 flex flex-col rounded-sm" data-testid="results-panel">
             <Tabs value={bottomTab} onValueChange={setBottomTab} className="flex flex-col h-full">
               <div className="border-b border-white/5 bg-[#18181B] flex-shrink-0 overflow-x-auto">
                 <TabsList className="bg-transparent border-none h-8 p-0 rounded-none inline-flex min-w-max">
