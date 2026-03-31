@@ -20,7 +20,7 @@ import {
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
-  GripVertical, GripHorizontal
+  GripVertical, GripHorizontal, Upload
 } from 'lucide-react';
 import {
   PropScoreGauge,
@@ -32,6 +32,7 @@ import {
   getDecisionStatus
 } from '@/components/validation/PropScore';
 import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
+import CSVUploader from '@/components/data/CSVUploader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1255,6 +1256,13 @@ export default function Dashboard() {
                       </span>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="data"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:text-amber-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-data"
+                  >
+                    <Upload className="w-3 h-3 mr-1.5" /> Market Data
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -1816,6 +1824,15 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+          </TabsContent>
+
+          {/* Market Data Tab */}
+          <TabsContent value="data" className="flex-1 p-3 overflow-y-auto mt-0">
+            <CSVUploader 
+              onDataLoaded={(result) => {
+                toast.success(`Loaded ${result.rowsLoaded} candles for ${result.symbol}`);
+              }}
+            />
           </TabsContent>
             </Tabs>
           </div>

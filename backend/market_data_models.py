@@ -156,25 +156,51 @@ class StoredCandle(BaseModel):
 
 # CSV Format Definitions
 CSV_FORMATS = {
+    "dukascopy": {
+        "columns": ["timestamp", "open", "high", "low", "close", "volume"],
+        "timestamp_format": "%Y.%m.%d %H:%M:%S",
+        "timestamp_formats": [
+            "%Y.%m.%d %H:%M:%S",
+            "%Y.%m.%d %H:%M:%S.%f",
+            "%d.%m.%Y %H:%M:%S",
+            "%d.%m.%Y %H:%M:%S.%f",
+            "%Y-%m-%d %H:%M:%S",
+        ],
+        "has_header": True,
+        "delimiter": ","
+    },
     "mt4": {
         "columns": ["timestamp", "open", "high", "low", "close", "volume"],
         "timestamp_format": "%Y.%m.%d %H:%M",
-        "has_header": True
+        "timestamp_formats": ["%Y.%m.%d %H:%M", "%Y.%m.%d %H:%M:%S"],
+        "has_header": True,
+        "delimiter": ","
     },
     "mt5": {
         "columns": ["timestamp", "open", "high", "low", "close", "tick_volume", "spread", "real_volume"],
         "timestamp_format": "%Y.%m.%d %H:%M:%S",
-        "has_header": True
+        "timestamp_formats": ["%Y.%m.%d %H:%M:%S"],
+        "has_header": True,
+        "delimiter": "\t"
     },
     "ctrader": {
         "columns": ["timestamp", "open", "high", "low", "close", "volume"],
         "timestamp_format": "%Y-%m-%d %H:%M:%S",
-        "has_header": True
+        "timestamp_formats": ["%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S"],
+        "has_header": True,
+        "delimiter": ","
     },
     "custom": {
         "columns": ["timestamp", "open", "high", "low", "close", "volume"],
         "timestamp_format": "%Y-%m-%d %H:%M:%S",
-        "has_header": False
+        "timestamp_formats": [
+            "%Y-%m-%d %H:%M:%S",
+            "%Y/%m/%d %H:%M:%S",
+            "%d-%m-%Y %H:%M:%S",
+            "%Y.%m.%d %H:%M:%S",
+        ],
+        "has_header": False,
+        "delimiter": ","
     }
 }
 

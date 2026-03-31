@@ -87,66 +87,92 @@ class CSVMarketDataProvider(BaseMarketDataProvider):
         csv_content: str,
         symbol: str,
         timeframe: DataTimeframe,
-        format_type: str = "mt4"
+        format_type: str = "dukascopy"
     ) -> List[Candle]:
         """
         Parse CSV content into Candle objects
         
         Supported formats:
+        - dukascopy: Dukascopy format (default)
         - mt4: MetaTrader 4 format
         - mt5: MetaTrader 5 format
         - ctrader: cTrader format
         - custom: Custom CSV format
         """
         if format_type not in CSV_FORMATS:
-            raise ValueError(f"Unsupported format: {format_type}")
+            raise ValueError(f"Unsupported format: {format_type}. Supported: {list(CSV_FORMATS.keys())}")
         
         format_config = CSV_FORMATS[format_type]
         candles = []
+        validation_errors = []
+        skipped_rows = 0
         
         try:
-            csv_reader = csv.reader(io.StringIO(csv_content))
+            # Detect delimiter
+            delimiter = format_config.get("delimiter", ",")
+            csv_reader = csv.reader(io.StringIO(csv_content), delimiter=delimiter)
             
             # Skip header if present
-            if format_config["has_header"]:
-                next(csv_reader, None)
+            if format_config.get("has_header", True):
+                header = next(csv_reader, None)
+                logger.info(f"CSV header: {header}")
+            
+            # Get timestamp formats to try
+            timestamp_formats = format_config.get("timestamp_formats", [format_config["timestamp_format"]])
             
             for row_num, row in enumerate(csv_reader, start=1):
                 if not row or len(row) < 5:
+                    skipped_rows += 1
+                    continue
+                
+                # Skip empty rows
+                if all(cell.strip() == '' for cell in row):
+                    skipped_rows += 1
                     continue
                 
                 try:
-                    # Parse based on format
-                    if format_type == "mt4":
-                        timestamp_str = row[0]
+                    # Extract data based on format
+                    timestamp_str = row[0].strip()
+                    
+                    # Handle different column layouts
+                    if format_type == "mt5" and len(row) >= 8:
                         open_price = float(row[1])
                         high_price = float(row[2])
                         low_price = float(row[3])
                         close_price = float(row[4])
-                        volume = float(row[5]) if len(row) > 5 else 0
-                    
-                    elif format_type == "mt5":
-                        timestamp_str = row[0]
-                        open_price = float(row[1])
-                        high_price = float(row[2])
-                        low_price = float(row[3])
-                        close_price = float(row[4])
-                        # MT5 has tick_volume and real_volume
-                        volume = float(row[7]) if len(row) > 7 else float(row[5])
-                    
-                    elif format_type in ["ctrader", "custom"]:
-                        timestamp_str = row[0]
-                        open_price = float(row[1])
-                        high_price = float(row[2])
-                        low_price = float(row[3])
-                        close_price = float(row[4])
-                        volume = float(row[5]) if len(row) > 5 else 0
-                    
+                        volume = float(row[7]) if row[7].strip() else float(row[5])
                     else:
+                        open_price = float(row[1])
+                        high_price = float(row[2])
+                        low_price = float(row[3])
+                        close_price = float(row[4])
+                        volume = float(row[5]) if len(row) > 5 and row[5].strip() else 0
+                    
+                    # Try multiple timestamp formats
+                    timestamp = None
+                    for ts_format in timestamp_formats:
+                        try:
+                            timestamp = datetime.strptime(timestamp_str, ts_format)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if timestamp is None:
+                        skipped_rows += 1
+                        if row_num <= 10:
+                            validation_errors.append(f"Row {row_num}: Invalid timestamp format '{timestamp_str}'")
                         continue
                     
-                    # Parse timestamp
-                    timestamp = datetime.strptime(timestamp_str.strip(), format_config["timestamp_format"])
+                    # Validate OHLC data
+                    if high_price < low_price:
+                        # Auto-fix swapped high/low
+                        high_price, low_price = low_price, high_price
+                    
+                    if high_price < open_price or high_price < close_price:
+                        high_price = max(open_price, high_price, close_price)
+                    
+                    if low_price > open_price or low_price > close_price:
+                        low_price = min(open_price, low_price, close_price)
                     
                     # Create candle
                     candle = Candle(
@@ -155,25 +181,60 @@ class CSVMarketDataProvider(BaseMarketDataProvider):
                         high=high_price,
                         low=low_price,
                         close=close_price,
-                        volume=volume,
-                        symbol=symbol,
+                        volume=abs(volume),
+                        symbol=symbol.upper(),
                         timeframe=timeframe
                     )
                     
                     candles.append(candle)
                 
                 except (ValueError, IndexError) as e:
-                    logger.warning(f"Skipping row {row_num}: {str(e)}")
+                    skipped_rows += 1
+                    if row_num <= 10:
+                        validation_errors.append(f"Row {row_num}: {str(e)}")
                     continue
         
         except Exception as e:
             logger.error(f"CSV parsing error: {str(e)}")
             raise ValueError(f"Failed to parse CSV: {str(e)}")
         
+        if not candles:
+            raise ValueError(f"No valid candles parsed. Errors: {validation_errors[:5]}")
+        
         # Sort by timestamp
         candles.sort(key=lambda c: c.timestamp)
         
+        # Validate continuity
+        gaps = self._detect_gaps(candles, timeframe)
+        
+        logger.info(f"Parsed {len(candles)} candles, skipped {skipped_rows}, gaps detected: {len(gaps)}")
+        
         return candles
+    
+    def _detect_gaps(self, candles: List[Candle], timeframe: DataTimeframe) -> List[dict]:
+        """Detect gaps in candle data for validation"""
+        from market_data_models import TIMEFRAME_TO_MINUTES
+        
+        if len(candles) < 2:
+            return []
+        
+        expected_minutes = TIMEFRAME_TO_MINUTES.get(timeframe, 60)
+        gaps = []
+        
+        for i in range(1, min(len(candles), 1000)):  # Check first 1000 candles
+            prev = candles[i - 1]
+            curr = candles[i]
+            diff_minutes = (curr.timestamp - prev.timestamp).total_seconds() / 60
+            
+            # Allow some tolerance for weekends/holidays
+            if diff_minutes > expected_minutes * 10:
+                gaps.append({
+                    "from": prev.timestamp.isoformat(),
+                    "to": curr.timestamp.isoformat(),
+                    "missing_candles": int(diff_minutes / expected_minutes) - 1
+                })
+        
+        return gaps
 
 
 class AlphaVantageProvider(BaseMarketDataProvider):

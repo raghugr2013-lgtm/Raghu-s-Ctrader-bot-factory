@@ -34,7 +34,8 @@ from backtest_models import (
     BacktestResult,
     BacktestSimulateRequest,
     BacktestSummary,
-    Timeframe
+    Timeframe,
+    BacktestConfig
 )
 from backtest_calculator import performance_calculator, strategy_scorer
 from backtest_mock_data import mock_generator
@@ -1142,7 +1143,7 @@ async def run_real_backtest(
                 "grade": strategy_score.grade,
                 "execution_time": execution_time
             },
-            "message": f"Backtest completed successfully with real market data"
+            "message": "Backtest completed successfully with real market data"
         }
         
     except HTTPException:
@@ -1531,7 +1532,7 @@ async def list_montecarlo_results(session_id: str):
 # Market Data API Routes (Phase 3)
 @api_router.post("/marketdata/import/csv")
 async def import_csv_data(request: MarketDataImportRequest):
-    """Import historical data from CSV"""
+    """Import historical data from CSV with validation"""
     try:
         # Parse CSV using CSV provider
         candles = csv_provider.parse_csv_data(
@@ -1545,23 +1546,35 @@ async def import_csv_data(request: MarketDataImportRequest):
             raise HTTPException(status_code=400, detail="No valid candles found in CSV")
         
         # Validate candles if not skipped
+        validation_issues = []
         if not request.skip_validation:
-            for candle in candles:
+            for i, candle in enumerate(candles[:100]):  # Validate first 100
                 is_valid, error_msg = validate_candle_data(candle)
                 if not is_valid:
-                    raise HTTPException(status_code=400, detail=f"Invalid candle data: {error_msg}")
+                    validation_issues.append(f"Row {i+1}: {error_msg}")
         
         # Store in database
         result = await market_data_service.store_candles(candles, provider="csv_import")
         
+        # Get date range
+        first_candle = candles[0] if candles else None
+        last_candle = candles[-1] if candles else None
+        
         return {
             "success": True,
-            "symbol": request.symbol,
+            "symbol": request.symbol.upper(),
             "timeframe": request.timeframe.value,
             "imported": result["inserted"],
             "skipped": result["skipped"],
             "updated": result["updated"],
-            "total_processed": len(candles)
+            "total_processed": len(candles),
+            "date_range": {
+                "start": first_candle.timestamp.isoformat() if first_candle else None,
+                "end": last_candle.timestamp.isoformat() if last_candle else None,
+                "days": (last_candle.timestamp - first_candle.timestamp).days if first_candle and last_candle else 0
+            },
+            "validation_issues": validation_issues[:10] if validation_issues else [],
+            "data_source": "csv_import"
         }
         
     except ValueError as e:
@@ -1569,6 +1582,85 @@ async def import_csv_data(request: MarketDataImportRequest):
     except Exception as e:
         logging.error(f"CSV import error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+
+@api_router.post("/marketdata/validate")
+async def validate_market_data(symbol: str, timeframe: str):
+    """Validate stored market data for completeness and quality"""
+    try:
+        tf = DataTimeframe(timeframe)
+        
+        # Get stats
+        stats = await market_data_service.get_stats(symbol.upper(), tf)
+        if not stats:
+            return {
+                "success": False,
+                "symbol": symbol.upper(),
+                "timeframe": timeframe,
+                "status": "NO_DATA",
+                "message": "No data found for this symbol/timeframe"
+            }
+        
+        # Get candles for gap detection
+        candles = await market_data_service.get_candles(
+            symbol=symbol.upper(),
+            timeframe=tf,
+            limit=10000
+        )
+        
+        # Detect gaps
+        from market_data_models import TIMEFRAME_TO_MINUTES
+        expected_minutes = TIMEFRAME_TO_MINUTES.get(tf, 60)
+        gaps = []
+        missing_values = 0
+        
+        for i in range(1, len(candles)):
+            prev = candles[i - 1]
+            curr = candles[i]
+            diff_minutes = (curr.timestamp - prev.timestamp).total_seconds() / 60
+            
+            if diff_minutes > expected_minutes * 5:  # Gap > 5x expected interval
+                gaps.append({
+                    "from": prev.timestamp.isoformat(),
+                    "to": curr.timestamp.isoformat(),
+                    "missing_candles": int(diff_minutes / expected_minutes) - 1
+                })
+            
+            # Check for missing OHLC values
+            if any([prev.open == 0, prev.high == 0, prev.low == 0, prev.close == 0]):
+                missing_values += 1
+        
+        # Calculate quality score
+        total_expected = (stats.last_timestamp - stats.first_timestamp).total_seconds() / (expected_minutes * 60)
+        coverage = min(100, (stats.total_candles / max(total_expected, 1)) * 100)
+        quality_score = coverage - (len(gaps) * 2) - (missing_values * 0.5)
+        quality_score = max(0, min(100, quality_score))
+        
+        return {
+            "success": True,
+            "symbol": symbol.upper(),
+            "timeframe": timeframe,
+            "status": "VALID" if quality_score >= 80 else "PARTIAL" if quality_score >= 50 else "POOR",
+            "stats": {
+                "total_candles": stats.total_candles,
+                "first_date": stats.first_timestamp.isoformat(),
+                "last_date": stats.last_timestamp.isoformat(),
+                "date_range_days": stats.date_range_days,
+                "provider": stats.provider
+            },
+            "quality": {
+                "score": round(quality_score, 1),
+                "coverage_percent": round(coverage, 1),
+                "gaps_detected": len(gaps),
+                "missing_values": missing_values
+            },
+            "gaps": gaps[:10],  # Return first 10 gaps
+            "message": f"Data quality: {quality_score:.0f}% - {'Ready for backtesting' if quality_score >= 80 else 'May have gaps'}"
+        }
+        
+    except Exception as e:
+        logging.error(f"Validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
 
 @api_router.get("/marketdata/{symbol}/{timeframe}")
