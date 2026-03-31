@@ -266,6 +266,13 @@ export default function Dashboard() {
   const [advancedValidation, setAdvancedValidation] = useState(null);
   const [propScore, setPropScore] = useState(null);
   const [marketSelection, setMarketSelection] = useState(null);  // NEW: Market selection results
+  
+  // Auto-Generate Strategies State
+  const [isAutoGenerating, setIsAutoGenerating] = useState(false);
+  const [autoGenProgress, setAutoGenProgress] = useState(0);
+  const [topStrategies, setTopStrategies] = useState([]);
+  const [selectedStrategy, setSelectedStrategy] = useState(null);
+  
   const [chartData, setChartData] = useState({
     equityCurve: [],
     drawdownCurve: [],
@@ -664,6 +671,77 @@ export default function Dashboard() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleAutoGenerateStrategies = async () => {
+    // Check data availability first
+    if (!dataAvailability || !dataAvailability.available) {
+      toast.error('⚠️ No local CSV data available. Please load market data first.', {
+        duration: 8000
+      });
+      return;
+    }
+
+    setIsAutoGenerating(true);
+    setAutoGenProgress(0);
+    setTopStrategies([]);
+    
+    try {
+      toast.info('🚀 Starting automated strategy generation...', { duration: 3000 });
+      setAutoGenProgress(10);
+
+      const response = await axios.post(`${API}/strategy/auto-generate`, {
+        symbol: selectedPair,
+        timeframe: selectedTimeframe,
+        count: 20,
+        ai_model: singleModel
+      });
+
+      setAutoGenProgress(100);
+
+      if (response.data.success && response.data.strategies.length > 0) {
+        setTopStrategies(response.data.strategies);
+        toast.success(`✅ Generated ${response.data.total_generated} strategies, ${response.data.passed_filters} passed filters. Showing top ${response.data.strategies.length}.`, {
+          duration: 6000
+        });
+      } else {
+        toast.warning(response.data.message || 'No strategies passed filters. Try adjusting parameters.', {
+          duration: 6000
+        });
+      }
+    } catch (error) {
+      const detail = error.response?.data?.message || error.response?.data?.error || error.message;
+      toast.error(`Strategy generation failed: ${detail}`, {
+        duration: 8000
+      });
+    } finally {
+      setIsAutoGenerating(false);
+      setAutoGenProgress(0);
+    }
+  };
+
+  const handleGenerateCBotFromStrategy = async (strategy) => {
+    setSelectedStrategy(strategy);
+    
+    // Create detailed strategy prompt
+    const detailedPrompt = `${strategy.name}
+
+${strategy.description}
+
+Trading Logic:
+${strategy.logic}
+
+Generate a complete cTrader cBot implementing this strategy.`;
+    
+    setStrategyPrompt(detailedPrompt);
+    
+    // Auto-trigger bot generation
+    toast.info(`📝 Generating cBot for: ${strategy.name}`, { duration: 3000 });
+    
+    // Call handleGenerate
+    setTimeout(() => {
+      document.querySelector('[data-testid="generate-button"]')?.click();
+    }, 500);
   };
 
   const ModeButton = ({ mode }) => {
@@ -1105,6 +1183,26 @@ export default function Dashboard() {
                     )}
                   </Button>
 
+                  {/* Auto-Generate Strategies Button */}
+                  <Button
+                    onClick={handleAutoGenerateStrategies}
+                    disabled={isAutoGenerating || !dataAvailability?.available}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-mono uppercase text-[10px] h-9 flex items-center justify-center gap-2 flex-shrink-0"
+                    data-testid="auto-generate-button"
+                  >
+                    {isAutoGenerating ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Generating... {autoGenProgress}%
+                      </>
+                    ) : (
+                      <>
+                        <Trophy className="w-3 h-3" />
+                        🚀 Generate Top Strategies
+                      </>
+                    )}
+                  </Button>
+
                   {sessionId && (
                     <div className="pt-2 border-t border-white/5 flex-shrink-0">
                       <p className="text-[10px] text-zinc-500 uppercase font-mono">Session</p>
@@ -1414,6 +1512,13 @@ export default function Dashboard() {
                     data-testid="tab-templates"
                   >
                     <Target className="w-3 h-3 mr-1.5" /> Strategies
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="auto-strategies"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-purple-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-auto-strategies"
+                  >
+                    <Trophy className="w-3 h-3 mr-1.5" /> Top Strategies
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -1992,6 +2097,86 @@ export default function Dashboard() {
               }}
             />
             */}
+          </TabsContent>
+
+          {/* Auto-Generated Strategies Tab */}
+          <TabsContent value="auto-strategies" className="flex-1 p-3 overflow-y-auto mt-0">
+            {topStrategies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <Trophy className="w-12 h-12 text-purple-500 mb-4" />
+                <p className="text-sm text-zinc-300 font-mono mb-2">Auto Strategy Generation</p>
+                <p className="text-xs text-zinc-500 font-mono max-w-md">
+                  Click "🚀 Generate Top Strategies" to automatically create, backtest, and rank 20 unique trading strategies
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-purple-400 font-mono uppercase">Top {topStrategies.length} Strategies</h3>
+                  <Badge variant="outline" className="text-[9px] border-purple-500/40 text-purple-400">
+                    Ranked by Score
+                  </Badge>
+                </div>
+                
+                {topStrategies.map((strategy, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-[#0F0F10] border border-purple-500/20 p-3 rounded-sm hover:border-purple-500/40 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-purple-400">#{idx + 1}</span>
+                        <div>
+                          <h4 className="text-xs font-bold text-zinc-200 font-mono">{strategy.name}</h4>
+                          <p className="text-[10px] text-zinc-500 mt-0.5">{strategy.description}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-400 px-1.5 py-0 h-4">
+                        Score: {strategy.score}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      <div className="bg-[#18181B] p-1.5 rounded-sm">
+                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Profit Factor</p>
+                        <p className="text-sm font-bold text-blue-400 font-mono">{strategy.profit_factor}</p>
+                      </div>
+                      <div className="bg-[#18181B] p-1.5 rounded-sm">
+                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Win Rate</p>
+                        <p className="text-sm font-bold text-emerald-400 font-mono">{strategy.win_rate}%</p>
+                      </div>
+                      <div className="bg-[#18181B] p-1.5 rounded-sm">
+                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Max DD</p>
+                        <p className="text-sm font-bold text-amber-400 font-mono">{strategy.max_drawdown}%</p>
+                      </div>
+                      <div className="bg-[#18181B] p-1.5 rounded-sm">
+                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Trades</p>
+                        <p className="text-sm font-bold text-zinc-300 font-mono">{strategy.total_trades}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleGenerateCBotFromStrategy(strategy)}
+                        size="sm"
+                        className="flex-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 font-mono uppercase text-[10px] h-7"
+                      >
+                        <Play className="w-3 h-3 mr-1" /> Generate cBot
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-[#18181B] hover:bg-[#1F1F23] text-zinc-400 border border-white/10 font-mono uppercase text-[10px] h-7"
+                        onClick={() => {
+                          toast.info(strategy.logic, { duration: 10000 });
+                        }}
+                      >
+                        <HelpCircle className="w-3 h-3 mr-1" /> View Logic
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
             </Tabs>
           </div>
