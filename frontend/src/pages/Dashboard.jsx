@@ -32,9 +32,10 @@ import {
   getDecisionStatus
 } from '@/components/validation/PropScore';
 import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
-import CSVUploader from '@/components/data/CSVUploader';
-import BulkCSVUploader from '@/components/data/BulkCSVUploader';
-import StrategyTemplateSelector from '@/components/strategy/StrategyTemplateSelector';
+// Temporarily commented out - components need to be created
+// import CSVUploader from '@/components/data/CSVUploader';
+// import BulkCSVUploader from '@/components/data/BulkCSVUploader';
+// import StrategyTemplateSelector from '@/components/strategy/StrategyTemplateSelector';
 // 
 // const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 // const API = `${BACKEND_URL}/api`;
@@ -1835,10 +1836,19 @@ export default function Dashboard() {
             )}
           </TabsContent>
 
-          {/* Market Data Tab */}
+          {/* Market Data Tab - Placeholder */}
           <TabsContent value="data" className="flex-1 p-3 overflow-y-auto mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="text-center py-12 text-zinc-500">
+              <p>Market data features available in Market Data page</p>
+            </div>
+          </TabsContent>
+
+          {/* Strategy Templates Tab */}
           <TabsContent value="templates" className="flex-1 p-3 overflow-y-auto mt-0">
+            <div className="text-center py-12 text-zinc-500">
+              <p>Strategy templates feature coming soon</p>
+            </div>
+            {/* Temporarily commented out - component needs to be created
             <StrategyTemplateSelector 
               symbol="EURUSD"
               timeframe="1h"
@@ -1846,6 +1856,7 @@ export default function Dashboard() {
                 toast.success(`${results.template.name}: ${results.metrics.total_trades} trades, PF=${results.metrics.profit_factor.toFixed(2)}`);
               }}
             />
+            */}
           </TabsContent>
             </Tabs>
           </div>
