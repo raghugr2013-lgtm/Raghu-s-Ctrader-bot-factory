@@ -20,7 +20,7 @@ import {
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
-  GripVertical, GripHorizontal
+  GripVertical, GripHorizontal, Upload
 } from 'lucide-react';
 import {
   PropScoreGauge,
@@ -795,6 +795,13 @@ export default function Dashboard() {
                 icon={Database} 
                 label="Library" 
                 testId="library-nav-btn"
+              />
+              <NavButton 
+                onClick={() => navigate('/market-data')} 
+                icon={Upload} 
+                label="Market Data" 
+                variant="secondary"
+                testId="market-data-nav-btn"
               />
             </div>
 
