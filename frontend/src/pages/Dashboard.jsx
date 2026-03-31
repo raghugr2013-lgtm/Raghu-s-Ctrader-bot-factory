@@ -229,7 +229,7 @@ function saveLayout(layout) {
   }
 }
 
-export default function Dashboard() {
+function Dashboard() {
   const [strategyPrompt, setStrategyPrompt] = useState('');
   const [aiMode, setAiMode] = useState('single');
   const [singleModel, setSingleModel] = useState('openai');
@@ -726,6 +726,33 @@ export default function Dashboard() {
     };
   }, [propScore, advancedValidation, canDownload]);
 
+  // FORCE RENDER TEST - Step 1
+  console.log("🔥 Dashboard component MOUNTED");
+  console.log("🔥 Component is rendering");
+  
+  return (
+    <div style={{ 
+      color: "white", 
+      padding: "50px", 
+      fontSize: "32px", 
+      background: "blue",
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center"
+    }}>
+      <div>
+        <h1>✅ BACKTEST PAGE IS LOADING</h1>
+        <p style={{ fontSize: "18px", marginTop: "20px" }}>Dashboard.jsx is rendering!</p>
+        <p style={{ fontSize: "14px", color: "lime" }}>Route: "/" (Root)</p>
+      </div>
+    </div>
+  );
+}
+
+
+/* ORIGINAL CODE BELOW - COMMENTED OUT FOR TESTING
+function Dashboard_Original() {
   return (
     <div className="min-h-screen w-full bg-[#050505] overflow-y-auto flex flex-col">
       {/* Header - Professional SaaS Navigation */}
@@ -1831,5 +1858,7 @@ export default function Dashboard() {
         </PanelGroup>
       </div>
     </div>
-  );
 }
+END OF COMMENTED CODE */
+
+export default Dashboard;
