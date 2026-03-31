@@ -268,6 +268,12 @@ class SimpleMACrossStrategy(BaseStrategy):
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.last_signal = SignalType.NONE
+        
+        # Set pip size based on symbol
+        if "XAU" in symbol.upper() or "GOLD" in symbol.upper():
+            self.pip_size = 0.01  # Gold: 1 pip = $0.01
+        else:
+            self.pip_size = 0.0001  # Forex: 1 pip = 0.0001
     
     def on_start(self):
         """Initialize strategy"""
@@ -301,9 +307,9 @@ class SimpleMACrossStrategy(BaseStrategy):
             if not self.has_open_positions() and self.last_signal != SignalType.BUY:
                 self.last_signal = SignalType.BUY
                 
-                # Calculate SL/TP
-                stop_loss = candle.close - (100 * self.pip_size)  # 100 pips
-                take_profit = candle.close + (200 * self.pip_size)  # 200 pips
+                # Calculate SL/TP (500 pips SL, 1000 pips TP for wider stops)
+                stop_loss = candle.close - (500 * self.pip_size)
+                take_profit = candle.close + (1000 * self.pip_size)
                 
                 return TradingSignal(
                     signal_type=SignalType.BUY,
@@ -318,9 +324,9 @@ class SimpleMACrossStrategy(BaseStrategy):
             if not self.has_open_positions() and self.last_signal != SignalType.SELL:
                 self.last_signal = SignalType.SELL
                 
-                # Calculate SL/TP
-                stop_loss = candle.close + (100 * self.pip_size)  # 100 pips
-                take_profit = candle.close - (200 * self.pip_size)  # 200 pips
+                # Calculate SL/TP (500 pips SL, 1000 pips TP for wider stops)
+                stop_loss = candle.close + (500 * self.pip_size)
+                take_profit = candle.close - (1000 * self.pip_size)
                 
                 return TradingSignal(
                     signal_type=SignalType.SELL,

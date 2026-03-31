@@ -237,6 +237,103 @@ class CSVUploadAPITester:
             return True
         return False
 
+    def test_full_validation_pipeline(self, symbol="EURUSD", timeframe="1h"):
+        """Test full validation pipeline endpoint"""
+        success, response = self.run_test(
+            f"Full Validation Pipeline - {symbol} {timeframe}",
+            "POST",
+            "validation/full-pipeline",
+            200,
+            data={
+                "strategy_prompt": "Simple moving average crossover strategy with 20 and 50 period MAs",
+                "ai_model": "openai",
+                "prop_firm": "none",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "backtest_days": 30,
+                "initial_balance": 10000.0,
+                "monte_carlo_runs": 50
+            }
+        )
+        
+        if success and response.get('success'):
+            results = response.get('results', {})
+            backtest = results.get('backtest', {})
+            print(f"   Total trades: {backtest.get('total_trades', 0)}")
+            print(f"   Win rate: {backtest.get('win_rate', 0):.1f}%")
+            print(f"   Profit factor: {backtest.get('profit_factor', 0):.2f}")
+            print(f"   Max drawdown: {backtest.get('max_drawdown_percent', 0):.2f}%")
+            
+            # Check if multiple trades were generated
+            if backtest.get('total_trades', 0) > 1:
+                print(f"   ✅ Strategy simulator generated multiple trades")
+            else:
+                print(f"   ⚠️ Strategy simulator only generated {backtest.get('total_trades', 0)} trade(s)")
+            
+            return results
+        return None
+
+    def test_monte_carlo_analysis(self, backtest_id):
+        """Test Monte Carlo analysis"""
+        if not backtest_id:
+            print("⚠️ Skipping Monte Carlo test - no backtest ID")
+            return False
+            
+        success, response = self.run_test(
+            "Monte Carlo Analysis",
+            "POST",
+            "montecarlo/run",
+            200,
+            data={
+                "backtest_id": backtest_id,
+                "session_id": f"test_mc_{int(time.time())}",
+                "strategy_name": "TestStrategy",
+                "num_simulations": 100,
+                "resampling_method": "bootstrap",
+                "confidence_level": 0.95
+            }
+        )
+        
+        if success and response.get('success'):
+            summary = response.get('summary', {})
+            print(f"   Simulations: {summary.get('total_simulations', 0)}")
+            print(f"   Profit probability: {summary.get('profit_probability', 0):.1f}%")
+            print(f"   Risk level: {summary.get('risk_level', 'unknown')}")
+            return True
+        return False
+
+    def test_walk_forward_analysis(self, symbol="EURUSD", timeframe="1h"):
+        """Test Walk-Forward analysis"""
+        success, response = self.run_test(
+            f"Walk-Forward Analysis - {symbol} {timeframe}",
+            "POST",
+            "walkforward/run",
+            200,
+            data={
+                "session_id": f"test_wf_{int(time.time())}",
+                "strategy_name": "TestStrategy",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "start_date": "2024-01-01T00:00:00",
+                "end_date": "2024-01-31T23:59:59",
+                "training_window_days": 7,
+                "testing_window_days": 3,
+                "step_size_days": 1,
+                "fast_ma_range": [10, 20],
+                "slow_ma_range": [30, 50],
+                "initial_balance": 10000.0,
+                "optimization_metric": "profit_factor"
+            }
+        )
+        
+        if success and response.get('success'):
+            summary = response.get('summary', {})
+            print(f"   Total segments: {summary.get('total_segments', 0)}")
+            print(f"   Stability score: {summary.get('stability_score', 0):.1f}")
+            print(f"   Is deployable: {summary.get('is_deployable', False)}")
+            return True
+        return False
+
     def test_delete_market_data(self, symbol="EURUSD", timeframe="1h"):
         """Test delete market data endpoint"""
         success, response = self.run_test(
@@ -287,13 +384,30 @@ def main():
     
     # Test 7: Real data backtest
     print("\n⚡ PHASE 6: Real Data Backtest")
+    backtest_id = None
     if symbol1 and timeframe1:
         backtest_id = tester.test_real_data_backtest(symbol1, timeframe1)
         if backtest_id:
             print(f"   Backtest ID: {backtest_id}")
     
-    # Test 8: Cleanup - Delete test data
-    print("\n🧹 PHASE 7: Cleanup")
+    # Test 8: Full validation pipeline (NEW)
+    print("\n🔬 PHASE 7: Full Validation Pipeline")
+    pipeline_results = None
+    if symbol1 and timeframe1:
+        pipeline_results = tester.test_full_validation_pipeline(symbol1, timeframe1)
+    
+    # Test 9: Monte Carlo analysis (NEW)
+    print("\n🎲 PHASE 8: Monte Carlo Analysis")
+    if backtest_id:
+        tester.test_monte_carlo_analysis(backtest_id)
+    
+    # Test 10: Walk-Forward analysis (NEW)
+    print("\n📊 PHASE 9: Walk-Forward Analysis")
+    if symbol1 and timeframe1:
+        tester.test_walk_forward_analysis(symbol1, timeframe1)
+    
+    # Test 11: Cleanup - Delete test data
+    print("\n🧹 PHASE 10: Cleanup")
     if symbol1 and timeframe1:
         tester.test_delete_market_data(symbol1, timeframe1)
     if symbol2 and timeframe2:

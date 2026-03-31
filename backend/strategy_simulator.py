@@ -217,12 +217,15 @@ class StrategySimulator:
             leverage=config.leverage
         )
         
+        # Determine pip size based on symbol
+        pip_size = 0.01 if "XAU" in config.symbol or "GOLD" in config.symbol else 0.0001
+        
         self.trade_executor = TradeExecutor(
             account=self.account,
             symbol=config.symbol,
             spread_pips=config.spread_pips,
             commission_per_lot=config.commission_per_lot,
-            pip_size=0.0001
+            pip_size=pip_size
         )
         
         self.equity_tracker = EquityTracker(config.initial_balance)
@@ -267,6 +270,9 @@ class StrategySimulator:
                 # Record trade
                 trade = self._create_trade_record(position, exit_price, profit, close_reason)
                 self.trades.append(trade)
+                
+                # Update strategy's position list after closing
+                self.strategy.positions = list(self.trade_executor.positions.values())
                 
                 # Notify strategy
                 self.strategy.on_trade_closed(position, profit)

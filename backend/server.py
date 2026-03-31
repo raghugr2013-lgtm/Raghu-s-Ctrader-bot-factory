@@ -1955,18 +1955,107 @@ Requirements: Robot class, using statements, OnStart(), OnBar(), error handling.
         except Exception as e:
             stages.append(PipelineStageResult(stage="compliance", success=True, score=50.0, error=str(e)))
         
-        # STAGE 5: BACKTEST
+        # STAGE 5: BACKTEST WITH REAL DATA
         mock_trades = []
+        backtest_metrics = {}
+        equity_curve = []
         try:
-            mock_trades, mock_equity, backtest_config = MockBacktestGenerator.generate_mock_backtest(
-                bot_name="Pipeline", symbol=request.symbol, timeframe=BT_Timeframe.H1,
-                duration_days=request.backtest_days, initial_balance=request.initial_balance)
-            metrics = performance_calculator.calculate_metrics(mock_trades, mock_equity, backtest_config)
-            score = strategy_scorer.calculate_score(metrics)
-            stages.append(PipelineStageResult(stage="backtest", success=score.total_score >= 50, score=score.total_score,
-                details={"net_profit": round(metrics.net_profit, 2), "win_rate": round(metrics.win_rate, 2),
-                         "max_drawdown": round(metrics.max_drawdown_percent, 2), "trades": metrics.total_trades, "grade": score.grade}))
+            # First try to get real market data
+            tf = DataTimeframe(request.timeframe)
+            
+            # Get all available candles first (without date filter to catch historical data)
+            candles = await market_data_service.get_candles(
+                symbol=request.symbol.upper(),
+                timeframe=tf,
+                limit=50000
+            )
+            
+            if candles and len(candles) >= 100:
+                # Filter to requested backtest period (use last N days of available data)
+                candles.sort(key=lambda c: c.timestamp)
+                
+                # Calculate how many candles we need (approx 24 per day for H1)
+                candles_per_day = 24 if request.timeframe == "1h" else 1440 // int(request.timeframe.replace('h','').replace('m','').replace('d','1440'))
+                needed_candles = min(len(candles), request.backtest_days * candles_per_day)
+                
+                # Use the last N candles (most recent data)
+                candles = candles[-needed_candles:] if len(candles) > needed_candles else candles
+                
+                logging.info(f"Running backtest with {len(candles)} real candles for {request.symbol}")
+                
+                # Create backtest config
+                backtest_config = BacktestConfig(
+                    symbol=request.symbol,
+                    timeframe=tf,
+                    start_date=candles[0].timestamp,
+                    end_date=candles[-1].timestamp,
+                    initial_balance=request.initial_balance,
+                    currency="USD",
+                    leverage=100,
+                    commission_per_lot=7.0,
+                    spread_pips=1.5 if "XAU" in request.symbol else 1.0
+                )
+                
+                # Create strategy and run simulation (use faster MAs for more signals)
+                strategy = SimpleMACrossStrategy(
+                    symbol=request.symbol,
+                    timeframe=request.timeframe,
+                    fast_period=10,  # Faster MA for more signals
+                    slow_period=25   # Slower MA
+                )
+                
+                simulator = create_strategy_simulator(strategy, backtest_config, candles)
+                result = simulator.run()
+                
+                mock_trades = result['trades']
+                equity_curve = result['equity_curve']
+                
+                metrics = performance_calculator.calculate_metrics(mock_trades, equity_curve, backtest_config)
+                score = strategy_scorer.calculate_score(metrics)
+                
+                backtest_metrics = {
+                    "total_trades": metrics.total_trades,
+                    "win_rate": round(metrics.win_rate, 2),
+                    "profit_factor": round(metrics.profit_factor, 2),
+                    "max_drawdown_percent": round(metrics.max_drawdown_percent, 2),
+                    "net_profit": round(metrics.net_profit, 2),
+                    "sharpe_ratio": round(metrics.sharpe_ratio, 2)
+                }
+                
+                stages.append(PipelineStageResult(stage="backtest", success=score.total_score >= 50, score=score.total_score,
+                    details={
+                        "data_source": "REAL_CSV_DATA",
+                        "candles_used": len(candles),
+                        "date_range": f"{candles[0].timestamp.date()} to {candles[-1].timestamp.date()}",
+                        **backtest_metrics,
+                        "grade": score.grade
+                    }))
+            else:
+                # Fallback to mock if no real data
+                logging.warning(f"No real data for {request.symbol}, using mock backtest")
+                mock_trades, mock_equity, backtest_config = MockBacktestGenerator.generate_mock_backtest(
+                    bot_name="Pipeline", symbol=request.symbol, timeframe=BT_Timeframe.H1,
+                    duration_days=request.backtest_days, initial_balance=request.initial_balance)
+                metrics = performance_calculator.calculate_metrics(mock_trades, mock_equity, backtest_config)
+                score = strategy_scorer.calculate_score(metrics)
+                
+                backtest_metrics = {
+                    "total_trades": metrics.total_trades,
+                    "win_rate": round(metrics.win_rate, 2),
+                    "profit_factor": round(metrics.profit_factor, 2),
+                    "max_drawdown_percent": round(metrics.max_drawdown_percent, 2),
+                    "net_profit": round(metrics.net_profit, 2)
+                }
+                
+                stages.append(PipelineStageResult(stage="backtest", success=score.total_score >= 50, score=score.total_score,
+                    details={
+                        "data_source": "MOCK_DATA",
+                        "warning": "No real CSV data available, using synthetic data",
+                        **backtest_metrics,
+                        "grade": score.grade
+                    }))
         except Exception as e:
+            logging.error(f"Backtest error: {str(e)}")
             stages.append(PipelineStageResult(stage="backtest", success=False, score=0.0, error=str(e)))
         
         # STAGE 6: MONTE CARLO

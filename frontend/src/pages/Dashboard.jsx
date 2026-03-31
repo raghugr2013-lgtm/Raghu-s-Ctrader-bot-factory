@@ -33,6 +33,7 @@ import {
 } from '@/components/validation/PropScore';
 import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
 import CSVUploader from '@/components/data/CSVUploader';
+import BulkCSVUploader from '@/components/data/BulkCSVUploader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1828,11 +1829,19 @@ export default function Dashboard() {
 
           {/* Market Data Tab */}
           <TabsContent value="data" className="flex-1 p-3 overflow-y-auto mt-0">
-            <CSVUploader 
-              onDataLoaded={(result) => {
-                toast.success(`Loaded ${result.rowsLoaded} candles for ${result.symbol}`);
-              }}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <BulkCSVUploader 
+                onDataLoaded={(results) => {
+                  const total = results.filter(r => r.success).reduce((s, r) => s + r.imported, 0);
+                  toast.success(`Imported ${total.toLocaleString()} candles total`);
+                }}
+              />
+              <CSVUploader 
+                onDataLoaded={(result) => {
+                  toast.success(`Loaded ${result.rowsLoaded} candles for ${result.symbol}`);
+                }}
+              />
+            </div>
           </TabsContent>
             </Tabs>
           </div>
