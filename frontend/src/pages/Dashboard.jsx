@@ -852,10 +852,10 @@ export default function Dashboard() {
       </div>
 
       {/* Main Content Area with Vertical Split */}
-      <div className="flex-1 overflow-y-auto p-2" style={{ minHeight: '600px' }}>
+      <div className="flex-1 p-2" style={{ minHeight: '600px' }}>
         <PanelGroup 
           orientation="vertical" 
-          className="h-full min-h-full"
+          className="h-full"
         >
         {/* Top Section: Left + Center + Right Panels */}
         <Panel 
