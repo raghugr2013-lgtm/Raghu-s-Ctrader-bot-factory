@@ -706,6 +706,10 @@ export default function Dashboard() {
 
   // Execution Mode State
   const [executionMode, setExecutionMode] = useState('backtest'); // 'backtest' | 'forward_test' | 'live'
+  
+  // Strategy Config State
+  const [selectedPair, setSelectedPair] = useState('EURUSD');
+  const [strategyMode, setStrategyMode] = useState('standard'); // 'standard' | 'pro'
 
   // Pre-deployment checklist evaluation
   const deploymentStatus = useMemo(() => {
@@ -874,6 +878,56 @@ export default function Dashboard() {
                   </h2>
                 </div>
                 <div className="flex-1 p-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar text-xs">
+                  {/* Pair Selection */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Trading Pair</label>
+                    <Select value={selectedPair} onValueChange={setSelectedPair}>
+                      <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="pair-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#0F0F10] border-white/10">
+                        <SelectItem value="EURUSD" className="text-xs">EUR/USD</SelectItem>
+                        <SelectItem value="XAUUSD" className="text-xs">XAU/USD (Gold)</SelectItem>
+                        <SelectItem value="GBPUSD" className="text-xs">GBP/USD</SelectItem>
+                        <SelectItem value="USDJPY" className="text-xs">USD/JPY</SelectItem>
+                        <SelectItem value="NAS100" className="text-xs">NAS100 (Nasdaq)</SelectItem>
+                        <SelectItem value="BTCUSD" className="text-xs">BTC/USD</SelectItem>
+                        <SelectItem value="ETHUSD" className="text-xs">ETH/USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Mode Selection - Standard / Pro */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">Strategy Mode</label>
+                    <div className="grid grid-cols-2 gap-2" data-testid="strategy-mode-selector">
+                      <button
+                        onClick={() => setStrategyMode('standard')}
+                        className={`px-3 py-2 text-left border transition-colors ${
+                          strategyMode === 'standard'
+                            ? 'bg-blue-600/15 border-blue-500/40 text-blue-400'
+                            : 'bg-[#0F0F10] border-white/5 text-zinc-500 hover:border-white/15 hover:text-zinc-300'
+                        }`}
+                        data-testid="mode-standard"
+                      >
+                        <p className="text-[10px] font-mono font-bold uppercase tracking-wider">Standard</p>
+                        <p className="text-[9px] text-zinc-600">Quick setup</p>
+                      </button>
+                      <button
+                        onClick={() => setStrategyMode('pro')}
+                        className={`px-3 py-2 text-left border transition-colors ${
+                          strategyMode === 'pro'
+                            ? 'bg-purple-600/15 border-purple-500/40 text-purple-400'
+                            : 'bg-[#0F0F10] border-white/5 text-zinc-500 hover:border-white/15 hover:text-zinc-300'
+                        }`}
+                        data-testid="mode-pro"
+                      >
+                        <p className="text-[10px] font-mono font-bold uppercase tracking-wider">Pro</p>
+                        <p className="text-[9px] text-zinc-600">Advanced</p>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* AI Mode Selector - Wrapped for overflow */}
                   <div>
                     <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-2 block">AI Mode</label>
