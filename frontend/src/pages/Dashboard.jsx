@@ -288,6 +288,7 @@ export default function Dashboard() {
     setDataAvailability(null);
   }, [generatedCode]);
 
+
   const handleGenerate = async () => {
     if (!strategyPrompt.trim()) {
       toast.error('Please enter a trading strategy');
@@ -710,6 +711,47 @@ export default function Dashboard() {
   // Strategy Config State
   const [selectedPair, setSelectedPair] = useState('EURUSD');
   const [strategyMode, setStrategyMode] = useState('standard'); // 'standard' | 'pro'
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
+
+  // Check data availability when pair or timeframe changes
+  useEffect(() => {
+    checkDataAvailability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPair, selectedTimeframe]);
+
+  const checkDataAvailability = async () => {
+    setIsCheckingData(true);
+    try {
+      const response = await axios.get(`${API}/marketdata/check-availability/${selectedPair}/${selectedTimeframe}`);
+      
+      if (response.data.available) {
+        setDataAvailability({
+          available: true,
+          symbol: response.data.symbol,
+          timeframe: response.data.timeframe,
+          candle_count: response.data.candle_count,
+          date_range: response.data.date_range
+        });
+      } else {
+        setDataAvailability({
+          available: false,
+          symbol: selectedPair,
+          timeframe: selectedTimeframe,
+          message: response.data.message || 'No data available'
+        });
+      }
+    } catch (error) {
+      console.error('Data availability check error:', error);
+      setDataAvailability({
+        available: false,
+        symbol: selectedPair,
+        timeframe: selectedTimeframe,
+        error: error.response?.data?.detail || error.message
+      });
+    } finally {
+      setIsCheckingData(false);
+    }
+  };
 
   // Pre-deployment checklist evaluation
   const deploymentStatus = useMemo(() => {
@@ -937,6 +979,47 @@ export default function Dashboard() {
                     <Database className="w-3 h-3" />
                     Load Market Data
                   </Button>
+
+                  {/* Data Availability Status */}
+                  <div className="bg-[#0F0F10] border border-white/5 p-2 rounded-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Data Status</span>
+                      {isCheckingData && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
+                    </div>
+                    {dataAvailability ? (
+                      <>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono text-zinc-300">{dataAvailability.symbol}</span>
+                          <span className="text-[10px] text-zinc-600">({dataAvailability.timeframe})</span>
+                          {dataAvailability.available ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-auto" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-400 ml-auto" />
+                          )}
+                        </div>
+                        {dataAvailability.available ? (
+                          <>
+                            <div className="text-[10px] text-emerald-400 font-mono mb-0.5">
+                              ✓ {dataAvailability.candle_count?.toLocaleString()} candles
+                            </div>
+                            {dataAvailability.date_range && (
+                              <div className="text-[9px] text-zinc-500 font-mono">
+                                {new Date(dataAvailability.date_range.start).toLocaleDateString()} → {new Date(dataAvailability.date_range.end).toLocaleDateString()}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-[10px] text-red-400 font-mono">
+                            ❌ No data available
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-[10px] text-zinc-600 font-mono">
+                        Checking availability...
+                      </div>
+                    )}
+                  </div>
 
                   {/* AI Mode Selector - Wrapped for overflow */}
                   <div>

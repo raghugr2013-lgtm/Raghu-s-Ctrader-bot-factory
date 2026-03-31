@@ -1700,6 +1700,53 @@ async def get_providers():
     }
 
 
+@api_router.get("/marketdata/check-availability/{symbol}/{timeframe}")
+async def check_data_availability(symbol: str, timeframe: str):
+    """
+    Quick check if market data is available for symbol/timeframe.
+    Returns availability status and date range if data exists.
+    """
+    try:
+        try:
+            tf = DataTimeframe(timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+        
+        # Get stats which includes date range
+        stats = await market_data_service.get_stats(symbol.upper(), tf)
+        
+        if stats and stats.count > 0:
+            return {
+                "success": True,
+                "available": True,
+                "symbol": symbol.upper(),
+                "timeframe": timeframe,
+                "candle_count": stats.count,
+                "date_range": {
+                    "start": stats.earliest_date.isoformat() if stats.earliest_date else None,
+                    "end": stats.latest_date.isoformat() if stats.latest_date else None
+                }
+            }
+        else:
+            return {
+                "success": True,
+                "available": False,
+                "symbol": symbol.upper(),
+                "timeframe": timeframe,
+                "message": "No data available for this symbol/timeframe"
+            }
+        
+    except Exception as e:
+        logging.error(f"Check availability error: {str(e)}")
+        return {
+            "success": True,
+            "available": False,
+            "symbol": symbol.upper(),
+            "timeframe": timeframe,
+            "error": str(e)
+        }
+
+
 class EnsureDataRequest(BaseModel):
     """Request model for ensuring market data availability"""
     symbol: str = "EURUSD"
