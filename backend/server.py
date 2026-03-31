@@ -69,6 +69,7 @@ from execution.trade_logging import router as trade_logging_router
 from execution.bot_status import router as bot_status_router
 from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
+from dukascopy_router import router as dukascopy_router, init_dukascopy_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -1994,6 +1995,9 @@ app.include_router(analyzer_router, prefix="/api")
 # Include discovery router (Bot Discovery + Ranking System)
 from discovery.router import router as discovery_router
 app.include_router(discovery_router, prefix="/api")
+
+# Include Dukascopy router (Market Data Download)
+app.include_router(dukascopy_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,

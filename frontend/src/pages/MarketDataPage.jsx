@@ -5,29 +5,30 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import {
   Upload, Database, CheckCircle2, XCircle, AlertCircle, TrendingUp,
-  Calendar, FileText, ArrowLeft, Loader2, FileSpreadsheet, BarChart3
+  Calendar, FileText, ArrowLeft, Loader2, FileSpreadsheet, BarChart3,
+  Download, Activity, AlertTriangle
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const SYMBOLS = [
-  { value: 'EURUSD', label: 'EUR/USD' },
-  { value: 'XAUUSD', label: 'XAU/USD (Gold)' },
-  { value: 'GBPUSD', label: 'GBP/USD' },
-  { value: 'USDJPY', label: 'USD/JPY' },
-  { value: 'BTCUSD', label: 'BTC/USD' },
+  { value: 'XAUUSD', label: 'XAU/USD (Gold)', enabled: true },
+  { value: 'EURUSD', label: 'EUR/USD', enabled: true },
+  { value: 'GBPUSD', label: 'GBP/USD', enabled: true },
+  { value: 'USDJPY', label: 'USD/JPY', enabled: true },
+  { value: 'NAS100', label: 'NAS100 (US100)', enabled: true },
 ];
 
 const TIMEFRAMES = [
-  { value: '1h', label: '1 Hour (H1)' },
-  { value: '4h', label: '4 Hours (H4)' },
-  { value: '1d', label: '1 Day (D1)' },
-  { value: '15m', label: '15 Minutes (M15)' },
-  { value: '30m', label: '30 Minutes (M30)' },
+  { value: 'M1', label: '1 Minute (M1)' },
+  { value: 'M5', label: '5 Minutes (M5)' },
+  { value: 'M15', label: '15 Minutes (M15)' },
+  { value: 'H1', label: '1 Hour (H1)' },
 ];
 
 const CSV_FORMATS = [
@@ -39,6 +40,8 @@ const CSV_FORMATS = [
 
 export default function MarketDataPage() {
   const navigate = useNavigate();
+  
+  // CSV Upload States
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [symbol, setSymbol] = useState('EURUSD');
@@ -46,13 +49,57 @@ export default function MarketDataPage() {
   const [csvFormat, setCsvFormat] = useState('custom');
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
+  
+  // Dukascopy Download States
+  const [selectedSymbols, setSelectedSymbols] = useState(['XAUUSD', 'EURUSD']);
+  const [dukaTimeframe, setDukaTimeframe] = useState('H1');
+  const [startDate, setStartDate] = useState('2024-01-01');
+  const [endDate, setEndDate] = useState('2024-01-31');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadTaskId, setDownloadTaskId] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadMessage, setDownloadMessage] = useState('');
+  const [downloadResults, setDownloadResults] = useState(null);
+  
+  // Available Data
   const [availableData, setAvailableData] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  // Load available market data on mount
   useEffect(() => {
     loadAvailableData();
   }, []);
+
+  // Poll download status
+  useEffect(() => {
+    if (downloadTaskId && downloading) {
+      const interval = setInterval(async () => {
+        try {
+          const response = await axios.get(`${API}/dukascopy/status/${downloadTaskId}`);
+          if (response.data.success) {
+            const task = response.data.task;
+            setDownloadProgress(task.progress);
+            setDownloadMessage(task.message);
+            
+            if (task.status === 'completed') {
+              setDownloading(false);
+              setDownloadResults(task.results);
+              toast.success('Download completed!');
+              loadAvailableData();
+              clearInterval(interval);
+            } else if (task.status === 'failed') {
+              setDownloading(false);
+              toast.error(`Download failed: ${task.error}`);
+              clearInterval(interval);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to check status:', error);
+        }
+      }, 2000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [downloadTaskId, downloading]);
 
   const loadAvailableData = async () => {
     setLoadingData(true);
@@ -68,6 +115,45 @@ export default function MarketDataPage() {
     }
   };
 
+  const toggleSymbol = (symbolValue) => {
+    setSelectedSymbols(prev => 
+      prev.includes(symbolValue)
+        ? prev.filter(s => s !== symbolValue)
+        : [...prev, symbolValue]
+    );
+  };
+
+  const startDukascopyDownload = async () => {
+    if (selectedSymbols.length === 0) {
+      toast.error('Please select at least one symbol');
+      return;
+    }
+
+    setDownloading(true);
+    setDownloadProgress(0);
+    setDownloadMessage('Starting download...');
+    setDownloadResults(null);
+
+    try {
+      const response = await axios.post(`${API}/dukascopy/download`, {
+        symbols: selectedSymbols,
+        start_date: startDate,
+        end_date: endDate,
+        timeframe: dukaTimeframe
+      });
+
+      if (response.data.success) {
+        setDownloadTaskId(response.data.task_id);
+        toast.info('Download started in background');
+      }
+    } catch (error) {
+      setDownloading(false);
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to start download: ${errorMsg}`);
+    }
+  };
+
+  // CSV Upload functions (keeping existing ones)
   const handleDrag = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -115,10 +201,7 @@ export default function MarketDataPage() {
     setUploadResult(null);
 
     try {
-      // Read file content
       const fileContent = await selectedFile.text();
-
-      // Prepare request
       const requestData = {
         symbol: symbol,
         timeframe: timeframe,
@@ -128,8 +211,6 @@ export default function MarketDataPage() {
       };
 
       toast.info('Uploading CSV data...');
-
-      // Upload to backend
       const response = await axios.post(`${API}/marketdata/import/csv`, requestData);
 
       if (response.data.success) {
@@ -142,24 +223,14 @@ export default function MarketDataPage() {
           total: response.data.total_processed
         });
 
-        toast.success(`✅ Uploaded ${response.data.imported} candles for ${response.data.symbol} ${response.data.timeframe}`);
-        
-        // Refresh available data
+        toast.success(`✅ Uploaded ${response.data.imported} candles`);
         loadAvailableData();
-        
-        // Clear selected file
         setSelectedFile(null);
-      } else {
-        throw new Error('Upload failed');
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      const errorMsg = error.response?.data?.detail || error.message || 'Upload failed';
+      const errorMsg = error.response?.data?.detail || error.message;
       toast.error(`Upload failed: ${errorMsg}`);
-      setUploadResult({
-        success: false,
-        error: errorMsg
-      });
+      setUploadResult({ success: false, error: errorMsg });
     } finally {
       setUploading(false);
     }
@@ -177,7 +248,6 @@ export default function MarketDataPage() {
                 variant="ghost"
                 size="sm"
                 className="text-zinc-400 hover:text-white"
-                data-testid="back-to-dashboard"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
@@ -187,7 +257,7 @@ export default function MarketDataPage() {
                 <Database className="w-6 h-6 text-blue-400" />
                 <div>
                   <h1 className="text-xl font-bold">Market Data Management</h1>
-                  <p className="text-xs text-zinc-500">Upload Dukascopy CSV files for real backtesting</p>
+                  <p className="text-xs text-zinc-500">Dukascopy data download & CSV upload</p>
                 </div>
               </div>
             </div>
@@ -196,38 +266,72 @@ export default function MarketDataPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Upload Section */}
-          <div className="space-y-6">
-            <Card className="bg-[#0F0F10] border-white/10 p-6">
-              <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <Upload className="w-5 h-5 text-blue-400" />
-                Upload CSV Data
-              </h2>
+        {/* Dukascopy Download Section */}
+        <div className="mb-8">
+          <Card className="bg-[#0F0F10] border-white/10 p-6">
+            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+              <Download className="w-5 h-5 text-blue-400" />
+              Dukascopy Data Download
+            </h2>
 
-              {/* File Selection */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Configuration */}
               <div className="space-y-4">
                 {/* Symbol Selection */}
                 <div>
-                  <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">Symbol</label>
-                  <Select value={symbol} onValueChange={setSymbol}>
-                    <SelectTrigger className="bg-[#18181B] border-white/10" data-testid="symbol-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SYMBOLS.map(s => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-xs text-zinc-400 uppercase tracking-wider mb-3 block">
+                    Select Symbols (Multi-select)
+                  </label>
+                  <div className="space-y-2">
+                    {SYMBOLS.map(sym => (
+                      <div key={sym.value} className="flex items-center gap-3 p-3 bg-[#18181B] rounded-md border border-white/5 hover:border-white/10 transition-colors">
+                        <Checkbox
+                          checked={selectedSymbols.includes(sym.value)}
+                          onCheckedChange={() => toggleSymbol(sym.value)}
+                          disabled={!sym.enabled}
+                          data-testid={`symbol-checkbox-${sym.value}`}
+                        />
+                        <label className="text-sm cursor-pointer flex-1">
+                          {sym.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Timeframe Selection */}
+                {/* Date Range */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full bg-[#18181B] border border-white/10 rounded-md px-3 py-2 text-sm"
+                      data-testid="start-date-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full bg-[#18181B] border border-white/10 rounded-md px-3 py-2 text-sm"
+                      data-testid="end-date-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Timeframe */}
                 <div>
                   <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">Timeframe</label>
-                  <Select value={timeframe} onValueChange={setTimeframe}>
-                    <SelectTrigger className="bg-[#18181B] border-white/10" data-testid="timeframe-select">
+                  <Select value={dukaTimeframe} onValueChange={setDukaTimeframe}>
+                    <SelectTrigger className="bg-[#18181B] border-white/10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -238,249 +342,164 @@ export default function MarketDataPage() {
                   </Select>
                 </div>
 
-                {/* CSV Format Selection */}
-                <div>
-                  <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">CSV Format</label>
-                  <Select value={csvFormat} onValueChange={setCsvFormat}>
-                    <SelectTrigger className="bg-[#18181B] border-white/10" data-testid="format-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CSV_FORMATS.map(fmt => (
-                        <SelectItem key={fmt.value} value={fmt.value}>{fmt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Drag & Drop Zone */}
-                <div
-                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
-                    dragActive 
-                      ? 'border-blue-500 bg-blue-500/10' 
-                      : 'border-white/20 bg-[#18181B] hover:border-white/30'
-                  }`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                  data-testid="csv-drop-zone"
-                >
-                  <input
-                    type="file"
-                    id="csv-file-input"
-                    accept=".csv"
-                    onChange={handleFileInput}
-                    className="hidden"
-                  />
-                  
-                  {selectedFile ? (
-                    <div className="space-y-3">
-                      <FileSpreadsheet className="w-12 h-12 mx-auto text-emerald-400" />
-                      <div>
-                        <p className="text-sm font-mono text-white">{selectedFile.name}</p>
-                        <p className="text-xs text-zinc-500">{(selectedFile.size / 1024).toFixed(2)} KB</p>
-                      </div>
-                      <Button
-                        onClick={() => setSelectedFile(null)}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <Upload className="w-12 h-12 mx-auto text-zinc-500" />
-                      <div>
-                        <p className="text-sm text-zinc-300 mb-1">
-                          Drag & drop CSV file here
-                        </p>
-                        <p className="text-xs text-zinc-500 mb-3">or</p>
-                        <label
-                          htmlFor="csv-file-input"
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md cursor-pointer transition-colors"
-                        >
-                          <FileText className="w-4 h-4" />
-                          Browse Files
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Upload Button */}
+                {/* Download Button */}
                 <Button
-                  onClick={uploadCSV}
-                  disabled={!selectedFile || uploading}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  data-testid="upload-csv-button"
+                  onClick={startDukascopyDownload}
+                  disabled={downloading || selectedSymbols.length === 0}
+                  className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base font-bold"
+                  data-testid="download-prepare-button"
                 >
-                  {uploading ? (
+                  {downloading ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Uploading...
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Downloading... {downloadProgress.toFixed(0)}%
                     </>
                   ) : (
                     <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload CSV Data
+                      <Download className="w-5 h-5 mr-2" />
+                      Download & Prepare Data
                     </>
                   )}
                 </Button>
 
-                {/* Upload Result */}
-                {uploadResult && (
-                  <div className={`p-4 rounded-md border ${
-                    uploadResult.success 
-                      ? 'bg-emerald-500/10 border-emerald-500/30' 
-                      : 'bg-red-500/10 border-red-500/30'
-                  }`}>
+                {downloading && (
+                  <div className="bg-[#18181B] p-4 rounded-md border border-blue-500/30">
                     <div className="flex items-start gap-3">
-                      {uploadResult.success ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-red-400 mt-0.5" />
-                      )}
-                      <div className="flex-1 text-sm">
-                        {uploadResult.success ? (
-                          <>
-                            <p className="font-bold text-emerald-400 mb-2">Upload Successful!</p>
-                            <div className="space-y-1 text-xs text-zinc-300">
-                              <p>Symbol: <span className="font-mono text-white">{uploadResult.symbol}</span></p>
-                              <p>Timeframe: <span className="font-mono text-white">{uploadResult.timeframe}</span></p>
-                              <p>Candles Imported: <span className="font-mono text-emerald-400">{uploadResult.imported}</span></p>
-                              {uploadResult.skipped > 0 && (
-                                <p>Skipped (duplicates): <span className="font-mono text-yellow-400">{uploadResult.skipped}</span></p>
-                              )}
-                              <p>Total Processed: <span className="font-mono text-white">{uploadResult.total}</span></p>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-bold text-red-400 mb-1">Upload Failed</p>
-                            <p className="text-xs text-zinc-300">{uploadResult.error}</p>
-                          </>
-                        )}
+                      <Activity className="w-5 h-5 text-blue-400 mt-0.5 animate-pulse" />
+                      <div className="flex-1">
+                        <p className="text-sm font-mono text-blue-400 mb-2">{downloadMessage}</p>
+                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 transition-all duration-300"
+                            style={{ width: `${downloadProgress}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-            </Card>
 
-            {/* Info Card */}
-            <Card className="bg-[#0F0F10] border-blue-500/30 p-6">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
-                <div className="text-sm space-y-2">
-                  <p className="font-bold text-blue-400">Dukascopy CSV Format</p>
-                  <p className="text-zinc-400 text-xs">
-                    Upload historical OHLCV data from Dukascopy or other sources.
-                    Supported formats: MT4, MT5, cTrader, Dukascopy, and custom CSV.
-                  </p>
-                  <div className="pt-2 space-y-1 text-xs text-zinc-500">
-                    <p>• File must be in CSV format</p>
-                    <p>• Must contain: timestamp, open, high, low, close, volume</p>
-                    <p>• Data will be validated before storage</p>
-                    <p>• Backtests will use ONLY uploaded real data</p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Available Data Section */}
-          <div className="space-y-6">
-            <Card className="bg-[#0F0F10] border-white/10 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-emerald-400" />
-                  Available Market Data
-                </h2>
-                <Button
-                  onClick={loadAvailableData}
-                  variant="outline"
-                  size="sm"
-                  disabled={loadingData}
-                  data-testid="refresh-data-button"
-                >
-                  {loadingData ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Refresh'
-                  )}
-                </Button>
-              </div>
-
-              {loadingData ? (
-                <div className="text-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-400 mb-3" />
-                  <p className="text-sm text-zinc-500">Loading data...</p>
-                </div>
-              ) : availableData.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
-                  <Database className="w-12 h-12 mx-auto text-zinc-600 mb-3" />
-                  <p className="text-sm text-zinc-500 mb-1">No market data uploaded yet</p>
-                  <p className="text-xs text-zinc-600">Upload CSV files to enable real backtesting</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {availableData.map((symbolData, idx) => (
-                    <div key={idx} className="bg-[#18181B] border border-white/10 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-emerald-400" />
-                          <span className="font-mono text-white font-bold">{symbolData.symbol}</span>
+              {/* Right: Results */}
+              <div>
+                {downloadResults ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-emerald-400 mb-3">Download Results</h3>
+                    {Object.entries(downloadResults).map(([sym, result]) => (
+                      <div key={sym} className="bg-[#18181B] p-4 rounded-md border border-white/10">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="font-mono font-bold">{sym}</span>
+                          {result.error ? (
+                            <Badge variant="outline" className="border-red-500/40 text-red-400">Failed</Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-emerald-500/40 text-emerald-400">Success</Badge>
+                          )}
                         </div>
-                        <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-400">
-                          Active
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {symbolData.timeframes && symbolData.timeframes.length > 0 ? (
-                          <div>
-                            <p className="text-xs text-zinc-500 mb-2">Available Timeframes:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {symbolData.timeframes.map((tf, i) => (
-                                <Badge key={i} variant="secondary" className="text-xs font-mono">
-                                  {tf}
-                                </Badge>
-                              ))}
+                        
+                        {result.error ? (
+                          <p className="text-xs text-red-400">{result.error}</p>
+                        ) : (
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Total Candles:</span>
+                              <span className="text-white font-mono">{result.total_candles}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Original:</span>
+                              <span className="text-emerald-400 font-mono">{result.original_candles}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Filled:</span>
+                              <span className="text-yellow-400 font-mono">{result.filled_candles}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Large Gaps:</span>
+                              <span className={`font-mono ${result.large_gaps > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                {result.large_gaps}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Quality Score:</span>
+                              <span className="text-blue-400 font-mono">{result.data_quality_score}/100</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Date Range:</span>
+                              <span className="text-zinc-400 font-mono text-[10px]">
+                                {result.date_range_start?.split('T')[0]} to {result.date_range_end?.split('T')[0]}
+                              </span>
                             </div>
                           </div>
-                        ) : (
-                          <p className="text-xs text-zinc-500">No timeframe data</p>
                         )}
                       </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center border-2 border-dashed border-white/10 rounded-lg p-8">
+                    <div className="text-center">
+                      <BarChart3 className="w-12 h-12 mx-auto text-zinc-600 mb-3" />
+                      <p className="text-sm text-zinc-500">Results will appear here</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            {/* Stats Card */}
-            <Card className="bg-[#0F0F10] border-white/10 p-6">
-              <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-zinc-400" />
-                Data Statistics
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#18181B] p-3 rounded-md">
-                  <p className="text-xs text-zinc-500 mb-1">Total Symbols</p>
-                  <p className="text-2xl font-bold text-white">{availableData.length}</p>
-                </div>
-                <div className="bg-[#18181B] p-3 rounded-md">
-                  <p className="text-xs text-zinc-500 mb-1">Total Timeframes</p>
-                  <p className="text-2xl font-bold text-white">
-                    {availableData.reduce((acc, s) => acc + (s.timeframes?.length || 0), 0)}
-                  </p>
-                </div>
+                  </div>
+                )}
               </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Available Data Section */}
+        <div className="mb-8">
+          <Card className="bg-[#0F0F10] border-white/10 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-emerald-400" />
+                Available Market Data
+              </h2>
+              <Button onClick={loadAvailableData} variant="outline" size="sm" disabled={loadingData}>
+                {loadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Refresh'}
+              </Button>
+            </div>
+
+            {loadingData ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-400 mb-3" />
+                <p className="text-sm text-zinc-500">Loading data...</p>
+              </div>
+            ) : availableData.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-lg">
+                <Database className="w-12 h-12 mx-auto text-zinc-600 mb-3" />
+                <p className="text-sm text-zinc-500">No market data uploaded yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {availableData.map((symbolData, idx) => (
+                  <div key={idx} className="bg-[#18181B] border border-white/10 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                        <span className="font-mono text-white font-bold">{symbolData.symbol}</span>
+                      </div>
+                      <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-400">
+                        Active
+                      </Badge>
+                    </div>
+                    
+                    {symbolData.timeframes && symbolData.timeframes.length > 0 && (
+                      <div>
+                        <p className="text-xs text-zinc-500 mb-2">Timeframes:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {symbolData.timeframes.map((tf, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs font-mono">
+                              {tf}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     </div>
