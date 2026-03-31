@@ -86,15 +86,23 @@ class MeanReversionStrategy(BaseStrategy):
         middle, upper, lower = bb
         current_price = candle.close
         
+        # Calculate realistic entry prices (accounting for spread)
+        spread = 1.5 * self.pip_size  # 1.5 pip spread
+        
         # Mean Reversion Logic
         if current_price <= lower and rsi < self.rsi_oversold:
             # Oversold - BUY signal
             if not self.has_open_positions() and self.last_signal != SignalType.BUY:
                 self.last_signal = SignalType.BUY
                 
-                # SL below lower BB, TP at middle BB
-                stop_loss = lower - (50 * self.pip_size)
-                take_profit = middle
+                # Entry at ask price
+                entry_price = current_price + spread
+                
+                # SL must be BELOW entry (50 pips below entry)
+                stop_loss = entry_price - (50 * self.pip_size)
+                
+                # TP at middle BB (must be above entry)
+                take_profit = max(middle, entry_price + (30 * self.pip_size))
                 
                 return TradingSignal(
                     signal_type=SignalType.BUY,
@@ -109,9 +117,14 @@ class MeanReversionStrategy(BaseStrategy):
             if not self.has_open_positions() and self.last_signal != SignalType.SELL:
                 self.last_signal = SignalType.SELL
                 
-                # SL above upper BB, TP at middle BB
-                stop_loss = upper + (50 * self.pip_size)
-                take_profit = middle
+                # Entry at bid price (current_price)
+                entry_price = current_price
+                
+                # SL must be ABOVE entry (50 pips above entry)
+                stop_loss = entry_price + (50 * self.pip_size)
+                
+                # TP at middle BB (must be below entry)
+                take_profit = min(middle, entry_price - (30 * self.pip_size))
                 
                 return TradingSignal(
                     signal_type=SignalType.SELL,
@@ -203,10 +216,15 @@ class TrendFollowingStrategy(BaseStrategy):
                 if not self.has_open_positions() and self.last_signal != SignalType.BUY:
                     self.last_signal = SignalType.BUY
                     
-                    # SL below EMA 50, TP 2:1 RR
-                    sl_distance = abs(current_price - fast_ma) + (30 * self.pip_size)
-                    stop_loss = fast_ma - (50 * self.pip_size)
-                    take_profit = current_price + (sl_distance * 2)
+                    # Entry at ask price
+                    spread = 1.5 * self.pip_size
+                    entry_price = current_price + spread
+                    
+                    # SL below entry (50 pips)
+                    stop_loss = entry_price - (50 * self.pip_size)
+                    
+                    # TP at 2:1 RR (100 pips above entry)
+                    take_profit = entry_price + (100 * self.pip_size)
                     
                     return TradingSignal(
                         signal_type=SignalType.BUY,
@@ -222,10 +240,14 @@ class TrendFollowingStrategy(BaseStrategy):
                 if not self.has_open_positions() and self.last_signal != SignalType.SELL:
                     self.last_signal = SignalType.SELL
                     
-                    # SL above EMA 50, TP 2:1 RR
-                    sl_distance = abs(current_price - fast_ma) + (30 * self.pip_size)
-                    stop_loss = fast_ma + (50 * self.pip_size)
-                    take_profit = current_price - (sl_distance * 2)
+                    # Entry at bid price
+                    entry_price = current_price
+                    
+                    # SL above entry (50 pips)
+                    stop_loss = entry_price + (50 * self.pip_size)
+                    
+                    # TP at 2:1 RR (100 pips below entry)
+                    take_profit = entry_price - (100 * self.pip_size)
                     
                     return TradingSignal(
                         signal_type=SignalType.SELL,
@@ -330,22 +352,31 @@ class BreakoutStrategy(BaseStrategy):
         # Volume confirmation
         volume_confirmed = current_volume > (avg_volume * self.volume_multiplier)
         
+        # Spread
+        spread = 1.5 * self.pip_size
+        
         # Breakout above high
         if current_price > period_high and volume_confirmed:
             if not self.has_open_positions() and self.last_signal != SignalType.BUY:
                 self.last_signal = SignalType.BUY
                 self.breakout_level = period_high
                 
-                # ATR-based SL/TP
-                stop_loss = period_high - (atr * 1.5)
-                take_profit = current_price + (atr * 3)
+                # Entry at ask price
+                entry_price = current_price + spread
+                
+                # SL below entry (using ATR but minimum 30 pips)
+                sl_distance = max(atr * 1.5, 30 * self.pip_size)
+                stop_loss = entry_price - sl_distance
+                
+                # TP at 2:1 RR
+                take_profit = entry_price + (sl_distance * 2)
                 
                 return TradingSignal(
                     signal_type=SignalType.BUY,
                     volume=0.1,
                     stop_loss=stop_loss,
                     take_profit=take_profit,
-                    comment=f"Breakout BUY: Above {period_high:.5f}, ATR={atr:.5f}"
+                    comment=f"Breakout BUY: Above {period_high:.2f}, ATR={atr:.2f}"
                 )
         
         # Breakout below low
@@ -354,16 +385,22 @@ class BreakoutStrategy(BaseStrategy):
                 self.last_signal = SignalType.SELL
                 self.breakout_level = period_low
                 
-                # ATR-based SL/TP
-                stop_loss = period_low + (atr * 1.5)
-                take_profit = current_price - (atr * 3)
+                # Entry at bid price
+                entry_price = current_price
+                
+                # SL above entry (using ATR but minimum 30 pips)
+                sl_distance = max(atr * 1.5, 30 * self.pip_size)
+                stop_loss = entry_price + sl_distance
+                
+                # TP at 2:1 RR
+                take_profit = entry_price - (sl_distance * 2)
                 
                 return TradingSignal(
                     signal_type=SignalType.SELL,
                     volume=0.1,
                     stop_loss=stop_loss,
                     take_profit=take_profit,
-                    comment=f"Breakout SELL: Below {period_low:.5f}, ATR={atr:.5f}"
+                    comment=f"Breakout SELL: Below {period_low:.2f}, ATR={atr:.2f}"
                 )
         
         return None
