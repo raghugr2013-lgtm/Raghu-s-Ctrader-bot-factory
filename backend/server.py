@@ -51,6 +51,15 @@ from market_data_provider import csv_provider, provider_factory
 from market_data_service import init_market_data_service
 from strategy_interface import SimpleMACrossStrategy
 from strategy_simulator import create_strategy_simulator
+from strategy_templates import (
+    STRATEGY_TEMPLATES,
+    get_strategy_template,
+    list_strategy_templates,
+    MeanReversionStrategy,
+    TrendFollowingStrategy,
+    BreakoutStrategy,
+    HybridStrategy
+)
 from walkforward_models import WalkForwardRequest, WalkForwardConfig
 from walkforward_engine import create_walk_forward_engine
 from montecarlo_models import MonteCarloRequest, MonteCarloConfig, ResamplingMethod
@@ -1859,6 +1868,161 @@ async def ensure_real_market_data(request: EnsureDataRequest):
         }
 
 
+# ===================== STRATEGY TEMPLATES API =====================
+
+@api_router.get("/strategy/templates")
+async def get_strategy_templates():
+    """Get list of available strategy templates"""
+    templates = list_strategy_templates()
+    return {
+        "success": True,
+        "templates": templates,
+        "count": len(templates)
+    }
+
+
+@api_router.get("/strategy/templates/{template_id}")
+async def get_strategy_template_details(template_id: str):
+    """Get detailed info about a strategy template"""
+    if template_id not in STRATEGY_TEMPLATES:
+        raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+    
+    template = STRATEGY_TEMPLATES[template_id]
+    return {
+        "success": True,
+        "template": {
+            "id": template_id,
+            "name": template["name"],
+            "description": template["description"],
+            "best_for": template["best_for"],
+            "risk_per_trade": template["risk_per_trade"],
+            "parameters": template["default_params"]
+        }
+    }
+
+
+class TemplateBacktestRequest(BaseModel):
+    """Request for template-based backtest"""
+    template_id: str
+    symbol: str = "EURUSD"
+    timeframe: str = "1h"
+    backtest_days: int = 365
+    initial_balance: float = 10000.0
+    parameters: Optional[Dict[str, Any]] = None
+
+
+@api_router.post("/strategy/templates/{template_id}/backtest")
+async def run_template_backtest(template_id: str, request: TemplateBacktestRequest):
+    """Run backtest using a strategy template with real data"""
+    if template_id not in STRATEGY_TEMPLATES:
+        raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+    
+    try:
+        # Get real market data
+        tf = DataTimeframe(request.timeframe)
+        candles = await market_data_service.get_candles(
+            symbol=request.symbol.upper(),
+            timeframe=tf,
+            limit=50000
+        )
+        
+        if not candles or len(candles) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient data for {request.symbol}. Please upload CSV data first."
+            )
+        
+        # Filter to requested period
+        candles.sort(key=lambda c: c.timestamp)
+        candles_per_day = 24 if request.timeframe == "1h" else 6
+        needed_candles = min(len(candles), request.backtest_days * candles_per_day)
+        candles = candles[-needed_candles:] if len(candles) > needed_candles else candles
+        
+        # Create strategy from template
+        params = request.parameters or {}
+        strategy = get_strategy_template(template_id, request.symbol, request.timeframe, **params)
+        
+        if not strategy:
+            raise HTTPException(status_code=500, detail="Failed to create strategy")
+        
+        # Create backtest config
+        backtest_config = BacktestConfig(
+            symbol=request.symbol,
+            timeframe=tf,
+            start_date=candles[0].timestamp,
+            end_date=candles[-1].timestamp,
+            initial_balance=request.initial_balance,
+            currency="USD",
+            leverage=100,
+            commission_per_lot=7.0,
+            spread_pips=1.5 if "XAU" in request.symbol else 1.0
+        )
+        
+        # Run simulation
+        simulator = create_strategy_simulator(strategy, backtest_config, candles)
+        result = simulator.run()
+        
+        trades = result['trades']
+        equity_curve = result['equity_curve']
+        
+        # Calculate metrics
+        metrics = performance_calculator.calculate_metrics(trades, equity_curve, backtest_config)
+        score = strategy_scorer.calculate_score(metrics)
+        
+        template_info = STRATEGY_TEMPLATES[template_id]
+        
+        return {
+            "success": True,
+            "template": {
+                "id": template_id,
+                "name": template_info["name"],
+                "description": template_info["description"]
+            },
+            "backtest": {
+                "symbol": request.symbol.upper(),
+                "timeframe": request.timeframe,
+                "data_source": "REAL_CSV_DATA",
+                "candles_used": len(candles),
+                "date_range": f"{candles[0].timestamp.date()} to {candles[-1].timestamp.date()}"
+            },
+            "metrics": {
+                "total_trades": metrics.total_trades,
+                "win_rate": round(metrics.win_rate, 2),
+                "profit_factor": round(metrics.profit_factor, 2),
+                "max_drawdown_percent": round(metrics.max_drawdown_percent, 2),
+                "net_profit": round(metrics.net_profit, 2),
+                "sharpe_ratio": round(metrics.sharpe_ratio, 2),
+                "avg_trade": round(metrics.average_trade, 2),
+                "winning_trades": metrics.winning_trades,
+                "losing_trades": metrics.losing_trades
+            },
+            "score": {
+                "total_score": score.total_score,
+                "grade": score.grade,
+                "breakdown": {
+                    "profitability": score.profitability_score,
+                    "risk": score.risk_score,
+                    "consistency": score.consistency_score,
+                    "efficiency": score.efficiency_score
+                }
+            },
+            "equity_curve_summary": {
+                "start_equity": equity_curve[0].equity if equity_curve else request.initial_balance,
+                "end_equity": equity_curve[-1].equity if equity_curve else request.initial_balance,
+                "peak_equity": max((e.equity for e in equity_curve), default=request.initial_balance),
+                "points": len(equity_curve)
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Template backtest error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
+
+
 # ===================== FULL VALIDATION PIPELINE =====================
 
 class FullPipelineRequest(BaseModel):
@@ -1872,6 +2036,7 @@ class FullPipelineRequest(BaseModel):
     backtest_days: int = 90
     initial_balance: float = 10000.0
     monte_carlo_runs: int = 100
+    strategy_template: Optional[str] = None  # NEW: Strategy template ID
 
 class PipelineStageResult(BaseModel):
     stage: str
@@ -1996,13 +2161,23 @@ Requirements: Robot class, using statements, OnStart(), OnBar(), error handling.
                     spread_pips=1.5 if "XAU" in request.symbol else 1.0
                 )
                 
-                # Create strategy and run simulation (use faster MAs for more signals)
-                strategy = SimpleMACrossStrategy(
-                    symbol=request.symbol,
-                    timeframe=request.timeframe,
-                    fast_period=10,  # Faster MA for more signals
-                    slow_period=25   # Slower MA
-                )
+                # Create strategy based on template or default
+                if request.strategy_template and request.strategy_template in STRATEGY_TEMPLATES:
+                    strategy = get_strategy_template(
+                        request.strategy_template,
+                        request.symbol,
+                        request.timeframe
+                    )
+                    strategy_name = STRATEGY_TEMPLATES[request.strategy_template]["name"]
+                else:
+                    # Default to simple MA cross
+                    strategy = SimpleMACrossStrategy(
+                        symbol=request.symbol,
+                        timeframe=request.timeframe,
+                        fast_period=10,
+                        slow_period=25
+                    )
+                    strategy_name = "Simple MA Cross"
                 
                 simulator = create_strategy_simulator(strategy, backtest_config, candles)
                 result = simulator.run()
@@ -2025,6 +2200,7 @@ Requirements: Robot class, using statements, OnStart(), OnBar(), error handling.
                 stages.append(PipelineStageResult(stage="backtest", success=score.total_score >= 50, score=score.total_score,
                     details={
                         "data_source": "REAL_CSV_DATA",
+                        "strategy": strategy_name,
                         "candles_used": len(candles),
                         "date_range": f"{candles[0].timestamp.date()} to {candles[-1].timestamp.date()}",
                         **backtest_metrics,

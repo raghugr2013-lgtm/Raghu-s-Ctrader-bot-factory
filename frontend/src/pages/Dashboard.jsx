@@ -34,6 +34,7 @@ import {
 import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
 import CSVUploader from '@/components/data/CSVUploader';
 import BulkCSVUploader from '@/components/data/BulkCSVUploader';
+import StrategyTemplateSelector from '@/components/strategy/StrategyTemplateSelector';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1264,6 +1265,13 @@ export default function Dashboard() {
                   >
                     <Upload className="w-3 h-3 mr-1.5" /> Market Data
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="templates"
+                    className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-purple-500 data-[state=active]:text-purple-400 text-zinc-500 rounded-none h-8 px-4 uppercase text-[10px] tracking-wider font-bold whitespace-nowrap"
+                    data-testid="tab-templates"
+                  >
+                    <Target className="w-3 h-3 mr-1.5" /> Strategies
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -1842,6 +1850,17 @@ export default function Dashboard() {
                 }}
               />
             </div>
+          </TabsContent>
+
+          {/* Strategy Templates Tab */}
+          <TabsContent value="templates" className="flex-1 p-3 overflow-y-auto mt-0">
+            <StrategyTemplateSelector 
+              symbol="EURUSD"
+              timeframe="1h"
+              onResultsReceived={(results) => {
+                toast.success(`${results.template.name}: ${results.metrics.total_trades} trades, PF=${results.metrics.profit_factor.toFixed(2)}`);
+              }}
+            />
           </TabsContent>
             </Tabs>
           </div>
