@@ -54,6 +54,20 @@ async def generate_strategies(request: FactoryRunRequest):
     if _db is None:
         raise HTTPException(status_code=500, detail="Database not initialised")
 
+    # DATA INTEGRITY CHECK - Block if synthetic data exists
+    synthetic_count = await _db.market_candles.count_documents({
+        "provider": "gap_fill",
+        "symbol": request.symbol.upper()
+    })
+    
+    if synthetic_count > 0:
+        return {
+            "success": False,
+            "error": "SYNTHETIC_DATA_DETECTED",
+            "message": f"⚠️ {synthetic_count:,} synthetic candles detected for {request.symbol}. Results would be unreliable. Please clean dataset before running strategies.",
+            "action_required": "Use /api/data-integrity/purge-synthetic to remove synthetic data"
+        }
+
     # Validate templates
     valid_ids = {t.value for t in TemplateId}
     for tmpl in request.templates:

@@ -68,6 +68,9 @@ export default function MarketDataPage() {
   const [coverage, setCoverage] = useState(null);
   const [loadingCoverage, setLoadingCoverage] = useState(false);
   
+  // Data Integrity States
+  const [dataIntegrity, setDataIntegrity] = useState(null);
+  
   // Gap Fix States
   const [fixingGaps, setFixingGaps] = useState(false);
   const [gapFixTasks, setGapFixTasks] = useState({});
@@ -184,12 +187,28 @@ export default function MarketDataPage() {
       const response = await axios.get(`${API}/marketdata/coverage`);
       if (response.data.success) {
         setCoverage(response.data);
+        // Extract data integrity info
+        if (response.data.data_integrity) {
+          setDataIntegrity(response.data.data_integrity);
+        }
       }
     } catch (error) {
       console.error('Failed to load coverage:', error);
       toast.error('Failed to load coverage data');
     } finally {
       setLoadingCoverage(false);
+    }
+  };
+
+  const purgeSyntheticData = async () => {
+    try {
+      const response = await axios.delete(`${API}/data-integrity/purge-synthetic`);
+      if (response.data.success) {
+        toast.success(`Purged ${response.data.deleted} synthetic candles`);
+        loadCoverage(); // Reload coverage
+      }
+    } catch (error) {
+      toast.error('Failed to purge synthetic data');
     }
   };
 
@@ -823,6 +842,46 @@ export default function MarketDataPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* DATA INTEGRITY WARNING BANNER */}
+              {dataIntegrity && !dataIntegrity.integrity_ok && (
+                <Card className="bg-red-950/30 border-red-500/50 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-red-400 mb-1">
+                        SYNTHETIC DATA DETECTED - BACKTESTING BLOCKED
+                      </h3>
+                      <p className="text-xs text-red-300/80 mb-3">
+                        {dataIntegrity.synthetic_count?.toLocaleString()} synthetic candles found. 
+                        Strategy generation and backtesting are disabled until synthetic data is removed.
+                        Results would be unreliable.
+                      </p>
+                      <Button
+                        onClick={purgeSyntheticData}
+                        size="sm"
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                        data-testid="purge-synthetic-btn"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Purge {dataIntegrity.synthetic_count?.toLocaleString()} Synthetic Candles
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
+
+              {/* DATA INTEGRITY OK BANNER */}
+              {dataIntegrity && dataIntegrity.integrity_ok && (
+                <Card className="bg-emerald-950/20 border-emerald-500/30 p-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    <span className="text-sm text-emerald-400">
+                      Data Integrity OK - {dataIntegrity.real_count?.toLocaleString()} verified candles from Dukascopy/CSV
+                    </span>
+                  </div>
+                </Card>
+              )}
 
               {/* Gap Fix Progress Panel */}
               {fixingGaps && gapFixProgress && (

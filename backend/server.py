@@ -210,6 +210,78 @@ Always return ONLY the C# code, no explanations or markdown formatting.{prop_fir
     return chat
 
 
+# ============================================================
+# DATA INTEGRITY SYSTEM - BLOCK SYNTHETIC DATA
+# ============================================================
+
+async def check_data_integrity(symbol: str = None, timeframe: str = None):
+    """
+    Check if any synthetic data exists in the database.
+    Returns integrity status and blocks operations if synthetic data found.
+    """
+    query = {"provider": "gap_fill"}
+    if symbol:
+        query["symbol"] = symbol.upper()
+    if timeframe:
+        query["timeframe"] = timeframe
+    
+    synthetic_count = await db.market_candles.count_documents(query)
+    
+    if synthetic_count > 0:
+        return {
+            "integrity_ok": False,
+            "synthetic_count": synthetic_count,
+            "error": "SYNTHETIC_DATA_DETECTED",
+            "message": f"⚠️ {synthetic_count:,} synthetic candles detected. Results would be unreliable. Please clean dataset before running strategies."
+        }
+    
+    # Count real data
+    real_query = {"provider": {"$in": ["csv_import", "dukascopy"]}}
+    if symbol:
+        real_query["symbol"] = symbol.upper()
+    if timeframe:
+        real_query["timeframe"] = timeframe
+    
+    real_count = await db.market_candles.count_documents(real_query)
+    
+    return {
+        "integrity_ok": True,
+        "synthetic_count": 0,
+        "real_count": real_count,
+        "message": "✅ All data is from verified sources (Dukascopy/CSV)"
+    }
+
+
+@api_router.get("/data-integrity/check")
+async def api_check_data_integrity(symbol: str = None, timeframe: str = None):
+    """API endpoint to check data integrity"""
+    return await check_data_integrity(symbol, timeframe)
+
+
+@api_router.delete("/data-integrity/purge-synthetic")
+async def purge_synthetic_data():
+    """Remove all synthetic (gap_fill) data from the database"""
+    try:
+        count_before = await db.market_candles.count_documents({"provider": "gap_fill"})
+        
+        if count_before == 0:
+            return {
+                "success": True,
+                "message": "No synthetic data found",
+                "deleted": 0
+            }
+        
+        result = await db.market_candles.delete_many({"provider": "gap_fill"})
+        
+        return {
+            "success": True,
+            "message": f"Purged {result.deleted_count:,} synthetic candles",
+            "deleted": result.deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -915,8 +987,20 @@ async def simulate_backtest(request: BacktestSimulateRequest):
     Run backtest with LOCAL CSV market data ONLY.
     CRITICAL: Uses ONLY locally stored CSV data from Market Data module.
     Returns error if local data unavailable - NO external API fallback.
+    BLOCKS execution if synthetic data detected.
     """
     try:
+        # STEP 1: DATA INTEGRITY CHECK - Block if synthetic data exists
+        integrity = await check_data_integrity(request.symbol, request.timeframe)
+        if not integrity["integrity_ok"]:
+            return {
+                "success": False,
+                "error": "SYNTHETIC_DATA_DETECTED",
+                "message": integrity["message"],
+                "synthetic_count": integrity["synthetic_count"],
+                "action_required": "Please purge synthetic data before running backtest. Use /api/data-integrity/purge-synthetic"
+            }
+        
         # Convert timeframe string to DataTimeframe enum
         try:
             tf = DataTimeframe(request.timeframe)
@@ -2179,8 +2263,11 @@ async def detect_gaps_and_coverage(symbol: str, timeframe: str):
 
 @api_router.get("/marketdata/coverage")
 async def get_data_coverage():
-    """Get complete coverage report for all available market data with gap detection"""
+    """Get complete coverage report for all available market data with gap detection and integrity check"""
     try:
+        # DATA INTEGRITY CHECK FIRST
+        integrity = await check_data_integrity()
+        
         # First get unique symbol/timeframe combinations
         pipeline = [
             {
@@ -2227,6 +2314,7 @@ async def get_data_coverage():
         
         return {
             "success": True,
+            "data_integrity": integrity,
             "symbols": list(symbol_data.values()),
             "total_symbols": len(symbol_data)
         }
