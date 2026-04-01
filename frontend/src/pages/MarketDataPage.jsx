@@ -704,15 +704,17 @@ export default function MarketDataPage() {
                             <div className="mb-3">
                               <div className="flex justify-between text-xs text-zinc-500 mb-1">
                                 <span>Coverage</span>
-                                <span className="font-mono">{tf.coverage_percent}%</span>
+                                <span className={`font-mono ${tf.coverage_percent < 95 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                                  {tf.coverage_percent}%
+                                </span>
                               </div>
                               <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full transition-all ${
-                                    tf.status === 'complete' ? 'bg-emerald-500' :
-                                    tf.status === 'partial' ? 'bg-yellow-500' : 'bg-red-500'
+                                    tf.coverage_percent >= 99 ? 'bg-emerald-500' :
+                                    tf.coverage_percent >= 90 ? 'bg-yellow-500' : 'bg-red-500'
                                   }`}
-                                  style={{ width: `${tf.coverage_percent}%` }}
+                                  style={{ width: `${Math.min(tf.coverage_percent, 100)}%` }}
                                 />
                               </div>
                             </div>
@@ -720,48 +722,71 @@ export default function MarketDataPage() {
                             {/* Stats */}
                             <div className="space-y-2 text-xs mb-3">
                               <div className="flex justify-between">
-                                <span className="text-zinc-500">Total Candles:</span>
-                                <span className="text-white font-mono">{tf.total_candles}</span>
+                                <span className="text-zinc-500">Actual Candles:</span>
+                                <span className="text-white font-mono">{tf.total_candles?.toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-zinc-500">Expected:</span>
-                                <span className="text-zinc-400 font-mono">{tf.expected_candles}</span>
+                                <span className="text-zinc-400 font-mono">{tf.expected_candles?.toLocaleString() || '-'}</span>
                               </div>
+                              {tf.gap_count > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-yellow-500">Gaps Found:</span>
+                                  <span className="text-yellow-400 font-mono font-bold">{tf.gap_count}</span>
+                                </div>
+                              )}
                             </div>
 
-                            {/* Date Ranges */}
-                            {tf.date_ranges && tf.date_ranges.length > 0 && (
-                              <div className="mb-3">
-                                <p className="text-xs text-zinc-500 mb-2">Available Ranges:</p>
-                                <div className="space-y-1">
-                                  {tf.date_ranges.slice(0, 2).map((range, i) => (
-                                    <div key={i} className="text-xs bg-zinc-800/50 px-2 py-1 rounded font-mono text-zinc-400">
-                                      {formatDateRange(range.start, range.end)}
-                                    </div>
-                                  ))}
-                                  {tf.date_ranges.length > 2 && (
-                                    <p className="text-xs text-zinc-600">+{tf.date_ranges.length - 2} more</p>
-                                  )}
-                                </div>
+                            {/* Date Range */}
+                            {tf.first_date && tf.last_date && (
+                              <div className="mb-3 p-2 bg-zinc-800/50 rounded">
+                                <p className="text-[10px] text-zinc-500 mb-1">Date Range:</p>
+                                <p className="text-xs font-mono text-zinc-300">
+                                  {formatDateRange(tf.first_date, tf.last_date)}
+                                </p>
                               </div>
                             )}
 
-                            {/* Missing Ranges */}
+                            {/* Missing Ranges - Always show if gaps exist */}
                             {tf.missing_ranges && tf.missing_ranges.length > 0 && (
-                              <div className="mb-3">
-                                <p className="text-xs text-yellow-500 mb-2 flex items-center gap-1">
+                              <div className="mb-3 border border-yellow-500/30 rounded-lg p-3 bg-yellow-500/5">
+                                <p className="text-xs text-yellow-500 mb-2 flex items-center gap-1 font-bold">
                                   <AlertTriangle className="w-3 h-3" />
-                                  Missing: {tf.missing_ranges.length} gaps
+                                  {tf.missing_ranges.length} Gap{tf.missing_ranges.length > 1 ? 's' : ''} Detected
                                 </p>
+                                <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
+                                  {tf.missing_ranges.slice(0, 5).map((gap, i) => (
+                                    <div key={i} className="text-[10px] bg-zinc-900/50 px-2 py-1 rounded font-mono text-yellow-400/80">
+                                      <span>{formatDateRange(gap.start, gap.end)}</span>
+                                      {gap.gap_hours && (
+                                        <span className="ml-2 text-zinc-500">({gap.gap_hours}h / {gap.missing_candles} candles)</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {tf.missing_ranges.length > 5 && (
+                                    <p className="text-[10px] text-zinc-500">+{tf.missing_ranges.length - 5} more gaps...</p>
+                                  )}
+                                </div>
                                 <Button
                                   onClick={() => retryMissingData(symbolData.symbol, tf.timeframe, tf.missing_ranges)}
                                   size="sm"
                                   variant="outline"
                                   className="w-full text-xs border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                                  data-testid={`retry-missing-${symbolData.symbol}-${tf.timeframe}`}
                                 >
                                   <RefreshCw className="w-3 h-3 mr-1" />
-                                  Retry Missing Data
+                                  Retry Missing Data ({tf.missing_ranges.length} gaps)
                                 </Button>
+                              </div>
+                            )}
+
+                            {/* Show complete status if no gaps */}
+                            {(!tf.missing_ranges || tf.missing_ranges.length === 0) && tf.coverage_percent >= 99 && (
+                              <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded text-center">
+                                <p className="text-xs text-emerald-400 flex items-center justify-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  No gaps detected - Data complete
+                                </p>
                               </div>
                             )}
                           </div>

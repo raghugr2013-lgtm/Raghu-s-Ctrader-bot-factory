@@ -2025,54 +2025,202 @@ async def ensure_real_market_data(request: EnsureDataRequest):
         }
 
 
+def get_timeframe_minutes(timeframe: str) -> int:
+    """Convert timeframe string to minutes"""
+    tf_map = {
+        "1m": 1, "m1": 1,
+        "5m": 5, "m5": 5,
+        "15m": 15, "m15": 15,
+        "30m": 30, "m30": 30,
+        "1h": 60, "h1": 60,
+        "4h": 240, "h4": 240,
+        "1d": 1440, "d1": 1440,
+    }
+    return tf_map.get(timeframe.lower(), 60)  # Default to 1 hour
+
+
+async def detect_gaps_and_coverage(symbol: str, timeframe: str):
+    """
+    Detect gaps in market data and calculate true coverage percentage.
+    Returns available_ranges, missing_ranges, and coverage stats.
+    """
+    from datetime import timedelta
+    
+    # Get timeframe interval in minutes
+    interval_minutes = get_timeframe_minutes(timeframe)
+    interval_delta = timedelta(minutes=interval_minutes)
+    
+    # Fetch all timestamps for this symbol/timeframe, sorted
+    cursor = db.market_candles.find(
+        {"symbol": symbol, "timeframe": timeframe},
+        {"timestamp": 1, "_id": 0}
+    ).sort("timestamp", 1)
+    
+    timestamps = []
+    async for doc in cursor:
+        ts = doc["timestamp"]
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        timestamps.append(ts)
+    
+    if not timestamps:
+        return {
+            "total_candles": 0,
+            "expected_candles": 0,
+            "coverage_percent": 0.0,
+            "status": "missing",
+            "available_ranges": [],
+            "missing_ranges": [],
+            "gap_count": 0,
+            "first_date": None,
+            "last_date": None
+        }
+    
+    first_date = timestamps[0]
+    last_date = timestamps[-1]
+    actual_count = len(timestamps)
+    
+    # Calculate expected candles (excluding weekends for forex)
+    # For simplicity, calculate based on trading hours (approx 5 days/week, 24h forex)
+    total_minutes = (last_date - first_date).total_seconds() / 60
+    
+    # For forex: ~5.2 trading days per week (accounting for weekend gaps)
+    # Approximate: reduce by 2/7 for weekends
+    trading_ratio = 5.0 / 7.0  # Weekday ratio
+    expected_count = int((total_minutes / interval_minutes) * trading_ratio) + 1
+    
+    # Detect gaps - a gap is when the next timestamp is more than 1.5x the expected interval
+    # (to account for normal variations)
+    gap_threshold = interval_delta * 1.5
+    
+    def is_weekend_gap(start_ts, end_ts):
+        """Check if a gap spans over a weekend (Friday close to Sunday open)"""
+        # Forex markets close Friday ~22:00 UTC and open Sunday ~22:00 UTC
+        # If gap starts on Friday and ends on Sunday/Monday, it's a weekend gap
+        start_weekday = start_ts.weekday()  # 0=Monday, 4=Friday, 5=Saturday, 6=Sunday
+        end_weekday = end_ts.weekday()
+        gap_hours = (end_ts - start_ts).total_seconds() / 3600
+        
+        # Weekend gap: starts Friday evening or Saturday, ends Sunday evening or Monday
+        if start_weekday == 4 and end_weekday in [6, 0] and 40 <= gap_hours <= 72:
+            return True
+        if start_weekday == 5 and end_weekday in [6, 0] and gap_hours <= 48:
+            return True
+        return False
+    
+    available_ranges = []
+    missing_ranges = []
+    
+    current_range_start = timestamps[0]
+    prev_ts = timestamps[0]
+    
+    for i in range(1, len(timestamps)):
+        current_ts = timestamps[i]
+        gap = current_ts - prev_ts
+        
+        # Check if this is a significant gap
+        if gap > gap_threshold:
+            # End current available range
+            available_ranges.append({
+                "start": current_range_start.strftime("%Y-%m-%d %H:%M"),
+                "end": prev_ts.strftime("%Y-%m-%d %H:%M")
+            })
+            
+            # Only record as missing if it's NOT a weekend gap
+            if not is_weekend_gap(prev_ts, current_ts):
+                missing_ranges.append({
+                    "start": (prev_ts + interval_delta).strftime("%Y-%m-%d %H:%M"),
+                    "end": (current_ts - interval_delta).strftime("%Y-%m-%d %H:%M"),
+                    "gap_hours": round(gap.total_seconds() / 3600, 1),
+                    "missing_candles": int(gap.total_seconds() / 60 / interval_minutes) - 1
+                })
+            
+            current_range_start = current_ts
+        
+        prev_ts = current_ts
+    
+    # Close the last range
+    available_ranges.append({
+        "start": current_range_start.strftime("%Y-%m-%d %H:%M"),
+        "end": prev_ts.strftime("%Y-%m-%d %H:%M")
+    })
+    
+    # Calculate actual coverage based on gaps found
+    total_missing_candles = sum(mr.get("missing_candles", 0) for mr in missing_ranges)
+    
+    # More accurate coverage: actual / (actual + missing)
+    if actual_count + total_missing_candles > 0:
+        coverage_percent = round((actual_count / (actual_count + total_missing_candles)) * 100, 2)
+    else:
+        coverage_percent = 100.0
+    
+    # Determine status
+    if coverage_percent >= 99.0:
+        status = "complete"
+    elif coverage_percent >= 90.0:
+        status = "partial"
+    else:
+        status = "incomplete"
+    
+    return {
+        "total_candles": actual_count,
+        "expected_candles": actual_count + total_missing_candles,
+        "coverage_percent": coverage_percent,
+        "status": status,
+        "available_ranges": available_ranges,
+        "missing_ranges": missing_ranges,
+        "gap_count": len(missing_ranges),
+        "first_date": first_date,
+        "last_date": last_date
+    }
+
+
 @api_router.get("/marketdata/coverage")
 async def get_data_coverage():
-    """Get complete coverage report for all available market data from MongoDB"""
+    """Get complete coverage report for all available market data with gap detection"""
     try:
-        # Get coverage directly from MongoDB
+        # First get unique symbol/timeframe combinations
         pipeline = [
             {
                 "$group": {
-                    "_id": {"symbol": "$symbol", "timeframe": "$timeframe"},
-                    "count": {"$sum": 1},
-                    "first_date": {"$min": "$timestamp"},
-                    "last_date": {"$max": "$timestamp"}
+                    "_id": {"symbol": "$symbol", "timeframe": "$timeframe"}
                 }
             }
         ]
         
         cursor = db.market_candles.aggregate(pipeline)
+        symbol_timeframes = []
+        async for doc in cursor:
+            symbol_timeframes.append((doc["_id"]["symbol"], doc["_id"]["timeframe"]))
+        
         symbol_data = {}
         
-        async for doc in cursor:
-            symbol = doc["_id"]["symbol"]
-            timeframe = doc["_id"]["timeframe"]
+        # Analyze each symbol/timeframe for gaps
+        for symbol, timeframe in symbol_timeframes:
+            coverage_info = await detect_gaps_and_coverage(symbol, timeframe)
             
             if symbol not in symbol_data:
                 symbol_data[symbol] = {"symbol": symbol, "timeframes": []}
             
-            # Calculate days range
-            first_date = doc["first_date"]
-            last_date = doc["last_date"]
+            first_date = coverage_info["first_date"]
+            last_date = coverage_info["last_date"]
             
-            if isinstance(first_date, str):
-                first_date = datetime.fromisoformat(first_date.replace("Z", "+00:00"))
-            if isinstance(last_date, str):
-                last_date = datetime.fromisoformat(last_date.replace("Z", "+00:00"))
-            
-            days_range = (last_date - first_date).days if first_date and last_date else 0
+            days_range = 0
+            if first_date and last_date:
+                days_range = (last_date - first_date).days
             
             symbol_data[symbol]["timeframes"].append({
                 "timeframe": timeframe,
-                "status": "complete" if doc["count"] > 100 else "partial",
-                "coverage_percent": 100.0,  # Simplified for now
-                "total_candles": doc["count"],
-                "date_ranges": [{
-                    "start": first_date.strftime("%Y-%m-%d") if first_date else None,
-                    "end": last_date.strftime("%Y-%m-%d") if last_date else None
-                }],
-                "missing_ranges": [],
-                "days_range": days_range
+                "status": coverage_info["status"],
+                "coverage_percent": coverage_info["coverage_percent"],
+                "total_candles": coverage_info["total_candles"],
+                "expected_candles": coverage_info["expected_candles"],
+                "date_ranges": coverage_info["available_ranges"][:5],  # Limit to first 5 ranges
+                "missing_ranges": coverage_info["missing_ranges"][:10],  # Limit to first 10 gaps
+                "gap_count": coverage_info["gap_count"],
+                "days_range": days_range,
+                "first_date": first_date.strftime("%Y-%m-%d") if first_date else None,
+                "last_date": last_date.strftime("%Y-%m-%d") if last_date else None
             })
         
         return {
@@ -2083,6 +2231,8 @@ async def get_data_coverage():
     
     except Exception as e:
         logger.error(f"Error getting coverage: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
