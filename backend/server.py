@@ -1917,17 +1917,18 @@ async def check_data_availability(symbol: str, timeframe: str):
         # Get stats which includes date range
         stats = await market_data_service.get_stats(symbol.upper(), tf)
         
-        if stats and stats.count > 0:
+        if stats and stats.total_candles > 0:
             return {
                 "success": True,
                 "available": True,
                 "symbol": symbol.upper(),
                 "timeframe": timeframe,
-                "candle_count": stats.count,
+                "candle_count": stats.total_candles,
                 "date_range": {
-                    "start": stats.earliest_date.isoformat() if stats.earliest_date else None,
-                    "end": stats.latest_date.isoformat() if stats.latest_date else None
-                }
+                    "start": stats.first_timestamp.isoformat() if stats.first_timestamp else None,
+                    "end": stats.last_timestamp.isoformat() if stats.last_timestamp else None
+                },
+                "data_source": stats.provider
             }
         else:
             return {

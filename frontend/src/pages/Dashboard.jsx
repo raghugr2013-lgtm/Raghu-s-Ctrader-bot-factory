@@ -37,9 +37,9 @@ import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
 // import CSVUploader from '@/components/data/CSVUploader';
 // import BulkCSVUploader from '@/components/data/BulkCSVUploader';
 // import StrategyTemplateSelector from '@/components/strategy/StrategyTemplateSelector';
-// 
-// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-// const API = `${BACKEND_URL}/api`;
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const AI_MODELS = [
   { value: 'openai', label: 'OpenAI GPT-5.2' },
