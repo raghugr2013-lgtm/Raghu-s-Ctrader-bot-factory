@@ -13,6 +13,7 @@ import {
   AlertTriangle, CheckCircle2, XCircle, RefreshCw, Eye, Pause,
   Play, Settings2, BarChart3, Clock, Wifi, WifiOff, Zap
 } from 'lucide-react';
+import dayjs from 'dayjs';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const WS_URL = process.env.REACT_APP_BACKEND_URL?.replace('https://', 'wss://').replace('http://', 'ws://');
@@ -190,7 +191,7 @@ function BotCard({ bot, onToggle, onViewDetails }) {
       <div className="px-4 py-3 bg-[#0F0F10] border-t border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-mono">
           <Clock className="w-3 h-3" />
-          Last: {bot.lastTradeTime ? new Date(bot.lastTradeTime).toLocaleTimeString() : 'N/A'}
+          Last: {bot.lastTradeTime ? dayjs(bot.lastTradeTime).format('DD-MMM-YYYY HH:mm').toUpperCase() : 'N/A'}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -227,7 +228,7 @@ function EquityCurveChart({ history }) {
   const chartData = useMemo(() => {
     if (!history || history.length === 0) return [];
     return history.slice(-50).map((point, idx) => ({
-      time: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: dayjs(point.timestamp).format('HH:mm'),
       balance: point.balance,
       idx
     }));
@@ -290,7 +291,7 @@ function DailyPnLChart({ history }) {
   const chartData = useMemo(() => {
     if (!history || history.length === 0) return [];
     return history.slice(-30).map((point, idx) => ({
-      time: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: dayjs(point.timestamp).format('HH:mm'),
       pnl: point.daily_pnl,
       idx
     }));
@@ -673,7 +674,7 @@ export default function LiveDashboardPage() {
               {connectionStatusText}
               {lastUpdate && (
                 <span className="ml-2 opacity-60">
-                  {lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  {dayjs(lastUpdate).format('HH:mm:ss')}
                 </span>
               )}
             </div>

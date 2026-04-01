@@ -22,6 +22,7 @@ import {
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
   GripVertical, GripHorizontal, Upload
 } from 'lucide-react';
+import { formatDate, formatDateRange } from '@/lib/dateUtils';
 import {
   PropScoreGauge,
   PropScoreBadge,
@@ -1084,7 +1085,7 @@ Generate a complete cTrader cBot implementing this strategy.`;
                             </div>
                             {dataAvailability.date_range && (
                               <div className="text-[9px] text-zinc-500 font-mono">
-                                {new Date(dataAvailability.date_range.start).toLocaleDateString()} → {new Date(dataAvailability.date_range.end).toLocaleDateString()}
+                                {formatDateRange(dataAvailability.date_range.start, dataAvailability.date_range.end)}
                               </div>
                             )}
                           </>

@@ -10,6 +10,7 @@ import {
   ArrowLeft, Search, Download,
   TrendingUp, TrendingDown, RefreshCw
 } from 'lucide-react';
+import { formatDateTime } from '@/lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -373,13 +374,13 @@ export default function TradeHistoryPage() {
                       <td className="px-4 py-3">
                         <p className="text-xs font-mono text-zinc-400">{trade.entryPrice}</p>
                         <p className="text-[10px] font-mono text-zinc-600">
-                          {trade.entryTime ? new Date(trade.entryTime).toLocaleString() : '-'}
+                          {trade.entryTime ? formatDateTime(trade.entryTime) : '-'}
                         </p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-xs font-mono text-zinc-400">{trade.exitPrice || '-'}</p>
                         <p className="text-[10px] font-mono text-zinc-600">
-                          {trade.exitTime ? new Date(trade.exitTime).toLocaleString() : '-'}
+                          {trade.exitTime ? formatDateTime(trade.exitTime) : '-'}
                         </p>
                       </td>
                       <td className="px-4 py-3">

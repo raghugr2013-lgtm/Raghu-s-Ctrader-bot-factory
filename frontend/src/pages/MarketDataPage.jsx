@@ -13,6 +13,7 @@ import {
   Calendar, FileText, ArrowLeft, Loader2, FileSpreadsheet, BarChart3,
   Download, Activity, AlertTriangle, RefreshCw, FileDown, Layers
 } from 'lucide-react';
+import { formatDate, formatDateRange, formatDateTime } from '@/lib/dateUtils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -735,7 +736,7 @@ export default function MarketDataPage() {
                                 <div className="space-y-1">
                                   {tf.date_ranges.slice(0, 2).map((range, i) => (
                                     <div key={i} className="text-xs bg-zinc-800/50 px-2 py-1 rounded font-mono text-zinc-400">
-                                      {range.start} → {range.end}
+                                      {formatDateRange(range.start, range.end)}
                                     </div>
                                   ))}
                                   {tf.date_ranges.length > 2 && (
