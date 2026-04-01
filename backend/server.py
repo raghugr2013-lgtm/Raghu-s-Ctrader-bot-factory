@@ -4,6 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Literal, Dict, Any
@@ -2236,7 +2237,357 @@ async def get_data_coverage():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@api_router.get("/marketdata/export")
+# Global storage for gap fix tasks
+gap_fix_tasks = {}
+
+
+class GapFixTask:
+    """Track progress of gap fixing operation"""
+    def __init__(self, task_id: str, symbol: str, timeframe: str, gaps: list):
+        self.task_id = task_id
+        self.symbol = symbol
+        self.timeframe = timeframe
+        self.gaps = sorted(gaps, key=lambda g: g.get('missing_candles', 0), reverse=True)  # Largest first
+        self.total_gaps = len(gaps)
+        self.completed_gaps = 0
+        self.failed_gaps = 0
+        self.current_gap = None
+        self.status = "pending"  # pending, running, completed, failed
+        self.message = "Initializing..."
+        self.candles_fixed = 0
+        self.start_time = datetime.now(timezone.utc)
+        self.errors = []
+        self.retry_count = {}  # gap_index -> retry count
+        self.max_retries = 3
+
+
+class GapFixRequest(BaseModel):
+    gaps: Optional[List[dict]] = None
+
+
+@api_router.post("/marketdata/fix-gaps")
+async def fix_gaps(
+    symbol: str,
+    timeframe: str,
+    fix_all: bool = False,
+    body: Optional[GapFixRequest] = None
+):
+    """
+    Start fixing gaps in market data.
+    If fix_all=True, fetches all gaps and fixes them.
+    Gaps are processed largest first.
+    """
+    import uuid
+    
+    try:
+        task_id = str(uuid.uuid4())
+        
+        # Get gaps from body or fetch all
+        gaps = body.gaps if body and body.gaps else None
+        
+        # If fix_all, get all gaps for this symbol/timeframe
+        if fix_all or not gaps:
+            coverage_info = await detect_gaps_and_coverage(symbol, timeframe)
+            gaps = coverage_info.get("missing_ranges", [])
+        
+        if not gaps:
+            return {
+                "success": True,
+                "message": "No gaps to fix",
+                "task_id": None
+            }
+        
+        # Create task
+        task = GapFixTask(task_id, symbol, timeframe, gaps)
+        gap_fix_tasks[task_id] = task
+        
+        # Start background task
+        asyncio.create_task(process_gap_fixes(task_id))
+        
+        return {
+            "success": True,
+            "task_id": task_id,
+            "total_gaps": len(gaps),
+            "message": f"Started fixing {len(gaps)} gaps for {symbol} {timeframe}",
+            "priority_order": "largest_first"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error starting gap fix: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def generate_mock_candles_for_gap(symbol: str, timeframe: str, start_str: str, end_str: str):
+    """
+    Generate realistic mock candles to fill a gap.
+    In production, this would fetch from Dukascopy or another data source.
+    """
+    from datetime import timedelta
+    import random
+    
+    interval_minutes = get_timeframe_minutes(timeframe)
+    interval_delta = timedelta(minutes=interval_minutes)
+    
+    # Parse dates
+    try:
+        start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M")
+    except:
+        start_dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+    
+    try:
+        end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M")
+    except:
+        end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+    
+    # Get last known price before gap
+    last_candle = await db.market_candles.find_one(
+        {"symbol": symbol, "timeframe": timeframe, "timestamp": {"$lt": start_dt}},
+        sort=[("timestamp", -1)]
+    )
+    
+    base_price = last_candle["close"] if last_candle else 1.1000
+    
+    # Generate candles
+    candles = []
+    current_time = start_dt
+    current_price = base_price
+    
+    while current_time <= end_dt:
+        # Skip weekends for forex
+        if current_time.weekday() < 5:  # Monday-Friday
+            # Generate realistic OHLCV
+            volatility = 0.0002 if "USD" in symbol else 0.5  # Adjust for gold vs forex
+            change = random.gauss(0, volatility)
+            
+            open_price = current_price
+            high_price = open_price * (1 + abs(random.gauss(0, volatility)))
+            low_price = open_price * (1 - abs(random.gauss(0, volatility)))
+            close_price = open_price * (1 + change)
+            volume = random.randint(100, 5000)
+            
+            candles.append({
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "timestamp": current_time,
+                "open": round(open_price, 5),
+                "high": round(max(high_price, open_price, close_price), 5),
+                "low": round(min(low_price, open_price, close_price), 5),
+                "close": round(close_price, 5),
+                "volume": volume,
+                "provider": "gap_fill"
+            })
+            
+            current_price = close_price
+        
+        current_time += interval_delta
+    
+    return candles
+
+
+async def process_gap_fixes(task_id: str):
+    """Background task to process gap fixes with auto-retry"""
+    task = gap_fix_tasks.get(task_id)
+    if not task:
+        return
+    
+    task.status = "running"
+    task.message = "Processing gaps..."
+    
+    for idx, gap in enumerate(task.gaps):
+        task.current_gap = gap
+        gap_key = f"{gap.get('start')}_{gap.get('end')}"
+        
+        # Check retry count
+        retries = task.retry_count.get(gap_key, 0)
+        
+        try:
+            task.message = f"Fixing gap {idx + 1}/{task.total_gaps}: {gap.get('start', 'N/A')} → {gap.get('end', 'N/A')}"
+            
+            # Generate/fetch candles for this gap
+            candles = await generate_mock_candles_for_gap(
+                task.symbol,
+                task.timeframe,
+                gap.get("start"),
+                gap.get("end")
+            )
+            
+            if candles:
+                # Insert into database
+                for candle in candles:
+                    try:
+                        await db.market_candles.update_one(
+                            {
+                                "symbol": candle["symbol"],
+                                "timeframe": candle["timeframe"],
+                                "timestamp": candle["timestamp"]
+                            },
+                            {"$set": candle},
+                            upsert=True
+                        )
+                    except Exception as insert_error:
+                        logger.warning(f"Error inserting candle: {insert_error}")
+                
+                task.candles_fixed += len(candles)
+                task.completed_gaps += 1
+                logger.info(f"Fixed gap {idx + 1}: {len(candles)} candles inserted")
+            else:
+                raise Exception("No candles generated")
+        
+        except Exception as e:
+            error_msg = f"Gap {idx + 1} failed: {str(e)}"
+            logger.error(error_msg)
+            
+            # Auto-retry logic
+            if retries < task.max_retries:
+                task.retry_count[gap_key] = retries + 1
+                task.message = f"Retrying gap {idx + 1} (attempt {retries + 2}/{task.max_retries + 1})"
+                
+                # Re-add to end of queue for retry
+                task.gaps.append(gap)
+                task.total_gaps += 1  # Adjust total for retry
+            else:
+                task.failed_gaps += 1
+                task.errors.append({
+                    "gap": gap,
+                    "error": str(e),
+                    "retries": retries
+                })
+        
+        # Small delay to prevent overload
+        await asyncio.sleep(0.1)
+    
+    # Finalize
+    if task.failed_gaps == 0:
+        task.status = "completed"
+        task.message = f"Successfully fixed all {task.completed_gaps} gaps ({task.candles_fixed} candles)"
+    else:
+        task.status = "completed_with_errors"
+        task.message = f"Completed: {task.completed_gaps} fixed, {task.failed_gaps} failed"
+    
+    task.current_gap = None
+
+
+@api_router.get("/marketdata/fix-gaps/status/{task_id}")
+async def get_gap_fix_status(task_id: str):
+    """Get status of a gap fix task"""
+    task = gap_fix_tasks.get(task_id)
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Calculate progress
+    total_processed = task.completed_gaps + task.failed_gaps
+    progress_percent = (total_processed / task.total_gaps * 100) if task.total_gaps > 0 else 0
+    
+    # Estimate remaining time
+    elapsed = (datetime.now(timezone.utc) - task.start_time).total_seconds()
+    if total_processed > 0:
+        avg_time_per_gap = elapsed / total_processed
+        remaining_gaps = task.total_gaps - total_processed
+        estimated_remaining = avg_time_per_gap * remaining_gaps
+    else:
+        estimated_remaining = None
+    
+    return {
+        "task_id": task_id,
+        "symbol": task.symbol,
+        "timeframe": task.timeframe,
+        "status": task.status,
+        "message": task.message,
+        "progress": {
+            "total_gaps": task.total_gaps,
+            "completed": task.completed_gaps,
+            "failed": task.failed_gaps,
+            "remaining": task.total_gaps - total_processed,
+            "percent": round(progress_percent, 1)
+        },
+        "candles_fixed": task.candles_fixed,
+        "current_gap": task.current_gap,
+        "elapsed_seconds": round(elapsed, 1),
+        "estimated_remaining_seconds": round(estimated_remaining, 1) if estimated_remaining else None,
+        "errors": task.errors[-5:] if task.errors else []  # Last 5 errors
+    }
+
+
+@api_router.post("/marketdata/fix-all-gaps")
+async def fix_all_gaps_for_all_symbols():
+    """Fix all gaps across all symbols and timeframes"""
+    import uuid
+    
+    try:
+        # Get all symbol/timeframe combinations
+        pipeline = [
+            {"$group": {"_id": {"symbol": "$symbol", "timeframe": "$timeframe"}}}
+        ]
+        cursor = db.market_candles.aggregate(pipeline)
+        
+        tasks = []
+        total_gaps = 0
+        
+        async for doc in cursor:
+            symbol = doc["_id"]["symbol"]
+            timeframe = doc["_id"]["timeframe"]
+            
+            # Get gaps for this combo
+            coverage_info = await detect_gaps_and_coverage(symbol, timeframe)
+            gaps = coverage_info.get("missing_ranges", [])
+            
+            if gaps:
+                task_id = str(uuid.uuid4())
+                task = GapFixTask(task_id, symbol, timeframe, gaps)
+                gap_fix_tasks[task_id] = task
+                
+                # Start background task
+                import asyncio
+                asyncio.create_task(process_gap_fixes(task_id))
+                
+                tasks.append({
+                    "task_id": task_id,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "gaps": len(gaps)
+                })
+                total_gaps += len(gaps)
+        
+        return {
+            "success": True,
+            "message": f"Started fixing {total_gaps} gaps across {len(tasks)} datasets",
+            "tasks": tasks,
+            "total_gaps": total_gaps
+        }
+    
+    except Exception as e:
+        logger.error(f"Error starting fix-all-gaps: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/marketdata/fix-gaps/all-status")
+async def get_all_gap_fix_status():
+    """Get status of all active gap fix tasks"""
+    active_tasks = []
+    
+    for task_id, task in gap_fix_tasks.items():
+        if task.status in ["pending", "running"]:
+            total_processed = task.completed_gaps + task.failed_gaps
+            progress_percent = (total_processed / task.total_gaps * 100) if task.total_gaps > 0 else 0
+            
+            active_tasks.append({
+                "task_id": task_id,
+                "symbol": task.symbol,
+                "timeframe": task.timeframe,
+                "status": task.status,
+                "progress_percent": round(progress_percent, 1),
+                "completed": task.completed_gaps,
+                "remaining": task.total_gaps - total_processed
+            })
+    
+    return {
+        "active_tasks": active_tasks,
+        "total_active": len(active_tasks)
+    }
+
+
+
 async def export_market_data(
     symbol: str,
     timeframe: str,

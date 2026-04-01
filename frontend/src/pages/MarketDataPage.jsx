@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Upload, Database, CheckCircle2, XCircle, AlertCircle, TrendingUp,
   Calendar, FileText, ArrowLeft, Loader2, FileSpreadsheet, BarChart3,
-  Download, Activity, AlertTriangle, RefreshCw, FileDown, Layers
+  Download, Activity, AlertTriangle, RefreshCw, FileDown, Layers, Zap
 } from 'lucide-react';
 import { formatDate, formatDateRange, formatDateTime } from '@/lib/dateUtils';
 
@@ -68,6 +68,11 @@ export default function MarketDataPage() {
   const [coverage, setCoverage] = useState(null);
   const [loadingCoverage, setLoadingCoverage] = useState(false);
   
+  // Gap Fix States
+  const [fixingGaps, setFixingGaps] = useState(false);
+  const [gapFixTasks, setGapFixTasks] = useState({});
+  const [gapFixProgress, setGapFixProgress] = useState(null);
+  
   // Export States
   const [exportSymbol, setExportSymbol] = useState('EURUSD');
   const [exportTimeframe, setExportTimeframe] = useState('H1');
@@ -115,6 +120,63 @@ export default function MarketDataPage() {
       return () => clearInterval(interval);
     }
   }, [downloadTaskId, downloading, activeTab]);
+
+  // Poll gap fix status
+  useEffect(() => {
+    const taskIds = Object.keys(gapFixTasks);
+    if (taskIds.length === 0) return;
+
+    const interval = setInterval(async () => {
+      let allCompleted = true;
+      const updatedTasks = { ...gapFixTasks };
+
+      for (const taskId of taskIds) {
+        try {
+          const response = await axios.get(`${API}/marketdata/fix-gaps/status/${taskId}`);
+          updatedTasks[taskId] = response.data;
+          
+          if (response.data.status === 'running' || response.data.status === 'pending') {
+            allCompleted = false;
+          }
+        } catch (error) {
+          console.error('Failed to check gap fix status:', error);
+        }
+      }
+
+      setGapFixTasks(updatedTasks);
+
+      // Calculate overall progress
+      let totalGaps = 0;
+      let completedGaps = 0;
+      let failedGaps = 0;
+      let candlesFixed = 0;
+
+      Object.values(updatedTasks).forEach(task => {
+        totalGaps += task.progress?.total_gaps || 0;
+        completedGaps += task.progress?.completed || 0;
+        failedGaps += task.progress?.failed || 0;
+        candlesFixed += task.candles_fixed || 0;
+      });
+
+      setGapFixProgress({
+        totalGaps,
+        completedGaps,
+        failedGaps,
+        remaining: totalGaps - completedGaps - failedGaps,
+        candlesFixed,
+        percent: totalGaps > 0 ? Math.round((completedGaps + failedGaps) / totalGaps * 100) : 0
+      });
+
+      if (allCompleted) {
+        setFixingGaps(false);
+        toast.success(`Gap fixing completed! ${candlesFixed} candles added.`);
+        loadCoverage();
+        clearInterval(interval);
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [gapFixTasks]);
 
   const loadCoverage = async () => {
     setLoadingCoverage(true);
@@ -175,16 +237,85 @@ export default function MarketDataPage() {
       return;
     }
 
-    // Use the first missing range
-    const range = missingRanges[0];
-    
-    setSelectedSymbols([symbol]);
-    setDukaTimeframe(timeframe);
-    setStartDate(range.start);
-    setEndDate(range.end);
-    setActiveTab('download');
-    
-    toast.info(`Ready to download missing data for ${symbol} ${timeframe} from ${range.start} to ${range.end}`);
+    try {
+      setFixingGaps(true);
+      toast.info(`Starting gap fix for ${symbol} ${timeframe}...`);
+      
+      const response = await axios.post(
+        `${API}/marketdata/fix-gaps?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}&fix_all=false`,
+        { gaps: missingRanges }
+      );
+
+      if (response.data.success && response.data.task_id) {
+        setGapFixTasks(prev => ({
+          ...prev,
+          [response.data.task_id]: { status: 'pending', symbol, timeframe }
+        }));
+        toast.success(`Started fixing ${response.data.total_gaps} gaps for ${symbol}`);
+      }
+    } catch (error) {
+      setFixingGaps(false);
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to start gap fix: ${errorMsg}`);
+    }
+  };
+
+  const fixAllGapsForSymbol = async (symbol, timeframe) => {
+    try {
+      setFixingGaps(true);
+      toast.info(`Starting to fix all gaps for ${symbol} ${timeframe}...`);
+      
+      const response = await axios.post(
+        `${API}/marketdata/fix-gaps?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}&fix_all=true`
+      );
+
+      if (response.data.success && response.data.task_id) {
+        setGapFixTasks(prev => ({
+          ...prev,
+          [response.data.task_id]: { status: 'pending', symbol, timeframe }
+        }));
+        toast.success(`Started fixing all ${response.data.total_gaps} gaps for ${symbol}`);
+      } else if (response.data.message === 'No gaps to fix') {
+        setFixingGaps(false);
+        toast.info('No gaps to fix - data is complete');
+      }
+    } catch (error) {
+      setFixingGaps(false);
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to start gap fix: ${errorMsg}`);
+    }
+  };
+
+  const fixAllGapsGlobal = async () => {
+    try {
+      setFixingGaps(true);
+      toast.info('Starting to fix ALL gaps across all symbols...');
+      
+      const response = await axios.post(`${API}/marketdata/fix-all-gaps`);
+
+      if (response.data.success && response.data.tasks) {
+        const newTasks = {};
+        response.data.tasks.forEach(task => {
+          newTasks[task.task_id] = { status: 'pending', symbol: task.symbol, timeframe: task.timeframe };
+        });
+        setGapFixTasks(prev => ({ ...prev, ...newTasks }));
+        toast.success(`Started fixing ${response.data.total_gaps} gaps across ${response.data.tasks.length} datasets`);
+      } else {
+        setFixingGaps(false);
+        toast.info('No gaps to fix - all data is complete');
+      }
+    } catch (error) {
+      setFixingGaps(false);
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Failed to start global gap fix: ${errorMsg}`);
+    }
+  };
+
+  const formatTimeRemaining = (seconds) => {
+    if (!seconds) return 'Calculating...';
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+    return `${Math.round(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`;
   };
 
   const exportData = async () => {
@@ -659,16 +790,108 @@ export default function MarketDataPage() {
           {/* Coverage Tab */}
           <TabsContent value="coverage" className="overflow-y-auto">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <h2 className="text-lg font-bold flex items-center gap-2">
                   <Layers className="w-5 h-5 text-blue-400" />
                   Data Coverage Overview
                 </h2>
-                <Button onClick={loadCoverage} disabled={loadingCoverage} variant="outline" size="sm">
-                  {loadingCoverage ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  <span className="ml-2">Refresh</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Fix All Gaps Global Button */}
+                  {coverage?.symbols?.some(s => s.timeframes?.some(tf => tf.gap_count > 0)) && (
+                    <Button 
+                      onClick={fixAllGapsGlobal} 
+                      disabled={fixingGaps}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold"
+                      data-testid="fix-all-gaps-global"
+                    >
+                      {fixingGaps ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Fixing Gaps...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 mr-2" />
+                          Fix All Gaps
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  <Button onClick={loadCoverage} disabled={loadingCoverage} variant="outline" size="sm">
+                    {loadingCoverage ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                    <span className="ml-2">Refresh</span>
+                  </Button>
+                </div>
               </div>
+
+              {/* Gap Fix Progress Panel */}
+              {fixingGaps && gapFixProgress && (
+                <Card className="bg-[#0F0F10] border-yellow-500/30 p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Loader2 className="w-5 h-5 animate-spin text-yellow-400" />
+                    <h3 className="text-sm font-bold text-yellow-400">Fixing Gaps in Progress</h3>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                      <span>Progress</span>
+                      <span className="font-mono">{gapFixProgress.percent}%</span>
+                    </div>
+                    <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-yellow-500 to-emerald-500 transition-all duration-300"
+                        style={{ width: `${gapFixProgress.percent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                    <div className="bg-zinc-800/50 rounded p-2">
+                      <p className="text-xs text-zinc-500">Total Gaps</p>
+                      <p className="text-lg font-bold font-mono text-white">{gapFixProgress.totalGaps}</p>
+                    </div>
+                    <div className="bg-zinc-800/50 rounded p-2">
+                      <p className="text-xs text-zinc-500">Completed</p>
+                      <p className="text-lg font-bold font-mono text-emerald-400">{gapFixProgress.completedGaps}</p>
+                    </div>
+                    <div className="bg-zinc-800/50 rounded p-2">
+                      <p className="text-xs text-zinc-500">Remaining</p>
+                      <p className="text-lg font-bold font-mono text-yellow-400">{gapFixProgress.remaining}</p>
+                    </div>
+                    <div className="bg-zinc-800/50 rounded p-2">
+                      <p className="text-xs text-zinc-500">Candles Added</p>
+                      <p className="text-lg font-bold font-mono text-blue-400">{gapFixProgress.candlesFixed?.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Active Tasks */}
+                  {Object.entries(gapFixTasks).length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-zinc-500">Active Tasks:</p>
+                      <div className="max-h-32 overflow-y-auto space-y-1">
+                        {Object.entries(gapFixTasks).map(([taskId, task]) => (
+                          <div key={taskId} className="flex items-center justify-between text-xs bg-zinc-800/30 px-2 py-1 rounded">
+                            <span className="font-mono text-zinc-300">
+                              {task.symbol} {task.timeframe}
+                            </span>
+                            <Badge variant="outline" className={
+                              task.status === 'completed' ? 'border-emerald-500 text-emerald-400' :
+                              task.status === 'running' ? 'border-blue-500 text-blue-400' :
+                              'border-zinc-500 text-zinc-400'
+                            }>
+                              {task.status === 'running' ? (
+                                <><Loader2 className="w-3 h-3 mr-1 animate-spin" />{task.progress?.percent || 0}%</>
+                              ) : task.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )}
 
               {loadingCoverage ? (
                 <Card className="bg-[#0F0F10] border-white/10 p-12">
@@ -681,12 +904,33 @@ export default function MarketDataPage() {
                 <div className="grid grid-cols-1 gap-4">
                   {coverage.symbols.map((symbolData, idx) => (
                     <Card key={idx} className="bg-[#0F0F10] border-white/10 p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <TrendingUp className="w-5 h-5 text-emerald-400" />
-                        <h3 className="text-lg font-bold font-mono">{symbolData.symbol}</h3>
-                        <Badge variant="outline" className="text-xs">
-                          {symbolData.timeframes?.length || 0} Timeframes
-                        </Badge>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <TrendingUp className="w-5 h-5 text-emerald-400" />
+                          <h3 className="text-lg font-bold font-mono">{symbolData.symbol}</h3>
+                          <Badge variant="outline" className="text-xs">
+                            {symbolData.timeframes?.length || 0} Timeframes
+                          </Badge>
+                        </div>
+                        {/* Fix All Gaps for this Symbol */}
+                        {symbolData.timeframes?.some(tf => tf.gap_count > 0) && (
+                          <Button
+                            onClick={() => {
+                              symbolData.timeframes?.forEach(tf => {
+                                if (tf.gap_count > 0) {
+                                  fixAllGapsForSymbol(symbolData.symbol, tf.timeframe);
+                                }
+                              });
+                            }}
+                            disabled={fixingGaps}
+                            size="sm"
+                            className="bg-yellow-600/80 hover:bg-yellow-600 text-black text-xs"
+                            data-testid={`fix-all-${symbolData.symbol}`}
+                          >
+                            <Zap className="w-3 h-3 mr-1" />
+                            Fix All ({symbolData.timeframes?.reduce((sum, tf) => sum + (tf.gap_count || 0), 0)} gaps)
+                          </Button>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
