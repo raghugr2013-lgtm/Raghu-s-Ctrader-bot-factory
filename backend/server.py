@@ -159,7 +159,7 @@ class BotSession(BaseModel):
 
 
 # AI Model Configuration
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY') or os.environ.get('OPENAI_API_KEY')
 
 def get_ai_chat(model: str, session_id: str, prop_firm: str = "none"):
     """Initialize AI chat based on model selection"""

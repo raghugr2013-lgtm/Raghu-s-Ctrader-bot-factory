@@ -6,8 +6,18 @@ Phase 7+: Sequential AI Pipeline with Role-Based Execution
 from typing import List, Optional, Dict, Tuple
 from datetime import datetime
 import logging
+import os
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+# Try to import emergentintegrations, fallback to direct OpenAI
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    HAS_EMERGENT = True
+except ImportError:
+    HAS_EMERGENT = False
+
+# Direct OpenAI support
+from openai import AsyncOpenAI
+
 from multi_ai_models import (
     AIMode,
     AIRole,
@@ -33,6 +43,10 @@ class MultiAIOrchestrator:
         self.api_key = api_key
         self.collaboration_logs: List[AICollaborationLog] = []
         self.total_ai_calls = 0
+        # Detect if using Emergent key or direct OpenAI key
+        self.use_emergent = api_key and api_key.startswith('sk-emergent')
+        if not self.use_emergent:
+            self.openai_client = AsyncOpenAI(api_key=api_key)
     
     def log_stage(
         self,
@@ -65,24 +79,44 @@ class MultiAIOrchestrator:
         """Generate code using specified AI model"""
         self.total_ai_calls += 1
         
-        # Initialize chat
-        chat = LlmChat(
-            api_key=self.api_key,
-            session_id=session_id,
-            system_message="You are an expert cTrader cBot developer. Return ONLY C# code, no markdown or explanations."
-        )
+        system_message = "You are an expert cTrader cBot developer. Return ONLY C# code, no markdown or explanations."
         
-        # Select model
-        if model == AIModel.OPENAI_GPT52:
-            chat.with_model("openai", "gpt-5.2")
-        elif model == AIModel.CLAUDE_SONNET:
-            chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
-        elif model == AIModel.DEEPSEEK:
-            chat.with_model("openai", "gpt-4o")  # Fallback for DeepSeek
-        
-        # Generate
-        user_message = UserMessage(text=prompt)
-        response = await chat.send_message(user_message)
+        if self.use_emergent and HAS_EMERGENT:
+            # Use Emergent integration
+            chat = LlmChat(
+                api_key=self.api_key,
+                session_id=session_id,
+                system_message=system_message
+            )
+            
+            # Select model
+            if model == AIModel.OPENAI_GPT52:
+                chat.with_model("openai", "gpt-5.2")
+            elif model == AIModel.CLAUDE_SONNET:
+                chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
+            elif model == AIModel.DEEPSEEK:
+                chat.with_model("openai", "gpt-4o")
+            
+            user_message = UserMessage(text=prompt)
+            response = await chat.send_message(user_message)
+        else:
+            # Use direct OpenAI API
+            model_name = "gpt-4o"  # Default to gpt-4o for direct OpenAI
+            if model == AIModel.OPENAI_GPT52:
+                model_name = "gpt-4o"  # Use gpt-4o as fallback for gpt-5.2
+            elif model == AIModel.DEEPSEEK:
+                model_name = "gpt-4o"
+            
+            completion = await self.openai_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=4096
+            )
+            response = completion.choices[0].message.content
         
         # Clean code
         code = response.strip()
@@ -364,6 +398,10 @@ class WarningOptimizationEngine:
     
     def __init__(self, api_key: str):
         self.api_key = api_key
+        # Detect if using Emergent key or direct OpenAI key
+        self.use_emergent = api_key and api_key.startswith('sk-emergent')
+        if not self.use_emergent:
+            self.openai_client = AsyncOpenAI(api_key=api_key)
     
     async def optimize_warnings(
         self,
@@ -411,22 +449,37 @@ Please optimize the code to:
 
 Return ONLY the optimized C# code, no explanations."""
             
-            # Generate optimized code
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=session_id,
-                system_message="You are an expert C# code optimizer. Return ONLY code."
-            )
+            system_message = "You are an expert C# code optimizer. Return ONLY code."
             
-            if ai_model == AIModel.OPENAI_GPT52:
-                chat.with_model("openai", "gpt-5.2")
-            elif ai_model == AIModel.CLAUDE_SONNET:
-                chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
+            if self.use_emergent and HAS_EMERGENT:
+                # Use Emergent integration
+                chat = LlmChat(
+                    api_key=self.api_key,
+                    session_id=session_id,
+                    system_message=system_message
+                )
+                
+                if ai_model == AIModel.OPENAI_GPT52:
+                    chat.with_model("openai", "gpt-5.2")
+                elif ai_model == AIModel.CLAUDE_SONNET:
+                    chat.with_model("anthropic", "claude-sonnet-4-5-20250929")
+                else:
+                    chat.with_model("openai", "gpt-4o")
+                
+                user_message = UserMessage(text=prompt)
+                response = await chat.send_message(user_message)
             else:
-                chat.with_model("openai", "gpt-4o")
-            
-            user_message = UserMessage(text=prompt)
-            response = await chat.send_message(user_message)
+                # Use direct OpenAI API
+                completion = await self.openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": system_message},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=4096
+                )
+                response = completion.choices[0].message.content
             
             optimized_code = response.strip()
             optimized_code = optimized_code.replace('```csharp', '').replace('```', '').strip()
