@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Upload, Database, CheckCircle2, XCircle, AlertCircle, TrendingUp,
   Calendar, FileText, ArrowLeft, Loader2, FileSpreadsheet, BarChart3,
-  Download, Activity, AlertTriangle, RefreshCw, FileDown, Layers, Zap
+  Download, Activity, AlertTriangle, RefreshCw, FileDown, Layers, Zap, Trash2
 } from 'lucide-react';
 import { formatDate, formatDateRange, formatDateTime } from '@/lib/dateUtils';
 
@@ -27,10 +27,14 @@ const SYMBOLS = [
 ];
 
 const TIMEFRAMES = [
-  { value: 'M1', label: '1 Minute (M1)' },
-  { value: 'M5', label: '5 Minutes (M5)' },
-  { value: 'M15', label: '15 Minutes (M15)' },
-  { value: 'H1', label: '1 Hour (H1)' },
+  { value: '1m', label: '1 Minute (M1)' },
+  { value: '5m', label: '5 Minutes (M5)' },
+  { value: '15m', label: '15 Minutes (M15)' },
+  { value: '30m', label: '30 Minutes (M30)' },
+  { value: '1h', label: '1 Hour (H1)' },
+  { value: '4h', label: '4 Hours (H4)' },
+  { value: '1d', label: '1 Day (D1)' },
+  { value: '1w', label: '1 Week (W1)' },
 ];
 
 const CSV_FORMATS = [
@@ -82,6 +86,11 @@ export default function MarketDataPage() {
   const [exportStartDate, setExportStartDate] = useState('2024-01-01');
   const [exportEndDate, setExportEndDate] = useState('2024-01-31');
   const [exporting, setExporting] = useState(false);
+  
+  // Delete States
+  const [deletingDataset, setDeletingDataset] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'coverage') {
@@ -369,6 +378,40 @@ export default function MarketDataPage() {
     }
   };
 
+  // Delete dataset functions
+  const confirmDeleteDataset = (symbol, timeframe) => {
+    setPendingDelete({ symbol, timeframe });
+    setShowDeleteConfirm(true);
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setPendingDelete(null);
+  };
+
+  const executeDelete = async () => {
+    if (!pendingDelete) return;
+    
+    const { symbol, timeframe } = pendingDelete;
+    setDeletingDataset(`${symbol}-${timeframe}`);
+    setShowDeleteConfirm(false);
+    
+    try {
+      const response = await axios.delete(`${API}/marketdata/${symbol}/${timeframe}`);
+      
+      if (response.data.success) {
+        toast.success(`Deleted ${response.data.deleted_count} candles for ${symbol} ${timeframe}`);
+        loadCoverage(); // Refresh coverage data
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.detail || error.message;
+      toast.error(`Delete failed: ${errorMsg}`);
+    } finally {
+      setDeletingDataset(null);
+      setPendingDelete(null);
+    }
+  };
+
   // CSV Upload functions
   const handleDrag = useCallback((e) => {
     e.preventDefault();
@@ -476,6 +519,46 @@ export default function MarketDataPage() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-white overflow-y-auto">
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && pendingDelete && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#18181B] border border-red-500/30 rounded-xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-500/20 rounded-full">
+                <AlertTriangle className="w-6 h-6 text-red-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-white mb-2">Delete Dataset?</h3>
+                <p className="text-sm text-zinc-400 mb-4">
+                  Are you sure you want to delete all market data for{' '}
+                  <span className="font-mono text-white font-bold">{pendingDelete.symbol}</span>{' '}
+                  <span className="font-mono text-blue-400">{pendingDelete.timeframe}</span>?
+                </p>
+                <p className="text-xs text-red-400 mb-4">
+                  This action cannot be undone. All candle data will be permanently removed.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={cancelDelete}
+                    variant="outline"
+                    className="flex-1 border-zinc-600"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={executeDelete}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                    data-testid="confirm-delete-btn"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="border-b border-white/10 bg-[#0F0F10]/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -693,9 +776,9 @@ export default function MarketDataPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1h">1 Hour (H1)</SelectItem>
-                        <SelectItem value="4h">4 Hours (H4)</SelectItem>
-                        <SelectItem value="1d">1 Day (D1)</SelectItem>
+                        {TIMEFRAMES.map(tf => (
+                          <SelectItem key={tf.value} value={tf.value}>{tf.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1092,6 +1175,28 @@ export default function MarketDataPage() {
                                 </p>
                               </div>
                             )}
+
+                            {/* Delete Dataset Button */}
+                            <Button
+                              onClick={() => confirmDeleteDataset(symbolData.symbol, tf.timeframe)}
+                              disabled={deletingDataset === `${symbolData.symbol}-${tf.timeframe}`}
+                              size="sm"
+                              variant="outline"
+                              className="w-full mt-3 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
+                              data-testid={`delete-dataset-${symbolData.symbol}-${tf.timeframe}`}
+                            >
+                              {deletingDataset === `${symbolData.symbol}-${tf.timeframe}` ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="w-3 h-3 mr-1" />
+                                  Delete Dataset
+                                </>
+                              )}
+                            </Button>
                           </div>
                         ))}
                       </div>

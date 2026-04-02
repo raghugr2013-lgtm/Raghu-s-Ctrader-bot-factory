@@ -1958,7 +1958,7 @@ async def get_available_market_data():
 
 @api_router.delete("/marketdata/{symbol}")
 async def delete_market_data(symbol: str, timeframe: Optional[str] = None):
-    """Delete market data for symbol"""
+    """Delete market data for symbol (all timeframes if not specified)"""
     try:
         tf = DataTimeframe(timeframe) if timeframe else None
         deleted_count = await market_data_service.delete_candles(symbol, tf)
@@ -1970,6 +1970,32 @@ async def delete_market_data(symbol: str, timeframe: Optional[str] = None):
             "deleted_count": deleted_count
         }
         
+    except Exception as e:
+        logging.error(f"Delete market data error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete data: {str(e)}")
+
+
+@api_router.delete("/marketdata/{symbol}/{timeframe}")
+async def delete_market_data_by_timeframe(symbol: str, timeframe: str):
+    """Delete market data for specific symbol and timeframe"""
+    try:
+        try:
+            tf = DataTimeframe(timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+        
+        deleted_count = await market_data_service.delete_candles(symbol, tf)
+        
+        return {
+            "success": True,
+            "symbol": symbol.upper(),
+            "timeframe": timeframe,
+            "deleted_count": deleted_count,
+            "message": f"Deleted {deleted_count} candles for {symbol.upper()} {timeframe}"
+        }
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logging.error(f"Delete market data error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete data: {str(e)}")
