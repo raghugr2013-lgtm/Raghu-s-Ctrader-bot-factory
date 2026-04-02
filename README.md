@@ -1,2 +1,1 @@
-# Raghu-s-Ctrader-bot-factory
-Ctrader bot creator
+# Here are your Instructions
