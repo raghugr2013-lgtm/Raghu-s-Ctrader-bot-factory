@@ -24,7 +24,7 @@ import os
 # API Base URL from environment
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://trading-discovery.preview.emergentagent.com"
+    BASE_URL = "https://strategy-master-16.preview.emergentagent.com"
 
 # Test session ID for isolation
 TEST_SESSION_ID = "TEST_real_candle_iter10"
