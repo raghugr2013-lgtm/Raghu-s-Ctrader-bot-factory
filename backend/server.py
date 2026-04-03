@@ -71,6 +71,7 @@ from execution.bot_status import router as bot_status_router
 from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
 from dukascopy_router import router as dukascopy_router, init_dukascopy_router
+from pipeline_master_router import router as pipeline_master_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -3024,6 +3025,9 @@ app.include_router(discovery_router, prefix="/api")
 
 # Include Dukascopy router (Market Data Download)
 app.include_router(dukascopy_router, prefix="/api")
+
+# Master Pipeline Router (Orchestrates Full Trading Strategy Pipeline)
+app.include_router(pipeline_master_router)
 
 app.add_middleware(
     CORSMiddleware,

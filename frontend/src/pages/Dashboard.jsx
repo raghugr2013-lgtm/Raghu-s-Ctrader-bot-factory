@@ -910,6 +910,13 @@ Generate a complete cTrader cBot implementing this strategy.`;
             {/* Core Features Group */}
             <div className="flex items-center gap-1">
               <NavButton 
+                onClick={() => navigate('/pipeline')} 
+                icon={Zap} 
+                label="Pipeline" 
+                variant="accent"
+                testId="pipeline-nav-btn"
+              />
+              <NavButton 
                 onClick={() => navigate('/analyze-bot')} 
                 icon={Search} 
                 label="Analyze" 

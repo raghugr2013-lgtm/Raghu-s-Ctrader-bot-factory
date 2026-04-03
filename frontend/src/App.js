@@ -13,6 +13,7 @@ import AnalyzeBotPage from "@/pages/AnalyzeBotPage";
 import DiscoveryPage from "@/pages/DiscoveryPage";
 import StrategyLibraryPage from "@/pages/StrategyLibraryPage";
 import MarketDataPage from "@/pages/MarketDataPage";
+import PipelinePage from "@/pages/PipelinePage";
 
 function PortfolioPageWrapper() {
   const navigate = useNavigate();
@@ -40,6 +41,7 @@ function App() {
           <Route path="/discovery" element={<DiscoveryPage />} />
           <Route path="/library" element={<StrategyLibraryPage />} />
           <Route path="/market-data" element={<MarketDataPage />} />
+          <Route path="/pipeline" element={<PipelinePage />} />
         </Routes>
       </BrowserRouter>
     </div>
