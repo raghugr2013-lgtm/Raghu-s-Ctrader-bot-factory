@@ -37,7 +37,7 @@ export default function PipelinePage() {
   const [pipelineResult, setPipelineResult] = useState(null);
   
   const [config, setConfig] = useState({
-    generation_mode: 'factory',
+    generation_mode: 'ai',  // Changed default to 'ai'
     templates: ['EMA_CROSSOVER', 'RSI_MEAN_REVERSION', 'MACD_TREND'],
     strategies_per_template: 10,
     symbol: 'EURUSD',
@@ -135,6 +135,49 @@ export default function PipelinePage() {
         {/* Configuration Summary */}
         <div className="bg-[#0F0F10] border border-white/10 rounded-lg p-6">
           <h2 className="text-lg font-bold mb-4">Pipeline Configuration</h2>
+          
+          {/* Generation Mode Selector */}
+          <div className="mb-6">
+            <label className="block text-sm text-zinc-500 mb-2">Generation Mode</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfig({...config, generation_mode: 'ai'})}
+                className={`px-4 py-2 rounded-lg text-sm font-mono transition-all ${
+                  config.generation_mode === 'ai'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                🤖 AI (OpenAI)
+              </button>
+              <button
+                onClick={() => setConfig({...config, generation_mode: 'factory'})}
+                className={`px-4 py-2 rounded-lg text-sm font-mono transition-all ${
+                  config.generation_mode === 'factory'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                🏭 Factory (Templates)
+              </button>
+              <button
+                onClick={() => setConfig({...config, generation_mode: 'both'})}
+                className={`px-4 py-2 rounded-lg text-sm font-mono transition-all ${
+                  config.generation_mode === 'both'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                ⚡ Both (Hybrid)
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-2">
+              {config.generation_mode === 'ai' && '✓ Uses OpenAI API to generate diverse strategies with fallback to predefined templates'}
+              {config.generation_mode === 'factory' && '✓ Uses template-based generation with genetic variations'}
+              {config.generation_mode === 'both' && '✓ Combines AI-generated and template-based strategies for maximum diversity'}
+            </p>
+          </div>
+          
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-zinc-500">Strategies</p>

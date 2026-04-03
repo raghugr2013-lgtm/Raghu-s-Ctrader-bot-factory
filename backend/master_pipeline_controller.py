@@ -253,42 +253,77 @@ class MasterPipelineController:
         logger.info(f"    Mode: {run.config.generation_mode}")
         
         try:
-            from factory_engine import FactoryRunner, STRATEGY_TEMPLATES
-            from factory_models import FactoryRun, FactoryStatus, TemplateId
+            # Calculate target strategy count
+            target_count = len(run.config.templates) * run.config.strategies_per_template
+            logger.info(f"    Target: {target_count} strategies")
             
-            # Use factory engine for generation
-            factory_run = FactoryRun(
-                run_id=str(uuid.uuid4()),
-                session_id=run.run_id,
-                templates_used=[t for t in run.config.templates],
-                strategies_per_template=run.config.strategies_per_template,
-                symbol=run.config.symbol,
-                timeframe=run.config.timeframe,
-                initial_balance=run.config.initial_balance,
-                duration_days=run.config.duration_days,
-                challenge_firm="FTMO",
-                status=FactoryStatus.PENDING,
-            )
+            if run.config.generation_mode in ["ai", "both"]:
+                # Use AI Strategy Generator (OpenAI)
+                logger.info("    🤖 Using AI Strategy Generator (OpenAI)")
+                from ai_strategy_generator import AIStrategyGenerator
+                
+                ai_generator = AIStrategyGenerator()
+                ai_strategies = ai_generator.generate_strategies(
+                    count=target_count,
+                    symbol=run.config.symbol,
+                    timeframe=run.config.timeframe,
+                    requirements=None
+                )
+                
+                run.generated_strategies.extend(ai_strategies)
+                logger.info(f"    ✓ AI generated {len(ai_strategies)} strategies")
             
-            runner = FactoryRunner()
-            result = runner.run(factory_run, candles=None)
+            if run.config.generation_mode in ["factory", "both"]:
+                # Use Factory Engine for template-based generation
+                logger.info("    🏭 Using Factory Engine (Template-based)")
+                from factory_engine import FactoryRunner, STRATEGY_TEMPLATES
+                from factory_models import FactoryRun, FactoryStatus, TemplateId
+                
+                factory_run = FactoryRun(
+                    run_id=str(uuid.uuid4()),
+                    session_id=run.run_id,
+                    templates_used=[t for t in run.config.templates],
+                    strategies_per_template=run.config.strategies_per_template,
+                    symbol=run.config.symbol,
+                    timeframe=run.config.timeframe,
+                    initial_balance=run.config.initial_balance,
+                    duration_days=run.config.duration_days,
+                    challenge_firm="FTMO",
+                    status=FactoryStatus.PENDING,
+                )
+                
+                runner = FactoryRunner()
+                result = runner.run(factory_run, candles=None)
+                
+                # Convert to pipeline format
+                factory_count = 0
+                for strat in result.strategies:
+                    run.generated_strategies.append({
+                        "id": str(uuid.uuid4()),
+                        "name": f"{strat.template_id}_{len(run.generated_strategies)}",
+                        "template_id": strat.template_id,
+                        "genes": strat.genes,
+                        "fitness": strat.fitness,
+                        "sharpe_ratio": strat.sharpe_ratio,
+                        "max_drawdown_pct": strat.max_drawdown_pct,
+                        "profit_factor": strat.profit_factor,
+                        "win_rate": strat.win_rate,
+                        "net_profit": strat.net_profit,
+                        "total_trades": strat.total_trades,
+                        "evaluated": strat.evaluated,
+                        "source": "factory"
+                    })
+                    factory_count += 1
+                
+                logger.info(f"    ✓ Factory generated {factory_count} strategies")
             
-            # Convert to pipeline format
-            for strat in result.strategies:
-                run.generated_strategies.append({
-                    "id": str(uuid.uuid4()),
-                    "name": f"{strat.template_id}_{len(run.generated_strategies)}",
-                    "template_id": strat.template_id,
-                    "genes": strat.genes,
-                    "fitness": strat.fitness,
-                    "sharpe_ratio": strat.sharpe_ratio,
-                    "max_drawdown_pct": strat.max_drawdown_pct,
-                    "profit_factor": strat.profit_factor,
-                    "win_rate": strat.win_rate,
-                    "net_profit": strat.net_profit,
-                    "total_trades": strat.total_trades,
-                    "evaluated": strat.evaluated,
-                })
+            # Verify we have enough strategies
+            if len(run.generated_strategies) < 10:
+                logger.warning(f"    ⚠ Only {len(run.generated_strategies)} strategies generated, using fallback")
+                from ai_strategy_generator import AIStrategyGenerator
+                fallback_gen = AIStrategyGenerator()
+                fallback_strategies = fallback_gen._generate_fallback_strategies(30)
+                run.generated_strategies.extend(fallback_strategies)
             
             run.stage_results.append(StageResult(
                 stage=PipelineStage.GENERATION,
@@ -297,23 +332,45 @@ class MasterPipelineController:
                 execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
                 data={
                     "count": len(run.generated_strategies),
+                    "mode": run.config.generation_mode,
                     "templates": run.config.templates,
                 }
             ))
             
-            logger.info(f"    ✓ Generated {len(run.generated_strategies)} strategies")
+            logger.info(f"    ✓ Total: {len(run.generated_strategies)} strategies generated")
             
         except Exception as e:
             error_msg = f"Generation failed: {str(e)}"
             logger.error(f"    ❌ {error_msg}")
-            run.stage_results.append(StageResult(
-                stage=PipelineStage.GENERATION,
-                success=False,
-                message=error_msg,
-                errors=[str(e)],
-                execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
-            ))
-            raise
+            logger.info(f"    → Attempting fallback generation...")
+            
+            # Fallback: Generate predefined strategies
+            try:
+                from ai_strategy_generator import AIStrategyGenerator
+                fallback_gen = AIStrategyGenerator()
+                fallback_strategies = fallback_gen._generate_fallback_strategies(30)
+                run.generated_strategies.extend(fallback_strategies)
+                
+                logger.info(f"    ✓ Fallback: Generated {len(fallback_strategies)} strategies")
+                
+                run.stage_results.append(StageResult(
+                    stage=PipelineStage.GENERATION,
+                    success=True,
+                    message=f"Generated {len(run.generated_strategies)} strategies (fallback mode)",
+                    execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+                    warnings=[error_msg],
+                    data={"count": len(run.generated_strategies), "mode": "fallback"}
+                ))
+            except Exception as fallback_error:
+                logger.error(f"    ❌ Fallback also failed: {fallback_error}")
+                run.stage_results.append(StageResult(
+                    stage=PipelineStage.GENERATION,
+                    success=False,
+                    message=error_msg,
+                    errors=[str(e), str(fallback_error)],
+                    execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+                ))
+                raise
     
     async def _stage_diversity_filter(self, run: PipelineRun):
         """Stage 2: Filter strategies by diversity (category + diversity scoring)"""
