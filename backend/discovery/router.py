@@ -118,21 +118,41 @@ async def discover_bots(request: DiscoverBotsRequest):
     
     This is a long-running operation. For large searches,
     consider using the async endpoint.
+    
+    NOTE: Without a GitHub token, you're limited to 60 API requests/hour.
+    Add GITHUB_TOKEN to .env for higher limits (5000 requests/hour).
     """
     try:
+        github_token = request.github_token or os.environ.get('GITHUB_TOKEN')
+        
+        # Warn about rate limits
+        if not github_token:
+            logger.warning("No GitHub token provided - rate limited to 60 requests/hour")
+        
         # Create pipeline
         pipeline = create_pipeline(
-            github_token=request.github_token or os.environ.get('GITHUB_TOKEN'),
+            github_token=github_token,
             min_stars=request.min_stars,
             generate_bots=request.generate_bots,
             save_to_db=request.save_to_db
         )
         
-        # Run discovery
-        result = await pipeline.run(
-            max_repos=request.max_repos,
-            max_bots_per_repo=request.max_bots_per_repo
-        )
+        # Run discovery with timeout protection
+        import asyncio
+        try:
+            result = await asyncio.wait_for(
+                pipeline.run(
+                    max_repos=request.max_repos,
+                    max_bots_per_repo=request.max_bots_per_repo
+                ),
+                timeout=120  # 2 minute timeout
+            )
+        except asyncio.TimeoutError:
+            logger.error("Discovery timed out after 120 seconds")
+            raise HTTPException(
+                status_code=504, 
+                detail="Discovery timed out. Try reducing max_repos or add a GitHub token for faster API access."
+            )
         
         logger.info(f"Discovery complete: {result.total_approved} approved, {result.total_rejected} rejected")
         
@@ -148,6 +168,8 @@ async def discover_bots(request: DiscoverBotsRequest):
             duration_seconds=result.duration_seconds
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Discovery failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")

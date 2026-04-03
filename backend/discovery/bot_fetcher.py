@@ -92,7 +92,9 @@ class GitHubBotFetcher:
             if self.github_token:
                 headers["Authorization"] = f"token {self.github_token}"
             
-            self._session = aiohttp.ClientSession(headers=headers)
+            # Add timeout to prevent 502 errors
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            self._session = aiohttp.ClientSession(headers=headers, timeout=timeout)
         return self._session
     
     async def close(self):
