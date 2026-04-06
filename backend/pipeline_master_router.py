@@ -140,9 +140,14 @@ async def run_master_pipeline(
     
     Returns complete pipeline results with deployable strategies.
     """
+    import asyncio
+    from datetime import datetime as dt
+    
+    start_time = dt.now()
+    
     try:
         logger.info("[MASTER PIPELINE API] Received pipeline run request")
-        logger.info(f"[MASTER PIPELINE API] Config: {request.dict()}")
+        logger.info(f"[MASTER PIPELINE API] Config: symbol={request.symbol}, timeframe={request.timeframe}, templates={request.templates}")
         
         # Create pipeline config
         config = PipelineConfig(
@@ -168,8 +173,22 @@ async def run_master_pipeline(
             retrain_threshold_days=request.retrain_threshold_days,
         )
         
-        # Run pipeline
-        pipeline_run = await controller.run_full_pipeline(config)
+        logger.info("[MASTER PIPELINE API] Starting pipeline execution...")
+        
+        # Run pipeline with timeout protection (300 seconds = 5 minutes)
+        try:
+            pipeline_run = await asyncio.wait_for(
+                controller.run_full_pipeline(config),
+                timeout=300.0
+            )
+        except asyncio.TimeoutError:
+            logger.error("[MASTER PIPELINE API] Pipeline execution timed out after 300 seconds")
+            raise HTTPException(
+                status_code=408,
+                detail="Pipeline execution timed out. Try reducing strategies_per_template or duration_days."
+            )
+        
+        logger.info(f"[MASTER PIPELINE API] Pipeline completed: status={pipeline_run.status}")
         
         # Build response
         stage_results = [
@@ -182,6 +201,8 @@ async def run_master_pipeline(
             )
             for r in pipeline_run.stage_results
         ]
+        
+        execution_time = (dt.now() - start_time).total_seconds()
         
         response = MasterPipelineResponse(
             success=(pipeline_run.status == "completed"),
