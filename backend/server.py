@@ -72,6 +72,7 @@ from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
 from dukascopy_router import router as dukascopy_router, init_dukascopy_router
 from pipeline_master_router import router as pipeline_master_router
+from ctrader_export_router import router as ctrader_export_router, init_ctrader_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -3028,6 +3029,9 @@ app.include_router(dukascopy_router, prefix="/api")
 
 # Master Pipeline Router (Orchestrates Full Trading Strategy Pipeline)
 app.include_router(pipeline_master_router)
+
+# cTrader Export Router (Phase 6: cTrader Bot Generation & Export)
+app.include_router(ctrader_export_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
