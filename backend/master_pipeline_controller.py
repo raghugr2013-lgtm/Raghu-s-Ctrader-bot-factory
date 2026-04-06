@@ -685,37 +685,47 @@ class MasterPipelineController:
             raise
     
     async def _stage_validation(self, run: PipelineRun):
-        """Stage 4: Validate strategies (Walk-Forward + Monte Carlo)"""
+        """Stage 4: Validate strategies (Walk-Forward + Risk Filters)"""
         run.current_stage = PipelineStage.VALIDATION
         stage_start = datetime.now()
         
-        logger.info("[✓] Stage 4: Validation (Walk-Forward + Monte Carlo)")
+        logger.info("[✓] Stage 4: Validation (Walk-Forward + Risk Filters)")
         
         try:
-            # Filter strategies that meet minimum criteria
-            validated = []
-            for strat in run.backtested_strategies:
-                if (strat.get("sharpe_ratio", 0) >= run.config.min_sharpe_ratio and
-                    strat.get("max_drawdown_pct", 100) <= run.config.max_drawdown_pct and
-                    strat.get("win_rate", 0) >= run.config.min_win_rate):
-                    validated.append(strat)
+            # Try advanced walk-forward validation if enough candles
+            candles = await self._get_market_candles(
+                symbol=run.config.symbol,
+                timeframe=run.config.timeframe,
+                duration_days=run.config.duration_days
+            )
             
-            # SAFETY CHECK: If too few strategies passed, relax criteria
+            use_walkforward = len(candles) >= 300 if candles else False
+            
+            if use_walkforward:
+                logger.info(f"    🎯 Using Walk-Forward Validation ({len(candles)} candles)")
+                validated = await self._walk_forward_validation(
+                    strategies=run.backtested_strategies,
+                    candles=candles,
+                    config=run.config
+                )
+            else:
+                logger.info(f"    ⚠ Insufficient candles for walk-forward, using criteria-based validation")
+                validated = self._criteria_based_validation(
+                    strategies=run.backtested_strategies,
+                    config=run.config
+                )
+            
+            # Safety check: ensure minimum strategies
             if len(validated) < 3:
-                logger.warning(f"    ⚠ Only {len(validated)} strategies passed strict validation")
+                logger.warning(f"    ⚠ Only {len(validated)} strategies passed validation")
                 logger.info(f"    → Relaxing criteria to ensure minimum portfolio...")
                 
-                # Try with relaxed criteria
-                validated = []
-                relaxed_sharpe = run.config.min_sharpe_ratio * 0.7  # 70% of original
-                relaxed_dd = run.config.max_drawdown_pct * 1.3  # 130% of original
-                relaxed_wr = run.config.min_win_rate * 0.8  # 80% of original
-                
-                for strat in run.backtested_strategies:
-                    if (strat.get("sharpe_ratio", 0) >= relaxed_sharpe and
-                        strat.get("max_drawdown_pct", 100) <= relaxed_dd and
-                        strat.get("win_rate", 0) >= relaxed_wr):
-                        validated.append(strat)
+                # Fallback: relaxed criteria
+                validated = self._criteria_based_validation(
+                    strategies=run.backtested_strategies,
+                    config=run.config,
+                    relaxed=True
+                )
                 
                 logger.info(f"    ✓ Relaxed validation: {len(validated)} strategies")
                 
@@ -731,6 +741,146 @@ class MasterPipelineController:
                     logger.info(f"    ✓ Selected top {len(validated)} strategies by fitness")
             
             run.validated_strategies = validated
+            
+            run.stage_results.append(StageResult(
+                stage=PipelineStage.VALIDATION,
+                success=True,
+                message=f"Validated {len(run.validated_strategies)} strategies",
+                execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+                data={
+                    "input_count": len(run.backtested_strategies),
+                    "output_count": len(run.validated_strategies),
+                    "mode": "walk_forward" if use_walkforward else "criteria_based",
+                    "min_sharpe": run.config.min_sharpe_ratio,
+                    "max_drawdown": run.config.max_drawdown_pct,
+                    "min_win_rate": run.config.min_win_rate,
+                }
+            ))
+            
+            logger.info(f"    ✓ Validation complete: {len(run.backtested_strategies)} → {len(run.validated_strategies)}")
+            if use_walkforward:
+                logger.info(f"    📊 Walk-forward validation ensured robustness across time segments")
+            
+        except Exception as e:
+            error_msg = f"Validation failed: {str(e)}"
+            logger.error(f"    ❌ {error_msg}")
+            logger.info(f"    → Using fallback validation")
+            
+            # Fallback: criteria-based with relaxed rules
+            validated = self._criteria_based_validation(
+                strategies=run.backtested_strategies,
+                config=run.config,
+                relaxed=True
+            )
+            
+            run.validated_strategies = validated
+            
+            run.stage_results.append(StageResult(
+                stage=PipelineStage.VALIDATION,
+                success=True,
+                message=f"Validated {len(run.validated_strategies)} strategies (fallback)",
+                warnings=[error_msg],
+                execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+                data={"count": len(run.validated_strategies), "mode": "fallback"}
+            ))
+            
+            logger.info(f"    ✓ Fallback: {len(run.validated_strategies)} strategies")
+    
+    async def _walk_forward_validation(
+        self,
+        strategies: List[Dict[str, Any]],
+        candles: List,
+        config: PipelineConfig
+    ) -> List[Dict[str, Any]]:
+        """
+        Perform walk-forward validation on strategies.
+        Splits data 60/20/20 and ensures consistent performance.
+        """
+        from real_data_validation_engine import WalkForwardValidator, StabilityFilter
+        
+        validator = WalkForwardValidator()
+        
+        # Run validation on each strategy
+        validation_results = []
+        for strategy in strategies:
+            try:
+                result = validator.validate_strategy(
+                    strategy=strategy,
+                    candles=candles,
+                    initial_balance=config.initial_balance,
+                    symbol=config.symbol,
+                    timeframe=config.timeframe
+                )
+                validation_results.append(result)
+            except Exception as e:
+                logger.warning(f"    ⚠ Walk-forward failed for {strategy.get('name')}: {e}")
+                continue
+        
+        # Apply stability filter
+        stability_filter = StabilityFilter(
+            max_drawdown_pct=config.max_drawdown_pct,
+            min_sharpe_ratio=config.min_sharpe_ratio,
+            min_trades_per_segment=5,
+            min_consistency_score=50.0
+        )
+        
+        passed_results, rejected_results = stability_filter.apply_filter(validation_results)
+        
+        logger.info(f"    ✓ Walk-forward complete: {len(passed_results)} passed, {len(rejected_results)} rejected")
+        
+        # Update strategies with validation metrics
+        validated_strategies = []
+        for result in passed_results:
+            # Find original strategy
+            strategy = next((s for s in strategies if s.get("id") == result.strategy_id), None)
+            if strategy:
+                # Update with validated metrics (use average across segments)
+                strategy_updated = strategy.copy()
+                strategy_updated.update({
+                    "fitness": result.avg_fitness,
+                    "sharpe_ratio": result.avg_sharpe,
+                    "max_drawdown_pct": result.max_dd,
+                    "total_trades": result.total_trades,
+                    "validation_mode": "walk_forward",
+                    "consistency_score": result.consistency_score,
+                    "train_fitness": result.train_fitness,
+                    "val_fitness": result.val_fitness,
+                    "test_fitness": result.test_fitness
+                })
+                validated_strategies.append(strategy_updated)
+        
+        return validated_strategies
+    
+    def _criteria_based_validation(
+        self,
+        strategies: List[Dict[str, Any]],
+        config: PipelineConfig,
+        relaxed: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Validate strategies based on performance criteria.
+        Falls back to this if walk-forward validation unavailable.
+        """
+        if relaxed:
+            # Relaxed criteria (70% of original)
+            min_sharpe = config.min_sharpe_ratio * 0.7
+            max_dd = config.max_drawdown_pct * 1.3
+            min_wr = config.min_win_rate * 0.8
+            logger.info(f"    → Relaxed criteria: Sharpe≥{min_sharpe:.2f}, DD≤{max_dd:.1f}%, WR≥{min_wr:.1f}%")
+        else:
+            # Strict criteria
+            min_sharpe = config.min_sharpe_ratio
+            max_dd = config.max_drawdown_pct
+            min_wr = config.min_win_rate
+        
+        validated = []
+        for strat in strategies:
+            if (strat.get("sharpe_ratio", 0) >= min_sharpe and
+                strat.get("max_drawdown_pct", 100) <= max_dd and
+                strat.get("win_rate", 0) >= min_wr):
+                validated.append(strat)
+        
+        return validated
             
             run.stage_results.append(StageResult(
                 stage=PipelineStage.VALIDATION,
