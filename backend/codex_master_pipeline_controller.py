@@ -748,31 +748,179 @@ class MasterPipelineController:
         logger.info("[✓] Stage 10: cBot Generation & Compilation")
         
         try:
-            # Mark strategies as compiled (actual compilation would happen here)
-            for strat in run.selected_portfolio:
-                run.compiled_bots.append({
-                    "strategy_id": strat["id"],
-                    "name": strat["name"],
-                    "compiled": True,
-                    "bot_file": f"{strat['name']}.algo",
-                })
-                run.deployable_bots.append(strat)
+            from analyzer.improved_bot_generator import ImprovedBotGenerator
+            from real_csharp_compiler import RealCSharpCompiler
+            from strategy_to_bot_converter import StrategyToBotConverter
+            import os
+            import tempfile
+            
+            # Initialize components
+            converter = StrategyToBotConverter()
+            bot_generator = ImprovedBotGenerator()
+            compiler = RealCSharpCompiler()
+            
+            # Create export directory for this pipeline run
+            export_dir = os.path.join(tempfile.gettempdir(), f"pipeline_exports/{run.run_id}")
+            os.makedirs(export_dir, exist_ok=True)
+            
+            logger.info(f"    Generating C# code for {len(run.selected_portfolio)} strategies...")
+            
+            successful_bots = 0
+            failed_bots = 0
+            compilation_warnings = []
+            
+            for idx, strat in enumerate(run.selected_portfolio):
+                strategy_name = strat.get("name", f"Strategy_{idx+1}")
+                strategy_id = strat.get("id", str(uuid.uuid4()))
+                
+                logger.info(f"    [{idx+1}/{len(run.selected_portfolio)}] Processing: {strategy_name}")
+                
+                try:
+                    # Step 1: Convert strategy to bot generator format
+                    bot_strategy = converter.convert(strat)
+                    logger.debug(f"      → Converted to bot format")
+                    
+                    # Step 2: Generate C# code
+                    generated_bot = bot_generator.generate(bot_strategy)
+                    csharp_code = generated_bot.code
+                    logger.debug(f"      → Generated C# code ({len(csharp_code)} chars)")
+                    
+                    # Step 3: Compile C# code with retry logic
+                    max_attempts = 3
+                    compilation_success = False
+                    compile_result = None
+                    
+                    for attempt in range(1, max_attempts + 1):
+                        logger.debug(f"      → Compilation attempt {attempt}/{max_attempts}")
+                        
+                        compile_result = compiler.compile(
+                            code=csharp_code,
+                            bot_name=generated_bot.class_name
+                        )
+                        
+                        if compile_result.success:
+                            compilation_success = True
+                            logger.info(f"      ✓ Compilation successful ({compile_result.compilation_time_ms}ms)")
+                            if compile_result.warning_count > 0:
+                                logger.debug(f"      ⚠ {compile_result.warning_count} warnings")
+                            break
+                        else:
+                            logger.warning(f"      ✗ Attempt {attempt} failed: {compile_result.error_count} errors")
+                            
+                            # Log first few errors for debugging
+                            if compile_result.errors:
+                                for err in compile_result.errors[:3]:
+                                    logger.debug(f"        - {err.code}: {err.message}")
+                            
+                            # On final attempt, give up
+                            if attempt == max_attempts:
+                                logger.error(f"      ❌ Compilation failed after {max_attempts} attempts")
+                                break
+                    
+                    # Step 4: Save generated code to file
+                    code_filename = f"{generated_bot.class_name}.cs"
+                    code_filepath = os.path.join(export_dir, code_filename)
+                    
+                    with open(code_filepath, 'w', encoding='utf-8') as f:
+                        f.write(csharp_code)
+                    
+                    logger.debug(f"      → Saved to {code_filepath}")
+                    
+                    # Step 5: Record bot result
+                    bot_result = {
+                        "strategy_id": strategy_id,
+                        "name": strategy_name,
+                        "class_name": generated_bot.class_name,
+                        "compiled": compilation_success,
+                        "csharp_code": csharp_code,
+                        "code_lines": len(csharp_code.splitlines()),
+                        "bot_file": code_filename,
+                        "bot_file_path": code_filepath,
+                        "compile_status": "success" if compilation_success else "failed",
+                        "compile_time_ms": compile_result.compilation_time_ms if compile_result else 0,
+                        "error_count": compile_result.error_count if compile_result else 0,
+                        "warning_count": compile_result.warning_count if compile_result else 0,
+                        "indicators_count": generated_bot.indicators_count,
+                        "filters_count": generated_bot.filters_count,
+                        "has_risk_management": generated_bot.has_risk_management,
+                        # Include original strategy metrics
+                        "sharpe_ratio": strat.get("sharpe_ratio", 0),
+                        "max_drawdown_pct": strat.get("max_drawdown_pct", 0),
+                        "win_rate": strat.get("win_rate", 0),
+                        "profit_factor": strat.get("profit_factor", 0),
+                        "net_profit": strat.get("net_profit", 0),
+                    }
+                    
+                    # Add compilation errors if any
+                    if compile_result and not compilation_success:
+                        bot_result["compilation_errors"] = [
+                            {
+                                "code": err.code,
+                                "message": err.message,
+                                "line": err.line,
+                                "severity": err.severity
+                            }
+                            for err in compile_result.errors[:5]  # First 5 errors
+                        ]
+                    
+                    run.compiled_bots.append(bot_result)
+                    
+                    # Only add to deployable if compilation succeeded
+                    if compilation_success:
+                        # Enrich strategy with C# code
+                        deployable_strat = strat.copy()
+                        deployable_strat.update({
+                            "csharp_code": csharp_code,
+                            "bot_file_path": code_filepath,
+                            "class_name": generated_bot.class_name,
+                        })
+                        run.deployable_bots.append(deployable_strat)
+                        successful_bots += 1
+                    else:
+                        failed_bots += 1
+                        compilation_warnings.append(f"{strategy_name}: compilation failed")
+                    
+                except Exception as gen_error:
+                    logger.error(f"      ❌ Generation failed: {str(gen_error)}")
+                    failed_bots += 1
+                    
+                    # Record failed bot
+                    run.compiled_bots.append({
+                        "strategy_id": strategy_id,
+                        "name": strategy_name,
+                        "compiled": False,
+                        "compile_status": "generation_error",
+                        "error_message": str(gen_error),
+                    })
+                    compilation_warnings.append(f"{strategy_name}: {str(gen_error)}")
+            
+            # Summary
+            logger.info(f"    ✓ cBot Generation Complete:")
+            logger.info(f"      - Total: {len(run.selected_portfolio)}")
+            logger.info(f"      - Successful: {successful_bots}")
+            logger.info(f"      - Failed: {failed_bots}")
+            logger.info(f"      - Export directory: {export_dir}")
             
             run.stage_results.append(StageResult(
                 stage=PipelineStage.CBOT_GENERATION,
                 success=True,
-                message=f"Generated {len(run.compiled_bots)} cBots",
+                message=f"Generated {successful_bots} cBots ({failed_bots} failed)",
                 execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+                warnings=compilation_warnings if compilation_warnings else [],
                 data={
-                    "count": len(run.compiled_bots),
+                    "total_count": len(run.selected_portfolio),
+                    "successful_count": successful_bots,
+                    "failed_count": failed_bots,
+                    "export_directory": export_dir,
                 }
             ))
             
-            logger.info(f"    ✓ Generated {len(run.compiled_bots)} cBots")
-            
         except Exception as e:
-            error_msg = f"cBot generation failed: {str(e)}"
+            error_msg = f"cBot generation stage failed: {str(e)}"
             logger.error(f"    ❌ {error_msg}")
+            import traceback
+            logger.error(traceback.format_exc())
+            
             run.stage_results.append(StageResult(
                 stage=PipelineStage.CBOT_GENERATION,
                 success=False,
