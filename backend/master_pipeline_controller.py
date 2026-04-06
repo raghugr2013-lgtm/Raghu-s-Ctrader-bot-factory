@@ -423,10 +423,11 @@ class MasterPipelineController:
         run.current_stage = PipelineStage.DIVERSITY_FILTER
         stage_start = datetime.now()
         
-        logger.info("[✓] Stage 2: Diversity Filter")
+        logger.info("[✓] Stage 2: Diversity Filter (Codex AI)")
         
         try:
-            from strategy_diversity_engine import DiversityEngine
+            # CODEX ENGINE: Enhanced AI-powered diversity analysis
+            from codex_strategy_diversity_engine import DiversityEngine
             
             engine = DiversityEngine()
             result = engine.analyze_and_filter(
@@ -582,10 +583,11 @@ class MasterPipelineController:
         run.current_stage = PipelineStage.CORRELATION_FILTER
         stage_start = datetime.now()
         
-        logger.info("[✓] Stage 5: Correlation Filter")
+        logger.info("[✓] Stage 5: Correlation Filter (Codex AI)")
         
         try:
-            from strategy_correlation_engine import CorrelationEngine
+            # CODEX ENGINE: Enhanced AI-powered correlation analysis
+            from codex_strategy_correlation_engine import CorrelationEngine
             
             engine = CorrelationEngine()
             result = engine.filter_correlated(
@@ -680,10 +682,11 @@ class MasterPipelineController:
         run.current_stage = PipelineStage.PORTFOLIO_SELECTION
         stage_start = datetime.now()
         
-        logger.info("[✓] Stage 7: Portfolio Selection")
+        logger.info("[✓] Stage 7: Portfolio Selection (Codex AI)")
         
         try:
-            from portfolio_selection_engine import PortfolioSelectionEngine
+            # CODEX ENGINE: Enhanced AI-powered portfolio selection
+            from codex_portfolio_selection_engine import PortfolioSelectionEngine
             
             engine = PortfolioSelectionEngine()
             result = engine.select_best(
