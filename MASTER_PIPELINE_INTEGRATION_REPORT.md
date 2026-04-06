@@ -148,7 +148,7 @@ curl -X POST "${BACKEND_URL}/api/pipeline/master-run" \
 
 ### Via UI
 
-1. Navigate to dashboard at https://strategy-master-16.preview.emergentagent.com
+1. Navigate to dashboard at https://algo-bot-validator.preview.emergentagent.com
 2. Click "Pipeline" button in top navigation
 3. Review configuration
 4. Click "RUN FULL PIPELINE"
@@ -274,7 +274,7 @@ The PipelineRun object maintains complete state throughout execution, allowing:
 ## Deployment Notes
 
 ### Current Environment
-- **Preview URL:** https://strategy-master-16.preview.emergentagent.com
+- **Preview URL:** https://algo-bot-validator.preview.emergentagent.com
 - **Backend:** Running on port 8001 (supervisor)
 - **Frontend:** Running on port 3000 (supervisor)
 - **Database:** MongoDB on port 27017
@@ -290,7 +290,7 @@ mongodb    RUNNING   pid 44
 
 ```bash
 # Check backend health
-curl https://strategy-master-16.preview.emergentagent.com/api/pipeline/health
+curl https://algo-bot-validator.preview.emergentagent.com/api/pipeline/health
 
 # Check if frontend compiled
 ls -la /app/frontend/build
