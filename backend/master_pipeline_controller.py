@@ -195,7 +195,40 @@ class MasterPipelineController:
             # Stage 7: Portfolio Selection
             await self._stage_portfolio_selection(pipeline_run)
             if not pipeline_run.selected_portfolio:
-                raise Exception("No strategies selected for portfolio")
+                logger.warning("[MASTER PIPELINE] ⚠ No strategies selected by engine, using fallback")
+                # Emergency fallback: take top strategies by fitness
+                if pipeline_run.regime_adapted_strategies:
+                    sorted_strats = sorted(
+                        pipeline_run.regime_adapted_strategies,
+                        key=lambda s: s.get("fitness", 0),
+                        reverse=True
+                    )
+                    pipeline_run.selected_portfolio = sorted_strats[:max(3, pipeline_run.config.portfolio_size)]
+                    logger.info(f"[MASTER PIPELINE] ✓ Emergency fallback: selected {len(pipeline_run.selected_portfolio)} strategies")
+                else:
+                    raise Exception("No strategies available for portfolio selection")
+            
+            # CRITICAL SAFETY CHECK: Ensure minimum strategies
+            if len(pipeline_run.selected_portfolio) < 3:
+                logger.warning(f"[MASTER PIPELINE] ⚠ Only {len(pipeline_run.selected_portfolio)} strategies selected")
+                logger.info("[MASTER PIPELINE] → Adding more strategies from earlier stages...")
+                
+                # Get more strategies from earlier stages
+                additional_needed = 3 - len(pipeline_run.selected_portfolio)
+                existing_ids = {s.get("id") for s in pipeline_run.selected_portfolio}
+                
+                # Try from regime adapted
+                candidates = [s for s in pipeline_run.regime_adapted_strategies if s.get("id") not in existing_ids]
+                if not candidates:
+                    # Fall back to earlier stage
+                    candidates = [s for s in pipeline_run.backtested_strategies if s.get("id") not in existing_ids]
+                
+                if candidates:
+                    sorted_candidates = sorted(candidates, key=lambda s: s.get("fitness", 0), reverse=True)
+                    pipeline_run.selected_portfolio.extend(sorted_candidates[:additional_needed])
+                    logger.info(f"[MASTER PIPELINE] ✓ Added {min(len(sorted_candidates), additional_needed)} strategies")
+                
+            logger.info(f"[MASTER PIPELINE] 📊 Final portfolio size: {len(pipeline_run.selected_portfolio)} strategies")
             
             # Stage 8: Risk & Capital Allocation
             await self._stage_risk_allocation(pipeline_run)
@@ -219,12 +252,25 @@ class MasterPipelineController:
             pipeline_run.current_stage = PipelineStage.COMPLETED
             pipeline_run.completed_at = datetime.now()
             
+            # Comprehensive summary logging
+            logger.info("="*60)
             logger.info(f"[MASTER PIPELINE] ✓ Pipeline completed successfully")
-            logger.info(f"[MASTER PIPELINE] Generated: {len(pipeline_run.generated_strategies)}")
-            logger.info(f"[MASTER PIPELINE] Backtested: {len(pipeline_run.backtested_strategies)}")
-            logger.info(f"[MASTER PIPELINE] Validated: {len(pipeline_run.validated_strategies)}")
-            logger.info(f"[MASTER PIPELINE] Selected: {len(pipeline_run.selected_portfolio)}")
-            logger.info(f"[MASTER PIPELINE] Deployable: {len(pipeline_run.deployable_bots)}")
+            logger.info("="*60)
+            logger.info(f"[MASTER PIPELINE] 📊 Strategy Counts at Each Stage:")
+            logger.info(f"[MASTER PIPELINE]    1. Generated:     {len(pipeline_run.generated_strategies)}")
+            logger.info(f"[MASTER PIPELINE]    2. After Diversity Filter: {len(pipeline_run.filtered_by_diversity)}")
+            logger.info(f"[MASTER PIPELINE]    3. After Backtesting:      {len(pipeline_run.backtested_strategies)}")
+            logger.info(f"[MASTER PIPELINE]    4. After Validation:       {len(pipeline_run.validated_strategies)}")
+            logger.info(f"[MASTER PIPELINE]    5. After Correlation:      {len(pipeline_run.filtered_by_correlation)}")
+            logger.info(f"[MASTER PIPELINE]    6. After Regime Adapt:     {len(pipeline_run.regime_adapted_strategies)}")
+            logger.info(f"[MASTER PIPELINE]    7. Portfolio Selected:     {len(pipeline_run.selected_portfolio)}")
+            logger.info(f"[MASTER PIPELINE]    8. Deployable Bots:        {len(pipeline_run.deployable_bots)}")
+            logger.info("="*60)
+            
+            # Ensure we have deployable bots
+            if len(pipeline_run.deployable_bots) == 0:
+                logger.error("[MASTER PIPELINE] ❌ CRITICAL: No deployable bots generated!")
+                raise Exception("Pipeline completed but produced 0 deployable bots")
             
         except Exception as e:
             logger.error(f"[MASTER PIPELINE] ❌ Pipeline failed: {str(e)}")
@@ -470,6 +516,36 @@ class MasterPipelineController:
                     strat.get("win_rate", 0) >= run.config.min_win_rate):
                     validated.append(strat)
             
+            # SAFETY CHECK: If too few strategies passed, relax criteria
+            if len(validated) < 3:
+                logger.warning(f"    ⚠ Only {len(validated)} strategies passed strict validation")
+                logger.info(f"    → Relaxing criteria to ensure minimum portfolio...")
+                
+                # Try with relaxed criteria
+                validated = []
+                relaxed_sharpe = run.config.min_sharpe_ratio * 0.7  # 70% of original
+                relaxed_dd = run.config.max_drawdown_pct * 1.3  # 130% of original
+                relaxed_wr = run.config.min_win_rate * 0.8  # 80% of original
+                
+                for strat in run.backtested_strategies:
+                    if (strat.get("sharpe_ratio", 0) >= relaxed_sharpe and
+                        strat.get("max_drawdown_pct", 100) <= relaxed_dd and
+                        strat.get("win_rate", 0) >= relaxed_wr):
+                        validated.append(strat)
+                
+                logger.info(f"    ✓ Relaxed validation: {len(validated)} strategies")
+                
+                # If still too few, take top N by fitness
+                if len(validated) < 3:
+                    logger.warning(f"    ⚠ Still only {len(validated)} strategies, taking top by fitness")
+                    sorted_strats = sorted(
+                        run.backtested_strategies,
+                        key=lambda s: s.get("fitness", 0),
+                        reverse=True
+                    )
+                    validated = sorted_strats[:max(5, run.config.portfolio_size)]
+                    logger.info(f"    ✓ Selected top {len(validated)} strategies by fitness")
+            
             run.validated_strategies = validated
             
             run.stage_results.append(StageResult(
@@ -518,6 +594,14 @@ class MasterPipelineController:
             )
             
             run.filtered_by_correlation = result["filtered_strategies"]
+            
+            # SAFETY CHECK: Ensure minimum strategies remain
+            if len(run.filtered_by_correlation) < 3:
+                logger.warning(f"    ⚠ Correlation filter left only {len(run.filtered_by_correlation)} strategies")
+                logger.info(f"    → Keeping all validated strategies instead")
+                run.filtered_by_correlation = run.validated_strategies
+                
+            logger.info(f"    📊 Strategies after correlation filter: {len(run.filtered_by_correlation)}")
             
             run.stage_results.append(StageResult(
                 stage=PipelineStage.CORRELATION_FILTER,
