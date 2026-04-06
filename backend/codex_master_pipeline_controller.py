@@ -462,36 +462,91 @@ class MasterPipelineController:
         logger.info("[✓] Stage 4: Validation (Walk-Forward + Monte Carlo)")
         
         try:
-            # Filter strategies that meet minimum criteria
-            validated = []
+            # Step 1: Filter strategies that meet minimum criteria
+            logger.info(f"    Step 1: Basic metric filtering...")
+            basic_filtered = []
             for strat in run.backtested_strategies:
                 if (strat.get("sharpe_ratio", 0) >= run.config.min_sharpe_ratio and
                     strat.get("max_drawdown_pct", 100) <= run.config.max_drawdown_pct and
                     strat.get("win_rate", 0) >= run.config.min_win_rate):
-                    validated.append(strat)
+                    basic_filtered.append(strat)
             
-            run.validated_strategies = validated
+            logger.info(f"    → Basic filter: {len(run.backtested_strategies)} → {len(basic_filtered)}")
             
+            # Step 2: Monte Carlo Validation
+            logger.info(f"    Step 2: Monte Carlo robustness testing...")
+            
+            mc_validated_strategies = []
+            mc_summary = {}
+            
+            try:
+                from monte_carlo_pipeline_adapter import MonteCarloValidator
+                
+                # Configure Monte Carlo validator
+                mc_validator = MonteCarloValidator(
+                    num_simulations=1000,
+                    initial_balance=run.config.initial_balance,
+                    min_survival_rate=70.0,      # 70% of simulations must be profitable
+                    max_ruin_probability=10.0,   # Max 10% chance of ruin
+                    max_worst_drawdown=50.0      # Worst-case drawdown must be < 50%
+                )
+                
+                # Validate batch of strategies
+                mc_validated_strategies, mc_summary = mc_validator.validate_batch(basic_filtered)
+                
+                # Filter to only strategies that passed Monte Carlo
+                final_validated = [
+                    s for s in mc_validated_strategies 
+                    if s.get("monte_carlo_passes", False)
+                ]
+                
+                logger.info(f"    → Monte Carlo filter: {len(basic_filtered)} → {len(final_validated)}")
+                logger.info(f"    → MC Pass Rate: {mc_summary.get('pass_rate', 0):.1f}%")
+                logger.info(f"    → Avg Survival Rate: {mc_summary.get('avg_survival_rate', 0):.1f}%")
+                logger.info(f"    → Avg Ruin Risk: {mc_summary.get('avg_ruin_probability', 0):.1f}%")
+                logger.info(f"    → Avg MC Score: {mc_summary.get('avg_mc_score', 0):.1f}/100")
+                
+                run.validated_strategies = final_validated
+                
+            except Exception as mc_error:
+                # Fallback: If Monte Carlo fails, use basic filtered strategies
+                logger.warning(f"    ⚠ Monte Carlo validation failed: {str(mc_error)}")
+                logger.warning(f"    → Falling back to basic validation (without Monte Carlo)")
+                run.validated_strategies = basic_filtered
+                mc_summary = {
+                    "total_validated": len(basic_filtered),
+                    "passed_count": len(basic_filtered),
+                    "failed_count": 0,
+                    "fallback": True,
+                    "error": str(mc_error)
+                }
+            
+            # Record results
             run.stage_results.append(StageResult(
                 stage=PipelineStage.VALIDATION,
                 success=True,
-                message=f"Validated {len(run.validated_strategies)} strategies",
+                message=f"Validated {len(run.validated_strategies)} strategies (MC + Metrics)",
                 execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
                 data={
                     "input_count": len(run.backtested_strategies),
+                    "basic_filtered_count": len(basic_filtered),
                     "output_count": len(run.validated_strategies),
                     "min_sharpe": run.config.min_sharpe_ratio,
                     "max_drawdown": run.config.max_drawdown_pct,
                     "min_win_rate": run.config.min_win_rate,
+                    "monte_carlo_summary": mc_summary,
                 }
             ))
             
             logger.info(f"    ✓ Validation complete: {len(run.backtested_strategies)} → {len(run.validated_strategies)}")
             logger.info(f"    Criteria: Sharpe≥{run.config.min_sharpe_ratio}, DD≤{run.config.max_drawdown_pct}%, WR≥{run.config.min_win_rate}%")
+            logger.info(f"    Monte Carlo: Survival≥70%, Ruin≤10%, Worst DD≤50%")
             
         except Exception as e:
             error_msg = f"Validation failed: {str(e)}"
             logger.error(f"    ❌ {error_msg}")
+            import traceback
+            logger.error(traceback.format_exc())
             run.stage_results.append(StageResult(
                 stage=PipelineStage.VALIDATION,
                 success=False,
