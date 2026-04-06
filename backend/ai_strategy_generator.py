@@ -16,8 +16,9 @@ class AIStrategyGenerator:
     """Generates trading strategies using OpenAI API"""
     
     def __init__(self):
-        # Get API key from environment variable (NEVER hardcode)
-        self.api_key = os.environ.get('OPENAI_API_KEY')
+        # Get API key from environment variable using secure loader
+        from env_config import EnvironmentConfig
+        self.api_key = EnvironmentConfig.get_openai_key()
         self.client = None
         
         if self.api_key:

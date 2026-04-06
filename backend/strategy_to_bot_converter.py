@@ -42,24 +42,30 @@ class StrategyToBotConverter:
         template_id = strategy.get("template_id", "ema_crossover")
         genes = strategy.get("genes", {})
         name = strategy.get("name", f"Strategy_{template_id}")
+        timeframe = strategy.get("timeframe", "1h")  # NEW: Extract timeframe
         
         # Determine category
         category = self.TEMPLATE_CATEGORIES.get(template_id, "trend_following")
         
         # Convert based on template type
         if "ema" in template_id.lower() or "crossover" in template_id.lower():
-            return self._convert_ema_crossover(name, genes, category)
+            bot_strategy = self._convert_ema_crossover(name, genes, category)
         elif "rsi" in template_id.lower():
-            return self._convert_rsi_mean_reversion(name, genes, category)
+            bot_strategy = self._convert_rsi_mean_reversion(name, genes, category)
         elif "macd" in template_id.lower():
-            return self._convert_macd_trend(name, genes, category)
+            bot_strategy = self._convert_macd_trend(name, genes, category)
         elif "bollinger" in template_id.lower():
-            return self._convert_bollinger_breakout(name, genes, category)
+            bot_strategy = self._convert_bollinger_breakout(name, genes, category)
         elif "atr" in template_id.lower():
-            return self._convert_atr_volatility(name, genes, category)
+            bot_strategy = self._convert_atr_volatility(name, genes, category)
         else:
             # Fallback: generic strategy
-            return self._convert_generic(name, genes, category, template_id)
+            bot_strategy = self._convert_generic(name, genes, category, template_id)
+        
+        # Add timeframe to bot strategy
+        bot_strategy["timeframe"] = timeframe
+        
+        return bot_strategy
     
     def _convert_ema_crossover(self, name: str, genes: Dict[str, float], category: str) -> Dict[str, Any]:
         """Convert EMA Crossover strategy"""

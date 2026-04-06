@@ -76,6 +76,14 @@ class ImprovedBotGenerator:
         name = improved_strategy.get('name', 'OptimizedBot')
         class_name = self._make_class_name(name)
         category = improved_strategy.get('category', 'trend_following')
+        timeframe = improved_strategy.get('timeframe', '1h')  # NEW: Extract timeframe
+        
+        # Convert timeframe to cTrader format
+        from timeframe_utils import TimeframeConverter
+        try:
+            ctrader_timeframe = TimeframeConverter.to_ctrader(timeframe)
+        except (ValueError, KeyError):
+            ctrader_timeframe = "TimeFrame.Hour"  # Fallback to 1h
         
         # Get components
         indicators = improved_strategy.get('indicators', [])
@@ -102,7 +110,7 @@ class ImprovedBotGenerator:
         code_parts.append(self._generate_fields(indicators, filters))
         
         # OnStart method
-        code_parts.append(self._generate_on_start(indicators, filters))
+        code_parts.append(self._generate_on_start(indicators, filters, ctrader_timeframe))
         
         # OnBar method
         code_parts.append(self._generate_on_bar(entry_signals, risk_config, filters, category, parsed_data))
@@ -347,13 +355,14 @@ using cAlgo.API.Internals;
         
         return '\n'.join(fields)
     
-    def _generate_on_start(self, indicators: List[Dict], filters: List[Dict]) -> str:
+    def _generate_on_start(self, indicators: List[Dict], filters: List[Dict], ctrader_timeframe: str = "TimeFrame.Hour") -> str:
         """Generate OnStart method"""
-        lines = ['''
+        lines = [f'''
         
         // ==================== LIFECYCLE METHODS ====================
         protected override void OnStart()
-        {
+        {{
+            // Timeframe: {ctrader_timeframe}
             // Initialize indicators''']
         
         ma_count = 0

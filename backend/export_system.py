@@ -95,7 +95,7 @@ class StrategyExporter:
             "parameters": {
                 "template_id": strategy.get("template_id", "unknown"),
                 "symbol": strategy.get("symbol", "UNKNOWN"),
-                "timeframe": strategy.get("timeframe", "unknown"),
+                "timeframe": strategy.get("timeframe", "1h"),  # NEW: Include timeframe
                 "genes": strategy.get("genes", {}),
             },
             

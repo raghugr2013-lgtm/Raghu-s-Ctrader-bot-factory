@@ -39,14 +39,21 @@ logger = logging.getLogger(__name__)
 class MultiAIOrchestrator:
     """Orchestrates multi-AI collaboration for bot generation"""
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str = None):
+        # Load API key from environment if not provided
+        if api_key is None:
+            from env_config import EnvironmentConfig
+            api_key = EnvironmentConfig.get_openai_key()
+        
         self.api_key = api_key
         self.collaboration_logs: List[AICollaborationLog] = []
         self.total_ai_calls = 0
         # Detect if using Emergent key or direct OpenAI key
         self.use_emergent = api_key and api_key.startswith('sk-emergent')
-        if not self.use_emergent:
+        if not self.use_emergent and api_key:
             self.openai_client = AsyncOpenAI(api_key=api_key)
+        else:
+            self.openai_client = None
     
     def log_stage(
         self,
