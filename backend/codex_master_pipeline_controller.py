@@ -192,6 +192,9 @@ class MasterPipelineController:
             # Stage 6: Market Regime Adaptation
             await self._stage_regime_adaptation(pipeline_run)
             
+            # Stage 6.5: Composite Scoring & Ranking
+            await self._stage_composite_scoring(pipeline_run)
+            
             # Stage 7: Portfolio Selection
             await self._stage_portfolio_selection(pipeline_run)
             if not pipeline_run.selected_portfolio:
@@ -646,6 +649,73 @@ class MasterPipelineController:
                 execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
             ))
     
+    async def _stage_composite_scoring(self, run: PipelineRun):
+        """Stage 6.5: Composite Scoring & Ranking"""
+        stage_start = datetime.now()
+        
+        logger.info("[✓] Stage 6.5: Composite Scoring & Ranking")
+        
+        try:
+            from scoring_engine import StrategyRanker
+            
+            ranker = StrategyRanker()
+            
+            # Score and rank all strategies
+            ranked_strategies, summary = ranker.rank_strategies(
+                run.regime_adapted_strategies,
+                top_n=None  # Don't limit yet, just rank
+            )
+            
+            # Store ranked strategies
+            run.regime_adapted_strategies = ranked_strategies
+            
+            logger.info(f"    ✓ Scored and ranked {len(ranked_strategies)} strategies")
+            logger.info(f"    Avg Composite Score: {summary['avg_composite_score']:.2f}/100")
+            logger.info(f"    Top Strategy: {ranked_strategies[0].get('name', 'Unknown')} - Score: {summary['top_score']:.2f}, Grade: {summary['top_grade']}")
+            logger.info(f"    Grade Distribution: {summary['grade_distribution']}")
+            
+            # Show top 5
+            logger.info(f"    Top 5 Strategies:")
+            for i, strat in enumerate(ranked_strategies[:5], 1):
+                logger.info(
+                    f"       {i}. {strat.get('name', 'Unknown')[:40]} - "
+                    f"Score: {strat.get('composite_score', 0):.2f}, "
+                    f"Grade: {strat.get('composite_grade', 'F')}"
+                )
+            
+            run.stage_results.append(StageResult(
+                stage=PipelineStage.PORTFOLIO_SELECTION,  # Using same stage enum for now
+                success=True,
+                message=f"Scored {len(ranked_strategies)} strategies (Avg: {summary['avg_composite_score']:.2f})",
+                execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+                data={
+                    "input_count": len(run.regime_adapted_strategies),
+                    "avg_composite_score": summary["avg_composite_score"],
+                    "min_composite_score": summary["min_composite_score"],
+                    "max_composite_score": summary["max_composite_score"],
+                    "grade_distribution": summary["grade_distribution"],
+                    "top_score": summary["top_score"],
+                    "top_grade": summary["top_grade"],
+                }
+            ))
+            
+        except Exception as e:
+            # Fallback: Add basic scoring
+            logger.warning(f"    ⚠ Composite scoring failed, using fallback: {str(e)}")
+            
+            for idx, strategy in enumerate(run.regime_adapted_strategies):
+                strategy["composite_score"] = 50.0
+                strategy["composite_grade"] = "C"
+                strategy["ranking_position"] = idx + 1
+            
+            run.stage_results.append(StageResult(
+                stage=PipelineStage.PORTFOLIO_SELECTION,
+                success=True,
+                message="Fallback scoring applied",
+                warnings=[str(e)],
+                execution_time_seconds=(datetime.now() - stage_start).total_seconds(),
+            ))
+    
     async def _stage_portfolio_selection(self, run: PipelineRun):
         """Stage 7: Select best strategies for portfolio"""
         run.current_stage = PipelineStage.PORTFOLIO_SELECTION
@@ -681,11 +751,11 @@ class MasterPipelineController:
                 logger.info(f"       {i}. {strat.get('name', 'Unknown')} - Fitness: {strat.get('fitness', 0):.2f}")
             
         except Exception as e:
-            # Fallback: select top N by fitness
+            # Fallback: select top N by composite_score (or fitness if not available)
             logger.warning(f"    ⚠ Using fallback selection: {str(e)}")
             sorted_strats = sorted(
                 run.regime_adapted_strategies,
-                key=lambda s: s.get("fitness", 0),
+                key=lambda s: s.get("composite_score", s.get("fitness", 0)),
                 reverse=True
             )
             run.selected_portfolio = sorted_strats[:run.config.portfolio_size]
