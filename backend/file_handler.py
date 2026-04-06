@@ -20,7 +20,9 @@ ALLOWED_IMAGE_FILES = {'.png', '.jpg', '.jpeg', '.webp', '.gif'}
 
 ALL_ALLOWED_FILES = ALLOWED_CODE_FILES | ALLOWED_DOC_FILES | ALLOWED_DATA_FILES | ALLOWED_IMAGE_FILES
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+# Increased file size limits for large datasets
+MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB (was 10MB)
+MAX_DATA_FILE_SIZE = 2 * 1024 * 1024 * 1024  # 2GB for data files specifically
 
 
 class FileUploadHandler:
@@ -37,8 +39,11 @@ class FileUploadHandler:
         if file_ext not in ALL_ALLOWED_FILES:
             return False, f"File type {file_ext} not allowed. Allowed: {', '.join(ALL_ALLOWED_FILES)}"
         
-        if file_size > MAX_FILE_SIZE:
-            return False, f"File size {file_size} exceeds maximum {MAX_FILE_SIZE} bytes"
+        # Use larger limit for data files
+        max_size = MAX_DATA_FILE_SIZE if file_ext in ALLOWED_DATA_FILES else MAX_FILE_SIZE
+        
+        if file_size > max_size:
+            return False, f"File size {file_size / (1024*1024):.1f}MB exceeds maximum {max_size / (1024*1024):.0f}MB"
         
         return True, ""
     

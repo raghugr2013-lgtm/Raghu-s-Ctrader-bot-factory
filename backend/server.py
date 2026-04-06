@@ -3131,6 +3131,50 @@ async def download_export(run_id: str):
 
 
 # ============================================================================
+# LARGE FILE UPLOAD API - Chunked upload for market data
+# ============================================================================
+
+@api_router.post("/data/upload/chunked")
+async def upload_market_data_chunked(
+    file: UploadFile = File(...),
+    symbol: str = Form(...),
+    timeframe: str = Form(...),
+    year: Optional[int] = Form(None)
+):
+    """
+    Upload large market data CSV files with chunked processing.
+    Supports multi-year 1m/5m data up to 2GB.
+    
+    Args:
+        file: CSV file upload
+        symbol: Trading symbol (e.g., EURUSD)
+        timeframe: Timeframe (e.g., 1m, 5m, 1h)
+        year: Optional year for file organization
+        
+    Returns:
+        Upload result with file info and validation
+    """
+    from large_file_handler import DataUploadManager
+    
+    try:
+        manager = DataUploadManager()
+        result = await manager.upload_market_data(file, symbol, timeframe, year)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "message": f"Uploaded {result['size_mb']}MB successfully",
+                "data": result
+            }
+        else:
+            raise HTTPException(status_code=400, detail=result.get("error", "Upload failed"))
+            
+    except Exception as e:
+        logging.error(f"Chunked upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+# ============================================================================
 # Include Routers
 # ============================================================================
 
