@@ -27,13 +27,13 @@ controller = MasterPipelineController()
 class MasterPipelineRequest(BaseModel):
     """Request to run master pipeline"""
     # Generation config
-    generation_mode: str = "factory"
+    generation_mode: str = "factory"  # "ai", "factory", "both"
     templates: List[str] = ["EMA_CROSSOVER", "RSI_MEAN_REVERSION", "MACD_TREND"]
     strategies_per_template: int = 10
     
     # Market config
     symbol: str = "EURUSD"
-    timeframe: str = "1h"
+    timeframe: str = "1h"  # Supported: 1m, 5m, 15m, 30m, 1h, 4h, 1d
     initial_balance: float = 10000.0
     duration_days: int = 365
     

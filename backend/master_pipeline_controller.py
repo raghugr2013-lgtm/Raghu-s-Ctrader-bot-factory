@@ -320,48 +320,22 @@ class MasterPipelineController:
                 logger.info(f"    ✓ AI generated {len(ai_strategies)} strategies")
             
             if run.config.generation_mode in ["factory", "both"]:
-                # Use Factory Engine for template-based generation
-                logger.info("    🏭 Using Factory Engine (Template-based)")
-                from factory_engine import FactoryRunner, STRATEGY_TEMPLATES
-                from factory_models import FactoryRun, FactoryStatus, TemplateId
+                # Use REAL Strategy Generator (Production-Ready)
+                logger.info("    🎯 Using Real Strategy Generator (Production-Ready)")
+                from real_strategy_generator import RealStrategyGenerator
                 
-                factory_run = FactoryRun(
-                    run_id=str(uuid.uuid4()),
-                    session_id=run.run_id,
-                    templates_used=[t for t in run.config.templates],
-                    strategies_per_template=run.config.strategies_per_template,
+                real_generator = RealStrategyGenerator()
+                real_strategies = real_generator.generate_strategies(
+                    count=target_count,
                     symbol=run.config.symbol,
                     timeframe=run.config.timeframe,
-                    initial_balance=run.config.initial_balance,
-                    duration_days=run.config.duration_days,
-                    challenge_firm="FTMO",
-                    status=FactoryStatus.PENDING,
+                    mode="diversified"
                 )
                 
-                runner = FactoryRunner()
-                result = runner.run(factory_run, candles=None)
-                
-                # Convert to pipeline format
-                factory_count = 0
-                for strat in result.strategies:
-                    run.generated_strategies.append({
-                        "id": str(uuid.uuid4()),
-                        "name": f"{strat.template_id}_{len(run.generated_strategies)}",
-                        "template_id": strat.template_id,
-                        "genes": strat.genes,
-                        "fitness": strat.fitness,
-                        "sharpe_ratio": strat.sharpe_ratio,
-                        "max_drawdown_pct": strat.max_drawdown_pct,
-                        "profit_factor": strat.profit_factor,
-                        "win_rate": strat.win_rate,
-                        "net_profit": strat.net_profit,
-                        "total_trades": strat.total_trades,
-                        "evaluated": strat.evaluated,
-                        "source": "factory"
-                    })
-                    factory_count += 1
-                
-                logger.info(f"    ✓ Factory generated {factory_count} strategies")
+                run.generated_strategies.extend(real_strategies)
+                logger.info(f"    ✓ Real generator: {len(real_strategies)} strategies")
+                logger.info(f"    📊 Timeframe: {run.config.timeframe}")
+                logger.info(f"    💹 Symbol: {run.config.symbol}")
             
             # Verify we have enough strategies
             if len(run.generated_strategies) < 10:
