@@ -2977,6 +2977,163 @@ app.include_router(portfolio_router)
 init_challenge_router(db)
 app.include_router(challenge_router)
 
+# ============================================================================
+# EXPORT API - Download validated strategies
+# ============================================================================
+
+@api_router.get("/export/top-strategies/{run_id}")
+async def export_top_strategies(
+    run_id: str,
+    top_n: int = 5
+):
+    """
+    Export top N validated strategies from a pipeline run.
+    Returns a ZIP file containing cTrader bots, reports, and summaries.
+    
+    Args:
+        run_id: Pipeline run ID
+        top_n: Number of top strategies to export (default: 5)
+        
+    Returns:
+        ZIP file download
+    """
+    from fastapi.responses import FileResponse
+    from export_system import StrategyExporter
+    from codex_master_pipeline_controller import MasterPipelineController
+    
+    try:
+        # Get pipeline run from database (you'll need to implement this)
+        # For now, we'll try to access the controller's last run or stored data
+        
+        # This is a placeholder - in production, you'd fetch from MongoDB
+        # For now, return error prompting to use pipeline run endpoint
+        
+        # Simplified approach: Look for export files if they already exist
+        exporter = StrategyExporter()
+        zip_path = os.path.join(exporter.export_base_dir, f"ctrader_bots_{run_id}.zip")
+        
+        if os.path.exists(zip_path):
+            return FileResponse(
+                path=zip_path,
+                media_type="application/zip",
+                filename=f"ctrader_bots_{run_id}.zip",
+                headers={
+                    "Content-Disposition": f"attachment; filename=ctrader_bots_{run_id}.zip"
+                }
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Export not found for run_id: {run_id}. Run the pipeline first or the export may have expired."
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+
+@api_router.post("/export/create/{run_id}")
+async def create_export_from_strategies(
+    run_id: str,
+    strategies: List[Dict[str, Any]],
+    top_n: int = 5,
+    pipeline_config: Optional[Dict[str, Any]] = None
+):
+    """
+    Create an export package from a list of strategies.
+    
+    Args:
+        run_id: Unique run identifier
+        strategies: List of strategy dicts (should be sorted by composite_score)
+        top_n: Number of top strategies to export
+        pipeline_config: Optional pipeline configuration
+        
+    Returns:
+        Export info with download link
+    """
+    from export_system import export_pipeline_strategies
+    
+    try:
+        # Create export
+        export_info = export_pipeline_strategies(
+            run_id=run_id,
+            strategies=strategies,
+            top_n=top_n,
+            pipeline_config=pipeline_config
+        )
+        
+        if not export_info.get("success"):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Export failed: {export_info.get('error', 'Unknown error')}"
+            )
+        
+        # Return info with download link
+        return {
+            "success": True,
+            "run_id": run_id,
+            "strategies_exported": export_info["strategies_exported"],
+            "zip_filename": export_info["zip_filename"],
+            "zip_size_mb": export_info["zip_size_mb"],
+            "download_url": f"/api/export/download/{run_id}",
+            "missing_bots": export_info.get("missing_bots", []),
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Export creation failed: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Export creation failed: {str(e)}")
+
+
+@api_router.get("/export/download/{run_id}")
+async def download_export(run_id: str):
+    """
+    Download the exported strategies ZIP file.
+    
+    Args:
+        run_id: Pipeline run ID
+        
+    Returns:
+        ZIP file download
+    """
+    from fastapi.responses import FileResponse
+    from export_system import StrategyExporter
+    
+    try:
+        exporter = StrategyExporter()
+        zip_path = os.path.join(exporter.export_base_dir, f"ctrader_bots_{run_id}.zip")
+        
+        if not os.path.exists(zip_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Export file not found for run_id: {run_id}"
+            )
+        
+        return FileResponse(
+            path=zip_path,
+            media_type="application/zip",
+            filename=f"ctrader_bots_{run_id}.zip",
+            headers={
+                "Content-Disposition": f"attachment; filename=ctrader_bots_{run_id}.zip"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Download failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+# ============================================================================
+# Include Routers
+# ============================================================================
+
 # Include regime router
 init_regime_router(db)
 app.include_router(regime_router)
