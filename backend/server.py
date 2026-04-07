@@ -1456,11 +1456,21 @@ NO explanations, ONLY the JSON array."""
                 # Log metrics for debugging
                 logging.info(f"Strategy {idx}: PF={profit_factor}, WR={win_rate}, DD={max_drawdown}, Trades={total_trades}, Profit={net_profit}")
                 
-                # Reasonable production filters
+                # STRICT QUALITY FILTERS - Anti-overfitting
+                # Detect overfitting patterns
+                is_overfitted = (
+                    (win_rate > 90 and total_trades < 50) or  # Unrealistic win rate with few trades
+                    (max_drawdown == 0) or                     # Perfect equity curve = overfitting
+                    (sharpe_ratio > 5 and total_trades < 100)  # Exceptional Sharpe with limited data
+                )
+                
+                # Production-grade quality filters
                 passed_filters = (
-                    profit_factor >= 0.8 and      # Slightly profitable
-                    max_drawdown <= 40 and        # Not too risky
-                    total_trades >= 3             # Minimum trade activity
+                    profit_factor >= 1.3 and      # Strong profitability (was 0.8)
+                    max_drawdown <= 20 and        # Conservative risk (was 40)
+                    total_trades >= 50 and        # Statistical significance (was 3)
+                    sharpe_ratio >= 1.5 and       # Risk-adjusted returns (new)
+                    not is_overfitted             # No overfitting patterns
                 )
                 
                 # Step 4: Calculate composite score

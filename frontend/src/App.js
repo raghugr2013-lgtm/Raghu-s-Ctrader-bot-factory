@@ -14,6 +14,7 @@ import DiscoveryPage from "@/pages/DiscoveryPage";
 import StrategyLibraryPage from "@/pages/StrategyLibraryPage";
 import MarketDataPage from "@/pages/MarketDataPage";
 import PipelinePage from "@/pages/PipelinePage";
+import StrategyResultsPage from "@/pages/StrategyResultsPage";
 
 function PortfolioPageWrapper() {
   const navigate = useNavigate();
@@ -42,6 +43,7 @@ function App() {
           <Route path="/library" element={<StrategyLibraryPage />} />
           <Route path="/market-data" element={<MarketDataPage />} />
           <Route path="/pipeline" element={<PipelinePage />} />
+          <Route path="/strategy-results" element={<StrategyResultsPage />} />
         </Routes>
       </BrowserRouter>
     </div>
