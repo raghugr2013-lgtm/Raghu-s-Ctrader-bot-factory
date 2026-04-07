@@ -768,8 +768,8 @@ export default function MarketDataPage() {
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-blue-300">
-                        <p className="font-bold text-blue-400 mb-1">1-Minute Storage</p>
-                        <p className="text-[11px]">Data is stored as 1-minute candles. All higher timeframes are derived automatically.</p>
+                        <p className="font-bold text-blue-400 mb-1">1-Minute OHLC Data Only</p>
+                        <p className="text-[11px] leading-relaxed">Upload <span className="font-bold">only 1-minute OHLC CSV data</span> OR use Dukascopy downloader. Higher timeframe CSVs will be rejected. All higher timeframes are derived automatically.</p>
                       </div>
                     </div>
                   </Card>
@@ -1072,7 +1072,7 @@ export default function MarketDataPage() {
 
                         {/* Single 1m Timeframe Card */}
                         <div className="bg-[#18181B] border border-white/10 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center justify-between mb-4">
                             <span className="font-mono font-bold text-white">1m (Source Data)</span>
                             <Badge variant="outline" className={getStatusColor(oneMinuteData.status)}>
                               {getStatusIcon(oneMinuteData.status)}
@@ -1080,14 +1080,59 @@ export default function MarketDataPage() {
                             </Badge>
                           </div>
 
-                          {/* Coverage Bar */}
-                          <div className="mb-3">
-                            <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                              <span>Coverage</span>
-                              <span className={`font-mono ${oneMinuteData.coverage_percent < 95 ? 'text-yellow-400' : 'text-emerald-400'}`}>
-                                {oneMinuteData.coverage_percent}%
-                              </span>
+                          {/* KEY METRICS GRID - Operator Validation */}
+                          <div className="grid grid-cols-2 gap-3 mb-4 p-3 bg-zinc-900/50 rounded-lg border border-white/5">
+                            <div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Start Date</p>
+                              <p className="text-sm font-mono text-emerald-400 font-bold">
+                                {oneMinuteData.first_date ? new Date(oneMinuteData.first_date).toLocaleDateString() : 'N/A'}
+                              </p>
                             </div>
+                            <div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">End Date</p>
+                              <p className="text-sm font-mono text-emerald-400 font-bold">
+                                {oneMinuteData.last_date ? new Date(oneMinuteData.last_date).toLocaleDateString() : 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Expected Candles</p>
+                              <p className="text-sm font-mono text-white font-bold">
+                                {oneMinuteData.expected_candles?.toLocaleString() || '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Actual Candles</p>
+                              <p className="text-sm font-mono text-white font-bold">
+                                {oneMinuteData.total_candles?.toLocaleString()}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Missing Candles</p>
+                              <p className={`text-sm font-mono font-bold ${
+                                oneMinuteData.expected_candles && oneMinuteData.total_candles
+                                  ? (oneMinuteData.expected_candles - oneMinuteData.total_candles) > 0
+                                    ? 'text-yellow-400'
+                                    : 'text-emerald-400'
+                                  : 'text-zinc-500'
+                              }`}>
+                                {oneMinuteData.expected_candles && oneMinuteData.total_candles
+                                  ? (oneMinuteData.expected_candles - oneMinuteData.total_candles).toLocaleString()
+                                  : '-'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">Coverage %</p>
+                              <p className={`text-sm font-mono font-bold ${
+                                oneMinuteData.coverage_percent >= 99 ? 'text-emerald-400' :
+                                oneMinuteData.coverage_percent >= 95 ? 'text-yellow-400' : 'text-red-400'
+                              }`}>
+                                {oneMinuteData.coverage_percent}%
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Coverage Bar */}
+                          <div className="mb-4">
                             <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                               <div
                                 className={`h-full transition-all ${
@@ -1098,34 +1143,6 @@ export default function MarketDataPage() {
                               />
                             </div>
                           </div>
-
-                          {/* Stats */}
-                          <div className="space-y-2 text-xs mb-3">
-                            <div className="flex justify-between">
-                              <span className="text-zinc-500">Actual Candles:</span>
-                              <span className="text-white font-mono">{oneMinuteData.total_candles?.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-zinc-500">Expected:</span>
-                              <span className="text-zinc-400 font-mono">{oneMinuteData.expected_candles?.toLocaleString() || '-'}</span>
-                            </div>
-                            {oneMinuteData.gap_count > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-yellow-500">Gaps Found:</span>
-                                <span className="text-yellow-400 font-mono font-bold">{oneMinuteData.gap_count}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Date Range */}
-                          {oneMinuteData.first_date && oneMinuteData.last_date && (
-                            <div className="mb-3 p-2 bg-zinc-800/50 rounded">
-                              <p className="text-[10px] text-zinc-500 mb-1">Date Range:</p>
-                              <p className="text-xs font-mono text-zinc-300">
-                                {formatDateRange(oneMinuteData.first_date, oneMinuteData.last_date)}
-                              </p>
-                            </div>
-                          )}
 
                           {/* Missing Ranges - Always show if gaps exist */}
                           {oneMinuteData.missing_ranges && oneMinuteData.missing_ranges.length > 0 && (

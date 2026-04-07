@@ -81,6 +81,21 @@ export default function PipelinePage() {
     setProgress(null);
 
     try {
+      // CRITICAL: Validate data duration (minimum 2 years)
+      toast.info('Validating data sufficiency...');
+      
+      const validationResponse = await axios.post(`${BACKEND_URL}/api/marketdata/validate-duration`, {
+        symbol: config.symbol
+      });
+      
+      if (!validationResponse.data.valid) {
+        toast.error(validationResponse.data.error, { duration: 8000 });
+        setIsRunning(false);
+        return; // Block execution
+      }
+      
+      toast.success(`✓ Data validation passed: ${validationResponse.data.duration_years} years available`);
+      
       toast.info('Starting Pipeline...');
       
       const response = await axios.post(`${API}/master-run`, config);

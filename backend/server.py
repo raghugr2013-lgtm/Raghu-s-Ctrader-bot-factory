@@ -2871,6 +2871,76 @@ async def get_missing_data_ranges(symbol: str, timeframe: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.post("/marketdata/validate-duration")
+async def validate_data_duration(request: Dict[str, str]):
+    """
+    Validate that there is at least 2 years of 1m data for backtesting
+    Minimum requirement: 2 years of continuous 1-minute candle data
+    """
+    try:
+        symbol = request.get("symbol", "EURUSD")
+        
+        # Always check 1m data (source of truth)
+        timeframe = "1m"
+        
+        # Get 1m candle stats
+        cursor = db.market_candles.find(
+            {"symbol": symbol, "timeframe": timeframe},
+            {"_id": 0, "timestamp": 1}
+        ).sort("timestamp", 1)
+        
+        candles = await cursor.to_list(length=None)
+        
+        if not candles:
+            return {
+                "valid": False,
+                "error": f"No 1-minute data found for {symbol}. Please download or upload historical data first.",
+                "duration_years": 0,
+                "start_date": None,
+                "end_date": None,
+                "total_candles": 0
+            }
+        
+        # Calculate date range
+        start_date = candles[0]["timestamp"]
+        end_date = candles[-1]["timestamp"]
+        
+        # Calculate duration in years
+        duration_days = (end_date - start_date).days
+        duration_years = duration_days / 365.25
+        
+        total_candles = len(candles)
+        
+        # Minimum 2 years required
+        MIN_YEARS = 2.0
+        is_valid = duration_years >= MIN_YEARS
+        
+        if not is_valid:
+            return {
+                "valid": False,
+                "error": f"Insufficient data. Minimum {MIN_YEARS} years of 1-minute data required for reliable backtesting. Current: {duration_years:.1f} years.",
+                "duration_years": round(duration_years, 2),
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "total_candles": total_candles,
+                "required_years": MIN_YEARS
+            }
+        
+        return {
+            "valid": True,
+            "message": f"Sufficient data available: {duration_years:.1f} years",
+            "duration_years": round(duration_years, 2),
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "total_candles": total_candles,
+            "required_years": MIN_YEARS
+        }
+    
+    except Exception as e:
+        logger.error(f"Error validating data duration: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 # ===================== FULL VALIDATION PIPELINE =====================
 
