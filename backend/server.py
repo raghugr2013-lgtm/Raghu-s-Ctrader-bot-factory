@@ -73,6 +73,11 @@ from execution.telegram_alerts import router as alerts_router
 from dukascopy_router import router as dukascopy_router, init_dukascopy_router
 from pipeline_master_router import router as pipeline_master_router
 
+# Codex modules for portfolio-level optimization
+from codex_strategy_diversity_engine import DiversityEngine
+from codex_strategy_correlation_engine import CorrelationEngine
+from codex_portfolio_selection_engine import PortfolioSelectionEngine
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')

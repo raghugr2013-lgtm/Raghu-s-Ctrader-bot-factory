@@ -41,6 +41,9 @@ class GeneratedStrategy(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     template_id: TemplateId
     genes: Dict[str, float]
+    
+    # Optional name (generated from template)
+    name: str = ""
 
     # Evaluation metrics
     fitness: float = 0.0
@@ -76,6 +79,13 @@ class FactoryRun(BaseModel):
     # Results
     total_generated: int = 0
     total_evaluated: int = 0
+    
+    # Codex filtering metrics
+    total_after_diversity: int = 0
+    total_after_correlation: int = 0
+    portfolio_diversity_score: float = 0.0
+    correlation_method: str = ""
+    
     strategies: List[GeneratedStrategy] = []
     best_strategy: Optional[GeneratedStrategy] = None
 

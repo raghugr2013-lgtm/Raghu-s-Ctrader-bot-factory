@@ -51,10 +51,16 @@ def run_backtest_on_real_candles(
     
     logger.info(f"Using {len(filtered_candles)} candles from {start_date} to {end_date}")
     
-    # Create backtest config
+    # Create backtest config with proper timeframe handling
+    try:
+        config_timeframe = Timeframe(timeframe)
+    except (ValueError, KeyError):
+        logger.warning(f"Invalid timeframe '{timeframe}', defaulting to 1h")
+        config_timeframe = Timeframe.H1
+    
     config = BacktestConfig(
         symbol=symbol,
-        timeframe=Timeframe(timeframe) if timeframe in ["1h", "4h", "1d", "15m", "30m"] else Timeframe.H1,
+        timeframe=config_timeframe,
         start_date=start_date if isinstance(start_date, datetime) else datetime.now(timezone.utc) - timedelta(days=duration_days),
         end_date=end_date if isinstance(end_date, datetime) else datetime.now(timezone.utc),
         initial_balance=initial_balance,

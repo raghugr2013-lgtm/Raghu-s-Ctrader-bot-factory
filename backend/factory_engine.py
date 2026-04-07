@@ -199,9 +199,81 @@ class FactoryRunner:
 
                 all_strategies.extend(strategies)
 
+            # ============================================================
+            # CODEX PORTFOLIO OPTIMIZATION PIPELINE
+            # ============================================================
+            logger.info(f"[CODEX] Starting portfolio optimization on {len(all_strategies)} strategies")
+            
+            # Convert to dict format for codex engines
+            strategy_dicts = []
+            for strat in all_strategies:
+                strategy_dicts.append({
+                    "id": strat.id,
+                    "name": strat.name,
+                    "template_id": strat.template_id,
+                    "genes": strat.genes,
+                    "fitness": strat.fitness,
+                    "sharpe_ratio": strat.sharpe_ratio,
+                    "max_drawdown_pct": strat.max_drawdown_pct,
+                    "profit_factor": strat.profit_factor,
+                    "win_rate": strat.win_rate,
+                    "net_profit": strat.net_profit,
+                    "total_trades": strat.total_trades,
+                    "monte_carlo_score": strat.monte_carlo_score,
+                    "challenge_pass_pct": strat.challenge_pass_pct,
+                })
+            
+            # 1. Diversity Filter
+            from codex_strategy_diversity_engine import DiversityEngine
+            diversity_engine = DiversityEngine()
+            diversity_result = diversity_engine.analyze_and_filter(
+                strategies=strategy_dicts,
+                min_diversity_score=60.0
+            )
+            after_diversity = diversity_result["filtered_strategies"]
+            logger.info(f"[CODEX] After diversity filter: {len(after_diversity)}/{len(strategy_dicts)} strategies")
+            
+            # 2. Correlation Filter
+            from codex_strategy_correlation_engine import CorrelationEngine
+            correlation_engine = CorrelationEngine()
+            correlation_result = correlation_engine.filter_correlated(
+                strategies=after_diversity,
+                max_correlation=0.7
+            )
+            after_correlation = correlation_result["filtered_strategies"]
+            logger.info(f"[CODEX] After correlation filter: {len(after_correlation)}/{len(after_diversity)} strategies")
+            
+            # 3. Portfolio Selection
+            from codex_portfolio_selection_engine import PortfolioSelectionEngine
+            portfolio_engine = PortfolioSelectionEngine()
+            portfolio_result = portfolio_engine.select_best(
+                strategies=after_correlation,
+                portfolio_size=5
+            )
+            final_portfolio = portfolio_result["selected_strategies"]
+            logger.info(f"[CODEX] Final portfolio: {len(final_portfolio)} strategies selected")
+            
+            # Store codex metrics in factory_run
+            factory_run.total_after_diversity = len(after_diversity)
+            factory_run.total_after_correlation = len(after_correlation)
+            factory_run.portfolio_diversity_score = diversity_result.get("portfolio_diversity_score", 0)
+            factory_run.correlation_method = correlation_result.get("method", "unknown")
+            
+            # Map back final portfolio IDs to original strategy objects
+            final_ids = {s["id"] for s in final_portfolio}
+            all_strategies_filtered = [s for s in all_strategies if s.id in final_ids]
+            
+            # If codex filtering removed everything, fall back to top strategies
+            if not all_strategies_filtered:
+                logger.warning("[CODEX] All strategies filtered out, using top 5 by fitness")
+                all_strategies_filtered = all_strategies[:5]
+
             # Rank by fitness
             all_strategies.sort(key=lambda s: -s.fitness)
-            factory_run.strategies = all_strategies
+            all_strategies_filtered.sort(key=lambda s: -s.fitness)
+            
+            # Store filtered results as main strategies list
+            factory_run.strategies = all_strategies_filtered
             factory_run.best_strategy = all_strategies[0] if all_strategies else None
             factory_run.status = FactoryStatus.COMPLETED
 
