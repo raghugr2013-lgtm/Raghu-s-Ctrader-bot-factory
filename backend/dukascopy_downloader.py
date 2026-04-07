@@ -16,6 +16,62 @@ from tick_aggregator import TickAggregator
 logger = logging.getLogger(__name__)
 
 
+def map_timeframe_to_dukascopy(tf: str) -> str:
+    """
+    Convert internal timeframe format to Dukascopy format
+    
+    Internal format: 1m, 5m, 15m, 30m, 1h, 4h, 1d
+    Dukascopy format: M1, M5, M15, M30, H1, H4, D1
+    
+    Args:
+        tf: Internal timeframe string (e.g., "1m", "5m", "1h")
+    
+    Returns:
+        Dukascopy-compatible timeframe string (e.g., "M1", "M5", "H1")
+    """
+    mapping = {
+        "1m": "M1",
+        "5m": "M5",
+        "15m": "M15",
+        "30m": "M30",
+        "1h": "H1",
+        "4h": "H4",
+        "1d": "D1"
+    }
+    
+    # Also handle if already in Dukascopy format
+    if tf and tf.upper() in mapping.values():
+        return tf.upper()
+    
+    result = mapping.get(tf.lower() if tf else "", "H1")
+    logger.info(f"[TIMEFRAME MAPPING] UI format '{tf}' → Dukascopy format '{result}'")
+    return result
+
+
+def map_timeframe_from_dukascopy(tf: str) -> str:
+    """
+    Convert Dukascopy format back to internal format
+    
+    Args:
+        tf: Dukascopy timeframe (e.g., "M1", "H1")
+    
+    Returns:
+        Internal timeframe (e.g., "1m", "1h")
+    """
+    reverse_mapping = {
+        "M1": "1m",
+        "M5": "5m",
+        "M15": "15m",
+        "M30": "30m",
+        "H1": "1h",
+        "H4": "4h",
+        "D1": "1d"
+    }
+    
+    result = reverse_mapping.get(tf.upper() if tf else "", tf.lower() if tf else "1h")
+    return result
+
+
 class DukascopyDownloader:
     """Download and process data from Dukascopy"""
     
@@ -52,12 +108,16 @@ class DukascopyDownloader:
             symbol: Trading symbol
             start_date: Start datetime
             end_date: End datetime
-            timeframe: Candle timeframe (M1, M5, M15, H1)
+            timeframe: Candle timeframe (1m, 5m, 15m, 1h, etc. - will be converted to Dukascopy format)
             progress_callback: Optional callback for progress updates
         
         Returns:
             Dictionary with candles and statistics
         """
+        # Convert timeframe to Dukascopy format
+        dukascopy_timeframe = map_timeframe_to_dukascopy(timeframe)
+        logger.info(f"[DUKASCOPY] Using timeframe: UI '{timeframe}' → Dukascopy '{dukascopy_timeframe}'")
+        
         # Get Dukascopy symbol name
         duka_symbol = self.SYMBOL_MAP.get(symbol, symbol)
         
@@ -84,9 +144,9 @@ class DukascopyDownloader:
                     ticks = await self._download_hour(session, duka_symbol, hour_dt)
                     
                     if ticks:
-                        # Aggregate to candles
+                        # Aggregate to candles (use Dukascopy format)
                         candles = self.aggregator.aggregate_ticks_to_candles(
-                            ticks, hour_dt, timeframe
+                            ticks, hour_dt, dukascopy_timeframe
                         )
                         all_candles.extend(candles)
                         downloaded += 1

@@ -28,7 +28,7 @@ class DukascopyDownloadRequest(BaseModel):
     symbols: List[str] = Field(..., description="List of symbols to download")
     start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date (YYYY-MM-DD)")
-    timeframe: str = Field(..., description="Timeframe (M1, M5, M15, H1)")
+    timeframe: str = Field(..., description="Timeframe (1m, 5m, 15m, 30m, 1h, 4h, 1d or M1, M5, M15, M30, H1, H4, D1)")
 
 
 class DownloadTaskStatus(BaseModel):
@@ -84,9 +84,10 @@ async def download_task_worker(
                 )
                 
                 # Store in database
-                # Map timeframe to DataTimeframe format
-                tf_map = {'M1': '1m', 'M5': '5m', 'M15': '15m', 'H1': '1h', 'H4': '4h', 'D1': '1d'}
-                db_timeframe = tf_map.get(timeframe, '1h')
+                # Convert timeframe back to internal format if needed
+                from dukascopy_downloader import map_timeframe_from_dukascopy
+                db_timeframe = map_timeframe_from_dukascopy(timeframe)
+                logger.info(f"[DUKASCOPY] Storing with timeframe: '{timeframe}' → DB format '{db_timeframe}'")
                 
                 candle_objects = []
                 for candle_data in result['candles']:
@@ -149,9 +150,21 @@ async def start_download(
         start_date = datetime.fromisoformat(request.start_date)
         end_date = datetime.fromisoformat(request.end_date)
         
-        # Validate timeframe
-        if request.timeframe not in ['M1', 'M5', 'M15', 'H1']:
-            raise HTTPException(status_code=400, detail="Invalid timeframe. Use M1, M5, M15, or H1")
+        # Convert and validate timeframe
+        from dukascopy_downloader import map_timeframe_to_dukascopy
+        
+        # Convert to Dukascopy format
+        dukascopy_timeframe = map_timeframe_to_dukascopy(request.timeframe)
+        
+        # Validate supported timeframes
+        supported = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1']
+        if dukascopy_timeframe not in supported:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported timeframe '{request.timeframe}'. Supported: 1m, 5m, 15m, 30m, 1h, 4h, 1d"
+            )
+        
+        logger.info(f"[DUKASCOPY] API request timeframe: '{request.timeframe}' → Dukascopy: '{dukascopy_timeframe}'")
         
         # Create task
         task_id = str(uuid.uuid4())
@@ -163,7 +176,7 @@ async def start_download(
             'symbols': request.symbols,
             'start_date': request.start_date,
             'end_date': request.end_date,
-            'timeframe': request.timeframe,
+            'timeframe': dukascopy_timeframe,  # Use converted timeframe
             'results': None,
             'error': None
         }
@@ -181,7 +194,7 @@ async def start_download(
             request.symbols,
             start_date,
             end_date,
-            request.timeframe,
+            dukascopy_timeframe,  # Use converted timeframe
             market_data_service
         )
         
