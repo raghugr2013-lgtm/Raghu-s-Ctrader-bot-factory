@@ -281,7 +281,10 @@ export default function PipelinePage() {
 
             {/* Timeframe */}
             <div>
-              <label className="block text-sm text-zinc-400 mb-2">Timeframe</label>
+              <label className="block text-sm text-zinc-400 mb-2">
+                Timeframe
+                <span className="block text-xs text-zinc-600 font-normal mt-0.5">Strategy execution timeframe (aggregated from 1m base data)</span>
+              </label>
               <select
                 value={config.timeframe}
                 onChange={(e) => setConfig({...config, timeframe: e.target.value})}

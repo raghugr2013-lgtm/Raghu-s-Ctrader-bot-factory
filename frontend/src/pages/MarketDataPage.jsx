@@ -52,14 +52,12 @@ export default function MarketDataPage() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [symbol, setSymbol] = useState('EURUSD');
-  const [timeframe, setTimeframe] = useState('1h');
   const [csvFormat, setCsvFormat] = useState('custom');
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
   
   // Dukascopy Download States
   const [selectedSymbols, setSelectedSymbols] = useState(['XAUUSD', 'EURUSD']);
-  const [dukaTimeframe, setDukaTimeframe] = useState('H1');
   const [startDate, setStartDate] = useState('2024-01-08');
   const [endDate, setEndDate] = useState('2024-01-31');
   const [downloading, setDownloading] = useState(false);
@@ -82,7 +80,6 @@ export default function MarketDataPage() {
   
   // Export States
   const [exportSymbol, setExportSymbol] = useState('EURUSD');
-  const [exportTimeframe, setExportTimeframe] = useState('H1');
   const [exportStartDate, setExportStartDate] = useState('2024-01-01');
   const [exportEndDate, setExportEndDate] = useState('2024-01-31');
   const [exporting, setExporting] = useState(false);
@@ -245,7 +242,7 @@ export default function MarketDataPage() {
         symbols: selectedSymbols,
         start_date: startDate,
         end_date: endDate,
-        timeframe: dukaTimeframe
+        timeframe: '1m' // Hardcoded to 1m - backend will parse tick data to 1m candles
       });
 
       if (response.data.success) {
@@ -364,7 +361,7 @@ export default function MarketDataPage() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${exportSymbol}_${exportTimeframe}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `${exportSymbol}_1m_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -463,7 +460,7 @@ export default function MarketDataPage() {
       const fileContent = await selectedFile.text();
       const requestData = {
         symbol: symbol,
-        timeframe: timeframe,
+        timeframe: '1m', // Hardcoded to 1m as per architecture
         format_type: csvFormat,
         data: fileContent,
         skip_validation: false
@@ -656,19 +653,16 @@ export default function MarketDataPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">Timeframe</label>
-                    <Select value={dukaTimeframe} onValueChange={setDukaTimeframe}>
-                      <SelectTrigger className="bg-[#18181B] border-white/10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIMEFRAMES.map(tf => (
-                          <SelectItem key={tf.value} value={tf.value}>{tf.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* 1m Architecture Info Banner */}
+                  <Card className="bg-blue-950/20 border-blue-500/30 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-xs space-y-1 text-blue-300">
+                        <p className="font-bold text-blue-400">1-Minute Data Architecture</p>
+                        <p>Downloads 1-minute tick data from Dukascopy. All higher timeframes (5m, 15m, 1h, 4h, 1d) are calculated automatically during backtesting.</p>
+                      </div>
+                    </div>
+                  </Card>
 
                   <Button
                     onClick={startDukascopyDownload}
@@ -769,19 +763,16 @@ export default function MarketDataPage() {
                     </Select>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">Timeframe</label>
-                    <Select value={timeframe} onValueChange={setTimeframe}>
-                      <SelectTrigger className="bg-[#18181B] border-white/10">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIMEFRAMES.map(tf => (
-                          <SelectItem key={tf.value} value={tf.value}>{tf.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {/* 1m Architecture Info */}
+                  <Card className="bg-blue-950/20 border-blue-500/30 p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-xs text-blue-300">
+                        <p className="font-bold text-blue-400 mb-1">1-Minute Storage</p>
+                        <p className="text-[11px]">Data is stored as 1-minute candles. All higher timeframes are derived automatically.</p>
+                      </div>
+                    </div>
+                  </Card>
 
                   <div>
                     <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">CSV Format</label>
@@ -898,8 +889,11 @@ export default function MarketDataPage() {
                   Data Coverage Overview
                 </h2>
                 <div className="flex items-center gap-2">
-                  {/* Fix All Gaps Global Button */}
-                  {coverage?.symbols?.some(s => s.timeframes?.some(tf => tf.gap_count > 0)) && (
+                  {/* Fix All Gaps Global Button - Only for 1m gaps */}
+                  {coverage?.symbols?.some(s => {
+                    const oneMinData = s.timeframes?.find(tf => tf.timeframe === '1m');
+                    return oneMinData && oneMinData.gap_count > 0;
+                  }) && (
                     <Button 
                       onClick={fixAllGapsGlobal} 
                       disabled={fixingGaps}
@@ -1044,164 +1038,163 @@ export default function MarketDataPage() {
                 </Card>
               ) : coverage && coverage.symbols && coverage.symbols.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
-                  {coverage.symbols.map((symbolData, idx) => (
-                    <Card key={idx} className="bg-[#0F0F10] border-white/10 p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <TrendingUp className="w-5 h-5 text-emerald-400" />
-                          <h3 className="text-lg font-bold font-mono">{symbolData.symbol}</h3>
-                          <Badge variant="outline" className="text-xs">
-                            {symbolData.timeframes?.length || 0} Timeframes
-                          </Badge>
-                        </div>
-                        {/* Fix All Gaps for this Symbol */}
-                        {symbolData.timeframes?.some(tf => tf.gap_count > 0) && (
-                          <Button
-                            onClick={() => {
-                              symbolData.timeframes?.forEach(tf => {
-                                if (tf.gap_count > 0) {
-                                  fixAllGapsForSymbol(symbolData.symbol, tf.timeframe);
-                                }
-                              });
-                            }}
-                            disabled={fixingGaps}
-                            size="sm"
-                            className="bg-yellow-600/80 hover:bg-yellow-600 text-black text-xs"
-                            data-testid={`fix-all-${symbolData.symbol}`}
-                          >
-                            <Zap className="w-3 h-3 mr-1" />
-                            Fix All ({symbolData.timeframes?.reduce((sum, tf) => sum + (tf.gap_count || 0), 0)} gaps)
-                          </Button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {symbolData.timeframes?.map((tf, tfIdx) => (
-                          <div key={tfIdx} className="bg-[#18181B] border border-white/10 rounded-lg p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="font-mono font-bold text-white">{tf.timeframe}</span>
-                              <Badge variant="outline" className={getStatusColor(tf.status)}>
-                                {getStatusIcon(tf.status)}
-                                <span className="ml-1 capitalize">{tf.status}</span>
-                              </Badge>
-                            </div>
-
-                            {/* Coverage Bar */}
-                            <div className="mb-3">
-                              <div className="flex justify-between text-xs text-zinc-500 mb-1">
-                                <span>Coverage</span>
-                                <span className={`font-mono ${tf.coverage_percent < 95 ? 'text-yellow-400' : 'text-emerald-400'}`}>
-                                  {tf.coverage_percent}%
-                                </span>
-                              </div>
-                              <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full transition-all ${
-                                    tf.coverage_percent >= 99 ? 'bg-emerald-500' :
-                                    tf.coverage_percent >= 90 ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${Math.min(tf.coverage_percent, 100)}%` }}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Stats */}
-                            <div className="space-y-2 text-xs mb-3">
-                              <div className="flex justify-between">
-                                <span className="text-zinc-500">Actual Candles:</span>
-                                <span className="text-white font-mono">{tf.total_candles?.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-zinc-500">Expected:</span>
-                                <span className="text-zinc-400 font-mono">{tf.expected_candles?.toLocaleString() || '-'}</span>
-                              </div>
-                              {tf.gap_count > 0 && (
-                                <div className="flex justify-between">
-                                  <span className="text-yellow-500">Gaps Found:</span>
-                                  <span className="text-yellow-400 font-mono font-bold">{tf.gap_count}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Date Range */}
-                            {tf.first_date && tf.last_date && (
-                              <div className="mb-3 p-2 bg-zinc-800/50 rounded">
-                                <p className="text-[10px] text-zinc-500 mb-1">Date Range:</p>
-                                <p className="text-xs font-mono text-zinc-300">
-                                  {formatDateRange(tf.first_date, tf.last_date)}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Missing Ranges - Always show if gaps exist */}
-                            {tf.missing_ranges && tf.missing_ranges.length > 0 && (
-                              <div className="mb-3 border border-yellow-500/30 rounded-lg p-3 bg-yellow-500/5">
-                                <p className="text-xs text-yellow-500 mb-2 flex items-center gap-1 font-bold">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  {tf.missing_ranges.length} Gap{tf.missing_ranges.length > 1 ? 's' : ''} Detected
-                                </p>
-                                <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
-                                  {tf.missing_ranges.slice(0, 5).map((gap, i) => (
-                                    <div key={i} className="text-[10px] bg-zinc-900/50 px-2 py-1 rounded font-mono text-yellow-400/80">
-                                      <span>{formatDateRange(gap.start, gap.end)}</span>
-                                      {gap.gap_hours && (
-                                        <span className="ml-2 text-zinc-500">({gap.gap_hours}h / {gap.missing_candles} candles)</span>
-                                      )}
-                                    </div>
-                                  ))}
-                                  {tf.missing_ranges.length > 5 && (
-                                    <p className="text-[10px] text-zinc-500">+{tf.missing_ranges.length - 5} more gaps...</p>
-                                  )}
-                                </div>
-                                <Button
-                                  onClick={() => retryMissingData(symbolData.symbol, tf.timeframe, tf.missing_ranges)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="w-full text-xs border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-                                  data-testid={`retry-missing-${symbolData.symbol}-${tf.timeframe}`}
-                                >
-                                  <RefreshCw className="w-3 h-3 mr-1" />
-                                  Retry Missing Data ({tf.missing_ranges.length} gaps)
-                                </Button>
-                              </div>
-                            )}
-
-                            {/* Show complete status if no gaps */}
-                            {(!tf.missing_ranges || tf.missing_ranges.length === 0) && tf.coverage_percent >= 99 && (
-                              <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded text-center">
-                                <p className="text-xs text-emerald-400 flex items-center justify-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  No gaps detected - Data complete
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Delete Dataset Button */}
-                            <Button
-                              onClick={() => confirmDeleteDataset(symbolData.symbol, tf.timeframe)}
-                              disabled={deletingDataset === `${symbolData.symbol}-${tf.timeframe}`}
-                              size="sm"
-                              variant="outline"
-                              className="w-full mt-3 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
-                              data-testid={`delete-dataset-${symbolData.symbol}-${tf.timeframe}`}
-                            >
-                              {deletingDataset === `${symbolData.symbol}-${tf.timeframe}` ? (
-                                <>
-                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                  Deleting...
-                                </>
-                              ) : (
-                                <>
-                                  <Trash2 className="w-3 h-3 mr-1" />
-                                  Delete Dataset
-                                </>
-                              )}
-                            </Button>
+                  {coverage.symbols.map((symbolData, idx) => {
+                    // Filter to show ONLY 1m timeframe data
+                    const oneMinuteData = symbolData.timeframes?.find(tf => tf.timeframe === '1m');
+                    
+                    // Skip if no 1m data exists for this symbol
+                    if (!oneMinuteData) return null;
+                    
+                    return (
+                      <Card key={idx} className="bg-[#0F0F10] border-white/10 p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <TrendingUp className="w-5 h-5 text-emerald-400" />
+                            <h3 className="text-lg font-bold font-mono">{symbolData.symbol}</h3>
+                            <Badge variant="outline" className="text-xs text-blue-400 border-blue-500/40">
+                              1m Base Data
+                            </Badge>
                           </div>
-                        ))}
-                      </div>
-                    </Card>
-                  ))}
+                          {/* Fix Gaps button for 1m only */}
+                          {oneMinuteData.gap_count > 0 && (
+                            <Button
+                              onClick={() => fixAllGapsForSymbol(symbolData.symbol, '1m')}
+                              disabled={fixingGaps}
+                              size="sm"
+                              className="bg-yellow-600/80 hover:bg-yellow-600 text-black text-xs"
+                              data-testid={`fix-all-${symbolData.symbol}`}
+                            >
+                              <Zap className="w-3 h-3 mr-1" />
+                              Fix {oneMinuteData.gap_count} Gap{oneMinuteData.gap_count !== 1 ? 's' : ''}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Single 1m Timeframe Card */}
+                        <div className="bg-[#18181B] border border-white/10 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="font-mono font-bold text-white">1m (Source Data)</span>
+                            <Badge variant="outline" className={getStatusColor(oneMinuteData.status)}>
+                              {getStatusIcon(oneMinuteData.status)}
+                              <span className="ml-1 capitalize">{oneMinuteData.status}</span>
+                            </Badge>
+                          </div>
+
+                          {/* Coverage Bar */}
+                          <div className="mb-3">
+                            <div className="flex justify-between text-xs text-zinc-500 mb-1">
+                              <span>Coverage</span>
+                              <span className={`font-mono ${oneMinuteData.coverage_percent < 95 ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                                {oneMinuteData.coverage_percent}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all ${
+                                  oneMinuteData.coverage_percent >= 99 ? 'bg-emerald-500' :
+                                  oneMinuteData.coverage_percent >= 90 ? 'bg-yellow-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(oneMinuteData.coverage_percent, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="space-y-2 text-xs mb-3">
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Actual Candles:</span>
+                              <span className="text-white font-mono">{oneMinuteData.total_candles?.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">Expected:</span>
+                              <span className="text-zinc-400 font-mono">{oneMinuteData.expected_candles?.toLocaleString() || '-'}</span>
+                            </div>
+                            {oneMinuteData.gap_count > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-yellow-500">Gaps Found:</span>
+                                <span className="text-yellow-400 font-mono font-bold">{oneMinuteData.gap_count}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Date Range */}
+                          {oneMinuteData.first_date && oneMinuteData.last_date && (
+                            <div className="mb-3 p-2 bg-zinc-800/50 rounded">
+                              <p className="text-[10px] text-zinc-500 mb-1">Date Range:</p>
+                              <p className="text-xs font-mono text-zinc-300">
+                                {formatDateRange(oneMinuteData.first_date, oneMinuteData.last_date)}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Missing Ranges - Always show if gaps exist */}
+                          {oneMinuteData.missing_ranges && oneMinuteData.missing_ranges.length > 0 && (
+                            <div className="mb-3 border border-yellow-500/30 rounded-lg p-3 bg-yellow-500/5">
+                              <p className="text-xs text-yellow-500 mb-2 flex items-center gap-1 font-bold">
+                                <AlertTriangle className="w-3 h-3" />
+                                {oneMinuteData.missing_ranges.length} Gap{oneMinuteData.missing_ranges.length > 1 ? 's' : ''} Detected
+                              </p>
+                              <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
+                                {oneMinuteData.missing_ranges.slice(0, 5).map((gap, i) => (
+                                  <div key={i} className="text-[10px] bg-zinc-900/50 px-2 py-1 rounded font-mono text-yellow-400/80">
+                                    <span>{formatDateRange(gap.start, gap.end)}</span>
+                                    {gap.gap_hours && (
+                                      <span className="ml-2 text-zinc-500">({gap.gap_hours}h / {gap.missing_candles} candles)</span>
+                                    )}
+                                  </div>
+                                ))}
+                                {oneMinuteData.missing_ranges.length > 5 && (
+                                  <p className="text-[10px] text-zinc-500">+{oneMinuteData.missing_ranges.length - 5} more gaps...</p>
+                                )}
+                              </div>
+                              <Button
+                                onClick={() => retryMissingData(symbolData.symbol, '1m', oneMinuteData.missing_ranges)}
+                                size="sm"
+                                variant="outline"
+                                className="w-full text-xs border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                                data-testid={`retry-missing-${symbolData.symbol}-1m`}
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                                Retry Missing Data ({oneMinuteData.missing_ranges.length} gaps)
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Show complete status if no gaps */}
+                          {(!oneMinuteData.missing_ranges || oneMinuteData.missing_ranges.length === 0) && oneMinuteData.coverage_percent >= 99 && (
+                            <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded text-center">
+                              <p className="text-xs text-emerald-400 flex items-center justify-center gap-1">
+                                <CheckCircle2 className="w-3 h-3" />
+                                No gaps detected - Data complete
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Delete Dataset Button */}
+                          <Button
+                            onClick={() => confirmDeleteDataset(symbolData.symbol, '1m')}
+                            disabled={deletingDataset === `${symbolData.symbol}-1m`}
+                            size="sm"
+                            variant="outline"
+                            className="w-full mt-3 text-xs border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
+                            data-testid={`delete-dataset-${symbolData.symbol}-1m`}
+                          >
+                            {deletingDataset === `${symbolData.symbol}-1m` ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete 1m Dataset
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : (
                 <Card className="bg-[#0F0F10] border-white/10 p-12">
@@ -1240,16 +1233,10 @@ export default function MarketDataPage() {
 
                 <div>
                   <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">Timeframe</label>
-                  <Select value={exportTimeframe} onValueChange={setExportTimeframe}>
-                    <SelectTrigger className="bg-[#18181B] border-white/10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIMEFRAMES.map(tf => (
-                        <SelectItem key={tf.value} value={tf.value}>{tf.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="bg-[#18181B] border border-white/10 rounded-md px-3 py-2 text-sm">
+                    <span className="text-white font-mono">1m (1 Minute)</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1">Export base 1m data. Higher timeframes can be aggregated in your analysis tool.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
