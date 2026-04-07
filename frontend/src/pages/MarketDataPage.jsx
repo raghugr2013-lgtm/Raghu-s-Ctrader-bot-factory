@@ -432,8 +432,12 @@ export default function MarketDataPage() {
   }, []);
 
   const handleFileSelect = (file) => {
-    if (!file.name.endsWith('.csv')) {
-      toast.error('Please select a CSV file');
+    const fileName = file.name.toLowerCase();
+    const validExtensions = ['.csv', '.bi5', '.zip'];
+    const isValid = validExtensions.some(ext => fileName.endsWith(ext));
+    
+    if (!isValid) {
+      toast.error('Please select a valid file (.bi5, .zip, or .csv)');
       return;
     }
     setSelectedFile(file);
