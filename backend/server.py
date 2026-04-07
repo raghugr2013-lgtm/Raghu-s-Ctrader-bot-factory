@@ -2404,48 +2404,59 @@ class GapFixRequest(BaseModel):
 @api_router.post("/marketdata/fix-gaps")
 async def fix_gaps(
     symbol: str,
-    timeframe: str,
+    timeframe: str = "1m",  # IGNORED - always uses 1m
     fix_all: bool = False,
     body: Optional[GapFixRequest] = None
 ):
     """
-    Start fixing gaps in market data.
-    If fix_all=True, fetches all gaps and fixes them.
-    Gaps are processed largest first.
+    Fix gaps in 1-MINUTE data by re-downloading from Dukascopy.
+    
+    CRITICAL: 1m Architecture
+    - Fixes ONLY 1m gaps
+    - Re-downloads from Dukascopy
+    - NO synthetic data
+    - Higher TF gaps auto-fixed when 1m fixed
     """
     import uuid
+    
+    # FORCE 1m ARCHITECTURE
+    if timeframe != "1m":
+        logger.info(f"[1M ARCHITECTURE] Requested '{timeframe}' → forcing 1m gap fix")
+    timeframe = "1m"
     
     try:
         task_id = str(uuid.uuid4())
         
-        # Get gaps from body or fetch all
+        # Get gaps - always from 1m data
         gaps = body.gaps if body and body.gaps else None
         
-        # If fix_all, get all gaps for this symbol/timeframe
         if fix_all or not gaps:
-            coverage_info = await detect_gaps_and_coverage(symbol, timeframe)
+            coverage_info = await detect_gaps_and_coverage(symbol, "1m")  # Force 1m
             gaps = coverage_info.get("missing_ranges", [])
         
         if not gaps:
             return {
                 "success": True,
-                "message": "No gaps to fix",
-                "task_id": None
+                "message": "No 1m gaps to fix",
+                "task_id": None,
+                "note": "1m source; higher TFs derived on-demand"
             }
         
         # Create task
-        task = GapFixTask(task_id, symbol, timeframe, gaps)
+        task = GapFixTask(task_id, symbol, "1m", gaps)  # Force 1m
         gap_fix_tasks[task_id] = task
         
         # Start background task
         asyncio.create_task(process_gap_fixes(task_id))
         
+        logger.info(f"[1M ARCHITECTURE] Fixing {len(gaps)} 1m gaps for {symbol}")
+        
         return {
             "success": True,
             "task_id": task_id,
             "total_gaps": len(gaps),
-            "message": f"Started fixing {len(gaps)} gaps for {symbol} {timeframe}",
-            "priority_order": "largest_first"
+            "message": f"Started fixing {len(gaps)} 1m gaps for {symbol}",
+            "note": "Higher timeframes auto-corrected from 1m source"
         }
     
     except Exception as e:

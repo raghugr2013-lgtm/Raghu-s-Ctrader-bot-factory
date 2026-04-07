@@ -270,6 +270,103 @@ class MarketDataService:
             logger.error(f"Failed to delete candles: {str(e)}")
             return 0
     
+
+    async def detect_gaps_and_coverage(
+        self,
+        symbol: str,
+        timeframe: str = "1m"  # FORCE 1m - parameter for backward compatibility
+    ) -> Dict:
+        """
+        Detect gaps and calculate coverage for 1-MINUTE data ONLY.
+        
+        CRITICAL: 1m Architecture Enforcement
+        - Gaps detected ONLY at 1m level
+        - Higher timeframes gaps are NEVER detected (derived from 1m)
+        
+        Args:
+            symbol: Trading symbol
+            timeframe: IGNORED - always uses 1m
+            
+        Returns:
+            Gap and coverage information for 1m data
+        """
+        # FORCE 1m ARCHITECTURE
+        if timeframe != "1m":
+            logger.info(f"[1M ARCHITECTURE] Requested '{timeframe}' → forcing 1m gap detection")
+        
+        timeframe = "1m"  # FORCE 1m
+        
+        try:
+            # Get all 1m candles
+            candles = await self.collection.find(
+                {"symbol": symbol, "timeframe": "1m"},
+                {"_id": 0, "timestamp": 1}
+            ).sort("timestamp", 1).to_list(None)
+            
+            if not candles:
+                return {
+                    "symbol": symbol,
+                    "timeframe": "1m",
+                    "total_candles": 0,
+                    "expected_candles": 0,
+                    "coverage_percent": 0.0,
+                    "gaps": [],
+                    "note": "Higher timeframes derived from 1m"
+                }
+            
+            first_ts = candles[0]["timestamp"]
+            last_ts = candles[-1]["timestamp"]
+            
+            # Calculate expected 1m candles (skip weekends)
+            expected = 0
+            current = first_ts
+            interval = timedelta(minutes=1)
+            
+            while current <= last_ts:
+                if current.weekday() < 5:  # Monday-Friday
+                    expected += 1
+                current += interval
+            
+            # Detect gaps
+            gaps = []
+            for i in range(len(candles) - 1):
+                current_ts = candles[i]["timestamp"]
+                next_ts = candles[i + 1]["timestamp"]
+                expected_next = current_ts + interval
+                
+                if next_ts > expected_next + interval:
+                    missing = 0
+                    check_ts = expected_next
+                    while check_ts < next_ts:
+                        if check_ts.weekday() < 5:
+                            missing += 1
+                        check_ts += interval
+                    
+                    gaps.append({
+                        "start": current_ts.isoformat(),
+                        "end": next_ts.isoformat(),
+                        "missing_candles": missing
+                    })
+            
+            coverage = (len(candles) / expected * 100) if expected > 0 else 0
+            
+            logger.info(f"[1M ARCHITECTURE] {symbol}: {len(candles)}/{expected} ({coverage:.1f}%)")
+            
+            return {
+                "symbol": symbol,
+                "timeframe": "1m",
+                "total_candles": len(candles),
+                "expected_candles": expected,
+                "coverage_percent": round(coverage, 2),
+                "gaps": gaps[:20],
+                "total_gaps": len(gaps),
+                "note": "1m source; higher TFs derived on-demand"
+            }
+        
+        except Exception as e:
+            logger.error(f"Gap detection failed: {str(e)}")
+            return {"symbol": symbol, "timeframe": "1m", "error": str(e)}
+
     async def check_data_gaps(
         self,
         symbol: str,
