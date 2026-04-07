@@ -46,6 +46,7 @@ export default function PipelinePage() {
     ai_provider: 'openai',
     symbol: 'EURUSD',
     timeframe: '1h',
+    num_strategies: 100,  // Total number of strategies to generate (CRITICAL)
     strategies_per_template: 10,
     portfolio_size: 5,
     
@@ -370,6 +371,88 @@ export default function PipelinePage() {
                 placeholder="1.0"
               />
               <p className="text-xs text-zinc-600 mt-1">Risk per trade (1% = conservative)</p>
+            </div>
+
+            {/* Number of Strategies (CRITICAL) */}
+            <div className="bg-purple-950/20 border border-purple-500/30 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-4 h-4 text-purple-400" />
+                <label className="text-sm text-purple-400 font-bold uppercase tracking-wider">
+                  Number of Strategies
+                </label>
+              </div>
+              
+              {/* Preset Buttons */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <button
+                  onClick={() => setConfig({...config, num_strategies: 50})}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
+                    config.num_strategies === 50
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                  } border`}
+                >
+                  50
+                  <span className="block text-[9px] text-zinc-500">Quick</span>
+                </button>
+                <button
+                  onClick={() => setConfig({...config, num_strategies: 100})}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
+                    config.num_strategies === 100
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                  } border`}
+                >
+                  100
+                  <span className="block text-[9px] text-zinc-500">Standard</span>
+                </button>
+                <button
+                  onClick={() => setConfig({...config, num_strategies: 200})}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
+                    config.num_strategies === 200
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                  } border`}
+                >
+                  200
+                  <span className="block text-[9px] text-zinc-500">Recommended</span>
+                </button>
+                <button
+                  onClick={() => setConfig({...config, num_strategies: 500})}
+                  className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
+                    config.num_strategies === 500
+                      ? 'bg-purple-600 text-white border-purple-500'
+                      : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                  } border`}
+                >
+                  500
+                  <span className="block text-[9px] text-zinc-500">Deep</span>
+                </button>
+              </div>
+              
+              {/* Custom Input */}
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1.5 uppercase tracking-wider">
+                  Custom Amount
+                </label>
+                <input
+                  type="number"
+                  value={config.num_strategies}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 100;
+                    const clamped = Math.min(Math.max(val, 10), 1000);
+                    setConfig({...config, num_strategies: clamped});
+                  }}
+                  min="10"
+                  max="1000"
+                  step="10"
+                  className="w-full bg-white/5 border border-purple-500/30 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="100"
+                />
+                <p className="text-xs text-zinc-600 mt-1.5">
+                  Total strategies to generate and backtest (10-1000)
+                </p>
+              </div>
             </div>
 
 

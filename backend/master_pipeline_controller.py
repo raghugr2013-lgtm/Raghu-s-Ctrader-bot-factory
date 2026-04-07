@@ -53,6 +53,7 @@ class PipelineConfig:
     # Generation config
     generation_mode: str = "factory"  # "factory", "ai", or "both"
     templates: List[str] = field(default_factory=lambda: ["EMA_CROSSOVER", "RSI_MEAN_REVERSION", "MACD_TREND"])
+    num_strategies: int = 100  # Total number of strategies to generate (CRITICAL - Controls batch size)
     strategies_per_template: int = 10
     
     # Market config
@@ -262,8 +263,13 @@ class MasterPipelineController:
         
         try:
             # Calculate target strategy count
-            target_count = len(run.config.templates) * run.config.strategies_per_template
-            logger.info(f"    Target: {target_count} strategies")
+            # Use num_strategies if provided, otherwise calculate from templates
+            if run.config.num_strategies:
+                target_count = run.config.num_strategies
+                logger.info(f"    Target: {target_count} strategies (from num_strategies config)")
+            else:
+                target_count = len(run.config.templates) * run.config.strategies_per_template
+                logger.info(f"    Target: {target_count} strategies ({len(run.config.templates)} templates × {run.config.strategies_per_template})")
             
             if run.config.generation_mode in ["ai", "both"]:
                 # Use AI Strategy Generator (OpenAI)
