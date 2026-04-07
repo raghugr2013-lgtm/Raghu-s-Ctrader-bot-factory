@@ -53,6 +53,10 @@ export default function PipelinePage() {
     backtest_from_date: '',  // YYYY-MM-DD
     backtest_to_date: '',    // YYYY-MM-DD
     
+    // Account & Risk Configuration (NEW)
+    account_size: 10000,      // Total account capital
+    risk_per_trade: 1.0,      // Risk per trade in %
+    
     // Advanced settings (collapsible)
     templates: ['ema_crossover', 'rsi_mean_reversion', 'macd_trend'],
     initial_balance: 10000,
@@ -319,6 +323,38 @@ export default function PipelinePage() {
               <p className="text-xs text-zinc-600 mt-1">Optional: Custom end date</p>
             </div>
 
+            {/* Account Size (NEW) */}
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Account Size ($)</label>
+              <input
+                type="number"
+                value={config.account_size}
+                onChange={(e) => setConfig({...config, account_size: parseFloat(e.target.value) || 10000})}
+                min="100"
+                step="100"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="10000"
+              />
+              <p className="text-xs text-zinc-600 mt-1">Total capital for portfolio</p>
+            </div>
+            
+            {/* Risk per Trade (NEW) */}
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Risk per Trade (%)</label>
+              <input
+                type="number"
+                value={config.risk_per_trade}
+                onChange={(e) => setConfig({...config, risk_per_trade: parseFloat(e.target.value) || 1.0})}
+                min="0.1"
+                max="5.0"
+                step="0.1"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="1.0"
+              />
+              <p className="text-xs text-zinc-600 mt-1">Risk per trade (1% = conservative)</p>
+            </div>
+
+
             {/* Symbol */}
             <div>
               <label className="block text-sm text-zinc-400 mb-2">Symbol</label>
@@ -584,6 +620,24 @@ export default function PipelinePage() {
                               <span className="font-mono">
                                 {config.backtest_from_date || 'Auto'} → {config.backtest_to_date || 'Latest'}
                               </span>
+                            </div>
+                          </div>
+                        )}
+                        {/* Capital Allocation (NEW) */}
+                        {strategy.allocation && (
+                          <div className="mt-2 flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-1 text-emerald-400">
+                              <DollarSign className="w-3 h-3" />
+                              <span className="font-mono font-bold">${strategy.allocation.allocated_capital?.toLocaleString()}</span>
+                              <span className="text-zinc-600">capital</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-blue-400">
+                              <span className="font-mono">${strategy.allocation.position_size?.toLocaleString()}</span>
+                              <span className="text-zinc-600">position</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-zinc-400">
+                              <span className="font-mono">{strategy.allocation.weight_percent}%</span>
+                              <span className="text-zinc-600">weight</span>
                             </div>
                           </div>
                         )}

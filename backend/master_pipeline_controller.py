@@ -65,6 +65,10 @@ class PipelineConfig:
     backtest_from_date: Optional[str] = None  # ISO format: YYYY-MM-DD
     backtest_to_date: Optional[str] = None    # ISO format: YYYY-MM-DD
     
+    # Account & Risk Configuration (NEW)
+    account_size: float = 10000.0      # Total account capital
+    risk_per_trade: float = 1.0        # Risk per trade in %
+    
     # Filter thresholds
     diversity_min_score: float = 60.0
     correlation_max_threshold: float = 0.7
@@ -663,6 +667,8 @@ class MasterPipelineController:
                 method=run.config.allocation_method,
                 max_risk_per_strategy=run.config.max_risk_per_strategy,
                 max_portfolio_risk=run.config.max_portfolio_risk,
+                account_size=run.config.account_size,        # NEW
+                risk_per_trade=run.config.risk_per_trade     # NEW
             )
             
             run.allocated_portfolio = result
@@ -714,7 +720,7 @@ class MasterPipelineController:
             engine = CapitalScalingEngine()
             result = engine.scale_capital(
                 run.allocated_portfolio,
-                initial_balance=run.config.initial_balance
+                account_size=run.config.account_size  # Use account_size instead of initial_balance
             )
             
             run.scaled_portfolio = result

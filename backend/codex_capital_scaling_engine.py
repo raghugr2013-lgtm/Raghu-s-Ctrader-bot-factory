@@ -15,20 +15,23 @@ class CapitalScalingEngine:
     def scale_capital(
         self,
         allocated_portfolio: Dict[str, Any],
-        initial_balance: float = 10000.0
+        account_size: float = 10000.0  # Changed from initial_balance
     ) -> Dict[str, Any]:
         """
         Scale capital based on portfolio confidence and performance.
         
+        Note: This is now primarily for scaling adjustments.
+        Actual capital allocation is handled by RiskAllocationEngine.
+        
         Args:
             allocated_portfolio: Portfolio with allocations
-            initial_balance: Initial capital
+            account_size: Total account capital
             
         Returns:
             {
                 "total_capital": Scaled total capital,
                 "scaling_factor": Scaling multiplier,
-                "capital_per_strategy": Dict of capital allocations
+                "capital_per_strategy": Dict of capital allocations (from risk engine)
             }
         """
         allocations = allocated_portfolio.get("allocations", {})
@@ -46,12 +49,20 @@ class CapitalScalingEngine:
         else:
             scaling_factor = 0.6  # Very cautious
         
-        total_capital = initial_balance * scaling_factor
+        total_capital = account_size * scaling_factor
         
-        # Allocate capital to each strategy
+        # Extract capital allocations from risk engine
+        # Risk engine now provides allocated_capital directly
         capital_per_strategy = {}
-        for name, weight in allocations.items():
-            capital_per_strategy[name] = round(total_capital * weight, 2)
+        for name, alloc_info in allocations.items():
+            # If risk engine provided capital allocation, use it
+            if isinstance(alloc_info, dict) and "allocated_capital" in alloc_info:
+                # Apply scaling factor
+                capital_per_strategy[name] = round(alloc_info["allocated_capital"] * scaling_factor, 2)
+            else:
+                # Fallback for old format (simple weight)
+                weight = alloc_info if isinstance(alloc_info, (int, float)) else alloc_info.get("weight", 0)
+                capital_per_strategy[name] = round(total_capital * weight, 2)
         
         logger.info(f"[CAPITAL SCALING] Scaling Factor: {scaling_factor:.2f}x")
         logger.info(f"[CAPITAL SCALING] Total Capital: ${total_capital:,.2f}")

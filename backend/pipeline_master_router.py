@@ -45,6 +45,10 @@ class MasterPipelineRequest(BaseModel):
     backtest_from_date: Optional[str] = None  # ISO format: YYYY-MM-DD
     backtest_to_date: Optional[str] = None    # ISO format: YYYY-MM-DD
     
+    # Account & Risk Configuration (NEW)
+    account_size: float = 10000.0      # Total account capital
+    risk_per_trade: float = 1.0        # Risk per trade in %
+    
     # Filter thresholds
     diversity_min_score: float = 60.0
     correlation_max_threshold: float = 0.7
@@ -168,6 +172,8 @@ async def run_master_pipeline(
             duration_days=request.duration_days,
             backtest_from_date=request.backtest_from_date,  # NEW
             backtest_to_date=request.backtest_to_date,      # NEW
+            account_size=request.account_size,              # NEW
+            risk_per_trade=request.risk_per_trade,          # NEW
             diversity_min_score=request.diversity_min_score,
             correlation_max_threshold=request.correlation_max_threshold,
             min_sharpe_ratio=request.min_sharpe_ratio,
