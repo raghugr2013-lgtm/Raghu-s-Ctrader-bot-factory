@@ -246,6 +246,9 @@ export default function Dashboard() {
   // Account Size & Risk Configuration (CRITICAL)
   const [accountSize, setAccountSize] = useState(10000);
   const [riskPerTrade, setRiskPerTrade] = useState(1.0);
+  
+  // Number of Strategies (CRITICAL)
+  const [numStrategies, setNumStrategies] = useState(100);
 
   const [generatedCode, setGeneratedCode] = useState('// Your generated cBot code will appear here...');
   const [sessionId, setSessionId] = useState(null);
@@ -334,6 +337,7 @@ export default function Dashboard() {
       prop_firm: propFirm,
       account_size: accountSize,
       risk_per_trade: riskPerTrade,
+      num_strategies: numStrategies,
     };
 
     if (aiMode === 'single') {
@@ -1230,6 +1234,88 @@ Generate a complete cTrader cBot implementing this strategy.`;
                         data-testid="risk-per-trade-input"
                       />
                       <p className="text-[9px] text-zinc-600 mt-1">Risk per trade (1% = conservative)</p>
+                    </div>
+                  </div>
+
+                  {/* CRITICAL: Number of Strategies */}
+                  <div className="bg-purple-950/20 border border-purple-500/30 rounded-sm p-3 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="w-4 h-4 text-purple-400" />
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-purple-400 font-bold">Number of Strategies</p>
+                    </div>
+                    
+                    {/* Preset Buttons */}
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setNumStrategies(50)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                          numStrategies === 50
+                            ? 'bg-purple-600 text-white border-purple-500'
+                            : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                        } border`}
+                      >
+                        50
+                        <span className="block text-[8px] text-zinc-500">Quick</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNumStrategies(100)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                          numStrategies === 100
+                            ? 'bg-purple-600 text-white border-purple-500'
+                            : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                        } border`}
+                      >
+                        100
+                        <span className="block text-[8px] text-zinc-500">Standard</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNumStrategies(200)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                          numStrategies === 200
+                            ? 'bg-purple-600 text-white border-purple-500'
+                            : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                        } border`}
+                      >
+                        200
+                        <span className="block text-[8px] text-zinc-500">Recommended</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNumStrategies(500)}
+                        className={`px-2 py-1 rounded text-[10px] font-mono transition-all ${
+                          numStrategies === 500
+                            ? 'bg-purple-600 text-white border-purple-500'
+                            : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                        } border`}
+                      >
+                        500
+                        <span className="block text-[8px] text-zinc-500">Deep</span>
+                      </button>
+                    </div>
+                    
+                    {/* Custom Input */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 mb-1 block">
+                        Custom Amount
+                      </label>
+                      <input
+                        type="number"
+                        value={numStrategies}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 100;
+                          const clamped = Math.min(Math.max(val, 10), 1000);
+                          setNumStrategies(clamped);
+                        }}
+                        min="10"
+                        max="1000"
+                        step="10"
+                        className="w-full bg-[#18181B] border-purple-500/30 text-sm text-white px-2 py-1.5 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        data-testid="num-strategies-input"
+                      />
+                      <p className="text-[9px] text-zinc-600 mt-1">Total strategies to generate (10-1000)</p>
                     </div>
                   </div>
 
