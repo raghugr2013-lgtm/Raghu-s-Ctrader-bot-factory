@@ -249,6 +249,10 @@ export default function Dashboard() {
   
   // Number of Strategies (CRITICAL)
   const [numStrategies, setNumStrategies] = useState(100);
+  
+  // Backtest Period (CRITICAL - No defaults, must be explicit)
+  const [backtestFrom, setBacktestFrom] = useState('');
+  const [backtestTo, setBacktestTo] = useState('');
 
   const [generatedCode, setGeneratedCode] = useState('// Your generated cBot code will appear here...');
   const [sessionId, setSessionId] = useState(null);
@@ -304,10 +308,70 @@ export default function Dashboard() {
   }, [generatedCode]);
 
 
+  // Backtest Period Quick-Fill Functions
+  const fillLast2Years = () => {
+    const today = new Date();
+    const twoYearsAgo = new Date(today);
+    twoYearsAgo.setFullYear(today.getFullYear() - 2);
+    
+    setBacktestFrom(twoYearsAgo.toISOString().split('T')[0]);
+    setBacktestTo(today.toISOString().split('T')[0]);
+  };
+
+  const fillLast3Years = () => {
+    const today = new Date();
+    const threeYearsAgo = new Date(today);
+    threeYearsAgo.setFullYear(today.getFullYear() - 3);
+    
+    setBacktestFrom(threeYearsAgo.toISOString().split('T')[0]);
+    setBacktestTo(today.toISOString().split('T')[0]);
+  };
+
+  const validateBacktestPeriod = () => {
+    // Check both dates are filled
+    if (!backtestFrom || !backtestTo) {
+      toast.error('Backtest Period is required. Please select both From and To dates.');
+      return false;
+    }
+
+    const fromDate = new Date(backtestFrom);
+    const toDate = new Date(backtestTo);
+    const today = new Date();
+
+    // Check no future dates
+    if (fromDate > today || toDate > today) {
+      toast.error('Backtest dates cannot be in the future.');
+      return false;
+    }
+
+    // Check From < To
+    if (fromDate >= toDate) {
+      toast.error('From date must be earlier than To date.');
+      return false;
+    }
+
+    // Check minimum 2 years duration
+    const durationDays = (toDate - fromDate) / (1000 * 60 * 60 * 24);
+    const durationYears = durationDays / 365.25;
+
+    if (durationYears < 2.0) {
+      toast.error(`Minimum 2 years required for reliable backtesting. Current duration: ${durationYears.toFixed(1)} years.`);
+      return false;
+    }
+
+    return true;
+  };
+
+
   const handleGenerate = async () => {
     if (!strategyPrompt.trim()) {
       toast.error('Please enter a trading strategy');
       return;
+    }
+
+    // Validate backtest period before execution
+    if (!validateBacktestPeriod()) {
+      return; // Validation failed, toast already shown
     }
 
     setIsGenerating(true);
@@ -338,6 +402,8 @@ export default function Dashboard() {
       account_size: accountSize,
       risk_per_trade: riskPerTrade,
       num_strategies: numStrategies,
+      backtest_from: backtestFrom,
+      backtest_to: backtestTo,
     };
 
     if (aiMode === 'single') {
@@ -1317,6 +1383,68 @@ Generate a complete cTrader cBot implementing this strategy.`;
                       />
                       <p className="text-[9px] text-zinc-600 mt-1">Total strategies to generate (10-1000)</p>
                     </div>
+                  </div>
+
+                  {/* CRITICAL: Backtest Period */}
+                  <div className="bg-blue-950/20 border border-blue-500/30 rounded-sm p-3 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calendar className="w-4 h-4 text-blue-400" />
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-blue-400 font-bold">Backtest Period</p>
+                    </div>
+                    
+                    {/* Quick-Fill Buttons */}
+                    <div className="grid grid-cols-2 gap-1.5 mb-2">
+                      <button
+                        type="button"
+                        onClick={fillLast2Years}
+                        className="px-2 py-1 rounded text-[10px] font-mono bg-white/5 text-zinc-400 border border-white/10 hover:bg-blue-600 hover:text-white hover:border-blue-500 transition-all"
+                      >
+                        Last 2 Years
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fillLast3Years}
+                        className="px-2 py-1 rounded text-[10px] font-mono bg-white/5 text-zinc-400 border border-white/10 hover:bg-blue-600 hover:text-white hover:border-blue-500 transition-all"
+                      >
+                        Last 3 Years
+                      </button>
+                    </div>
+                    
+                    {/* From Date */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 mb-1 block">
+                        From Date <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={backtestFrom}
+                        onChange={(e) => setBacktestFrom(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        required
+                        className="w-full bg-[#18181B] border-blue-500/30 text-sm text-white px-2 py-1.5 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        data-testid="backtest-from-input"
+                      />
+                    </div>
+                    
+                    {/* To Date */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 mb-1 block">
+                        To Date <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={backtestTo}
+                        onChange={(e) => setBacktestTo(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        required
+                        className="w-full bg-[#18181B] border-blue-500/30 text-sm text-white px-2 py-1.5 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        data-testid="backtest-to-input"
+                      />
+                    </div>
+                    
+                    <p className="text-[9px] text-zinc-600">
+                      Minimum 2 years required. No future dates.
+                    </p>
                   </div>
 
                   {/* Prop Firm Selector */}
