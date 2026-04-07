@@ -20,7 +20,7 @@ import {
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
-  GripVertical, GripHorizontal, Upload, DollarSign
+  GripVertical, GripHorizontal, Upload, DollarSign, Calendar
 } from 'lucide-react';
 import { formatDate, formatDateRange } from '@/lib/dateUtils';
 import {
