@@ -2453,16 +2453,24 @@ async def fix_gaps(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def generate_mock_candles_for_gap(symbol: str, timeframe: str, start_str: str, end_str: str):
+async def download_real_data_for_gap(symbol: str, timeframe: str, start_str: str, end_str: str):
     """
-    Generate realistic mock candles to fill a gap.
-    In production, this would fetch from Dukascopy or another data source.
-    """
-    from datetime import timedelta
-    import random
+    Download REAL tick data from Dukascopy and aggregate to OHLC candles.
+    NO SYNTHETIC DATA - Uses only actual market data from Dukascopy servers.
     
-    interval_minutes = get_timeframe_minutes(timeframe)
-    interval_delta = timedelta(minutes=interval_minutes)
+    Args:
+        symbol: Trading symbol (e.g., EURUSD)
+        timeframe: Internal timeframe format (e.g., 15m, 1h)
+        start_str: Gap start timestamp (ISO format or YYYY-MM-DD HH:MM)
+        end_str: Gap end timestamp (ISO format or YYYY-MM-DD HH:MM)
+    
+    Returns:
+        List of real OHLC candles from Dukascopy with provider="dukascopy"
+    """
+    from dukascopy_downloader import DukascopyDownloader
+    
+    logger.info(f"[GAP FIX] Downloading REAL Dukascopy data for {symbol} {timeframe}")
+    logger.info(f"[GAP FIX] Range: {start_str} → {end_str}")
     
     # Parse dates
     try:
@@ -2475,59 +2483,65 @@ async def generate_mock_candles_for_gap(symbol: str, timeframe: str, start_str: 
     except:
         end_dt = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
     
-    # Get last known price before gap
-    last_candle = await db.market_candles.find_one(
-        {"symbol": symbol, "timeframe": timeframe, "timestamp": {"$lt": start_dt}},
-        sort=[("timestamp", -1)]
-    )
+    # Ensure timezone awareness
+    if start_dt.tzinfo is None:
+        start_dt = start_dt.replace(tzinfo=timezone.utc)
+    if end_dt.tzinfo is None:
+        end_dt = end_dt.replace(tzinfo=timezone.utc)
     
-    base_price = last_candle["close"] if last_candle else 1.1000
+    # Initialize Dukascopy downloader
+    downloader = DukascopyDownloader()
     
-    # Generate candles
-    candles = []
-    current_time = start_dt
-    current_price = base_price
-    
-    while current_time <= end_dt:
-        # Skip weekends for forex
-        if current_time.weekday() < 5:  # Monday-Friday
-            # Generate realistic OHLCV
-            volatility = 0.0002 if "USD" in symbol else 0.5  # Adjust for gold vs forex
-            change = random.gauss(0, volatility)
-            
-            open_price = current_price
-            high_price = open_price * (1 + abs(random.gauss(0, volatility)))
-            low_price = open_price * (1 - abs(random.gauss(0, volatility)))
-            close_price = open_price * (1 + change)
-            volume = random.randint(100, 5000)
-            
-            candles.append({
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "timestamp": current_time,
-                "open": round(open_price, 5),
-                "high": round(max(high_price, open_price, close_price), 5),
-                "low": round(min(low_price, open_price, close_price), 5),
-                "close": round(close_price, 5),
-                "volume": volume,
-                "provider": "gap_fill"
-            })
-            
-            current_price = close_price
+    try:
+        # Download real tick data from Dukascopy
+        logger.info(f"[GAP FIX] Calling Dukascopy API for {symbol}...")
+        result = await downloader.download_range(
+            symbol=symbol,
+            start_date=start_dt,
+            end_date=end_dt,
+            timeframe=timeframe  # Internal format (15m, 1h) - will be converted internally
+        )
         
-        current_time += interval_delta
+        candles = result.get('candles', [])
+        stats = result.get('stats', {})
+        
+        logger.info(f"[GAP FIX] ✓ Dukascopy download complete")
+        logger.info(f"[GAP FIX] ✓ Ticks downloaded: {stats.get('hours_downloaded', 0)} hours processed")
+        logger.info(f"[GAP FIX] ✓ Candles generated from ticks: {len(candles)}")
+        logger.info(f"[GAP FIX] ✓ Real data quality score: {stats.get('data_quality_score', 0):.1f}%")
+        
+        # Verify all candles have correct provider
+        for candle in candles:
+            if candle.get('provider') != 'dukascopy':
+                logger.warning(f"[GAP FIX] Candle has wrong provider: {candle.get('provider')}")
+                candle['provider'] = 'dukascopy'
+            
+            # Ensure is_filled is False (real data, not synthetic)
+            candle['is_filled'] = False
+        
+        return candles
     
-    return candles
+    except Exception as e:
+        logger.error(f"[GAP FIX] ✗ Dukascopy download FAILED: {str(e)}")
+        logger.error(f"[GAP FIX] ✗ Gap will remain unfilled (NO SYNTHETIC DATA FALLBACK)")
+        raise  # Re-raise to handle in caller
 
 
 async def process_gap_fixes(task_id: str):
-    """Background task to process gap fixes with auto-retry"""
+    """
+    Background task to process gap fixes using REAL Dukascopy data.
+    NO SYNTHETIC DATA GENERATION - Downloads only actual tick data from Dukascopy.
+    """
     task = gap_fix_tasks.get(task_id)
     if not task:
         return
     
     task.status = "running"
-    task.message = "Processing gaps..."
+    task.message = "Processing gaps with REAL Dukascopy data..."
+    
+    logger.info(f"[GAP FIX TASK] Starting task {task_id}")
+    logger.info(f"[GAP FIX TASK] Symbol: {task.symbol}, Timeframe: {task.timeframe}")
+    logger.info(f"[GAP FIX TASK] Total gaps to fix: {task.total_gaps}")
     
     for idx, gap in enumerate(task.gaps):
         task.current_gap = gap
@@ -2537,10 +2551,16 @@ async def process_gap_fixes(task_id: str):
         retries = task.retry_count.get(gap_key, 0)
         
         try:
-            task.message = f"Fixing gap {idx + 1}/{task.total_gaps}: {gap.get('start', 'N/A')} → {gap.get('end', 'N/A')}"
+            gap_start = gap.get('start', 'N/A')
+            gap_end = gap.get('end', 'N/A')
+            task.message = f"Fixing gap {idx + 1}/{task.total_gaps}: {gap_start} → {gap_end}"
             
-            # Generate/fetch candles for this gap
-            candles = await generate_mock_candles_for_gap(
+            logger.info(f"[GAP FIX TASK] ═══════════════════════════════════════")
+            logger.info(f"[GAP FIX TASK] Processing gap {idx + 1}/{task.total_gaps}")
+            logger.info(f"[GAP FIX TASK] Range: {gap_start} → {gap_end}")
+            
+            # Download REAL data from Dukascopy (NO SYNTHETIC FALLBACK)
+            candles = await download_real_data_for_gap(
                 task.symbol,
                 task.timeframe,
                 gap.get("start"),
@@ -2548,10 +2568,20 @@ async def process_gap_fixes(task_id: str):
             )
             
             if candles:
+                logger.info(f"[GAP FIX TASK] Inserting {len(candles)} real candles into database...")
+                inserted_count = 0
+                skipped_count = 0
+                
                 # Insert into database
                 for candle in candles:
                     try:
-                        await db.market_candles.update_one(
+                        # Add metadata fields
+                        candle['symbol'] = task.symbol
+                        candle['timeframe'] = task.timeframe
+                        candle['created_at'] = datetime.now(timezone.utc).isoformat()
+                        
+                        # Upsert candle
+                        result = await db.market_candles.update_one(
                             {
                                 "symbol": candle["symbol"],
                                 "timeframe": candle["timeframe"],
@@ -2560,23 +2590,36 @@ async def process_gap_fixes(task_id: str):
                             {"$set": candle},
                             upsert=True
                         )
+                        
+                        if result.upserted_id or result.modified_count > 0:
+                            inserted_count += 1
+                        else:
+                            skipped_count += 1
+                            
                     except Exception as insert_error:
-                        logger.warning(f"Error inserting candle: {insert_error}")
+                        logger.warning(f"[GAP FIX TASK] Error inserting candle: {insert_error}")
+                        skipped_count += 1
                 
-                task.candles_fixed += len(candles)
+                task.candles_fixed += inserted_count
                 task.completed_gaps += 1
-                logger.info(f"Fixed gap {idx + 1}: {len(candles)} candles inserted")
+                
+                logger.info(f"[GAP FIX TASK] ✓ Gap {idx + 1} FIXED")
+                logger.info(f"[GAP FIX TASK] ✓ Inserted: {inserted_count} candles")
+                logger.info(f"[GAP FIX TASK] ✓ Skipped (duplicates): {skipped_count}")
+                logger.info(f"[GAP FIX TASK] ✓ Provider: dukascopy (REAL DATA)")
+                logger.info(f"[GAP FIX TASK] ✓ is_filled: False")
             else:
-                raise Exception("No candles generated")
+                raise Exception("No candles returned from Dukascopy")
         
         except Exception as e:
             error_msg = f"Gap {idx + 1} failed: {str(e)}"
-            logger.error(error_msg)
+            logger.error(f"[GAP FIX TASK] ✗ {error_msg}")
             
-            # Auto-retry logic
+            # Auto-retry logic (for network failures, not synthetic fallback)
             if retries < task.max_retries:
                 task.retry_count[gap_key] = retries + 1
                 task.message = f"Retrying gap {idx + 1} (attempt {retries + 2}/{task.max_retries + 1})"
+                logger.info(f"[GAP FIX TASK] → Will retry gap {idx + 1}")
                 
                 # Re-add to end of queue for retry
                 task.gaps.append(gap)
@@ -2588,17 +2631,25 @@ async def process_gap_fixes(task_id: str):
                     "error": str(e),
                     "retries": retries
                 })
+                logger.error(f"[GAP FIX TASK] ✗ Gap {idx + 1} permanently failed after {retries} retries")
+                logger.error(f"[GAP FIX TASK] ✗ Gap will remain UNFILLED (NO SYNTHETIC DATA)")
         
-        # Small delay to prevent overload
-        await asyncio.sleep(0.1)
+        # Small delay to prevent Dukascopy rate limiting
+        await asyncio.sleep(0.2)
     
     # Finalize
     if task.failed_gaps == 0:
         task.status = "completed"
-        task.message = f"Successfully fixed all {task.completed_gaps} gaps ({task.candles_fixed} candles)"
+        task.message = f"Successfully fixed all {task.completed_gaps} gaps ({task.candles_fixed} REAL candles from Dukascopy)"
+        logger.info(f"[GAP FIX TASK] ✓✓✓ TASK COMPLETED SUCCESSFULLY ✓✓✓")
+        logger.info(f"[GAP FIX TASK] ✓ All gaps fixed with REAL Dukascopy data")
+        logger.info(f"[GAP FIX TASK] ✓ Total candles inserted: {task.candles_fixed}")
     else:
         task.status = "completed_with_errors"
-        task.message = f"Completed: {task.completed_gaps} fixed, {task.failed_gaps} failed"
+        task.message = f"Completed: {task.completed_gaps} fixed, {task.failed_gaps} failed (NO SYNTHETIC DATA USED)"
+        logger.warning(f"[GAP FIX TASK] ⚠ TASK COMPLETED WITH ERRORS")
+        logger.warning(f"[GAP FIX TASK] ⚠ Fixed: {task.completed_gaps} gaps")
+        logger.warning(f"[GAP FIX TASK] ⚠ Failed: {task.failed_gaps} gaps (left unfilled)")
     
     task.current_gap = None
 
