@@ -1,6 +1,17 @@
 """
 Dukascopy Data Downloader
-Downloads historical tick data from Dukascopy servers
+Downloads tick data from Dukascopy and converts to 1-minute candles ONLY.
+
+ARCHITECTURE PRINCIPLE:
+- Downloads ONLY tick data (.bi5 format)
+- Converts ticks → 1-minute candles ONLY
+- Stores ONLY 1m candles in database
+- Higher timeframes are NEVER stored (generated on-demand via timeframe_aggregator)
+
+DATA SOURCE POLICY:
+- ONLY Dukascopy for all data ingestion
+- NO mixing of providers
+- NO synthetic data generation
 """
 
 import aiohttp
@@ -18,34 +29,13 @@ logger = logging.getLogger(__name__)
 
 def map_timeframe_to_dukascopy(tf: str) -> str:
     """
-    Convert internal timeframe format to Dukascopy format
+    DEPRECATED: All timeframes now force tick download.
+    Maintained for backward compatibility but always returns "TICK".
     
-    Internal format: 1m, 5m, 15m, 30m, 1h, 4h, 1d
-    Dukascopy format: M1, M5, M15, M30, H1, H4, D1
-    
-    Args:
-        tf: Internal timeframe string (e.g., "1m", "5m", "1h")
-    
-    Returns:
-        Dukascopy-compatible timeframe string (e.g., "M1", "M5", "H1")
+    System ONLY stores 1m candles. Higher timeframes derived on-demand.
     """
-    mapping = {
-        "1m": "M1",
-        "5m": "M5",
-        "15m": "M15",
-        "30m": "M30",
-        "1h": "H1",
-        "4h": "H4",
-        "1d": "D1"
-    }
-    
-    # Also handle if already in Dukascopy format
-    if tf and tf.upper() in mapping.values():
-        return tf.upper()
-    
-    result = mapping.get(tf.lower() if tf else "", "H1")
-    logger.info(f"[TIMEFRAME MAPPING] UI format '{tf}' → Dukascopy format '{result}'")
-    return result
+    logger.info(f"[1M ARCHITECTURE] Requested '{tf}' → forcing TICK download → will store as 1m")
+    return "TICK"  # Always download ticks
 
 
 def map_timeframe_from_dukascopy(tf: str) -> str:
@@ -102,21 +92,26 @@ class DukascopyDownloader:
         progress_callback=None
     ) -> Dict:
         """
-        Download data for date range and convert to candles
+        Download tick data and convert to 1-MINUTE candles ONLY.
+        
+        CRITICAL ARCHITECTURE CHANGE:
+        - Regardless of timeframe parameter, ALWAYS produces 1m candles
+        - Higher timeframes (5m, 15m, 1h, etc.) are NEVER stored
+        - They are generated on-demand via timeframe_aggregator.py
         
         Args:
             symbol: Trading symbol
             start_date: Start datetime
             end_date: End datetime
-            timeframe: Candle timeframe (1m, 5m, 15m, 1h, etc. - will be converted to Dukascopy format)
+            timeframe: IGNORED (kept for API compatibility)
             progress_callback: Optional callback for progress updates
         
         Returns:
-            Dictionary with candles and statistics
+            Dictionary with 1m candles and statistics
         """
-        # Convert timeframe to Dukascopy format
-        dukascopy_timeframe = map_timeframe_to_dukascopy(timeframe)
-        logger.info(f"[DUKASCOPY] Using timeframe: UI '{timeframe}' → Dukascopy '{dukascopy_timeframe}'")
+        # FORCE 1m architecture - ignore requested timeframe
+        logger.info(f"[1M ARCHITECTURE] Requested '{timeframe}' → will produce 1m candles only")
+        logger.info(f"[1M ARCHITECTURE] Higher timeframes derived on-demand from 1m source")
         
         # Get Dukascopy symbol name
         duka_symbol = self.SYMBOL_MAP.get(symbol, symbol)
@@ -144,9 +139,9 @@ class DukascopyDownloader:
                     ticks = await self._download_hour(session, duka_symbol, hour_dt)
                     
                     if ticks:
-                        # Aggregate to candles (use Dukascopy format)
+                        # Aggregate to 1m candles ONLY
                         candles = self.aggregator.aggregate_ticks_to_candles(
-                            ticks, hour_dt, dukascopy_timeframe
+                            ticks, hour_dt, "1m"  # FORCE 1m
                         )
                         all_candles.extend(candles)
                         downloaded += 1
@@ -170,21 +165,23 @@ class DukascopyDownloader:
         all_candles.sort(key=lambda c: c['timestamp'])
         
         # DO NOT FILL GAPS - Use only real Dukascopy data
-        # Synthetic data has been removed for trading accuracy
-        # Gaps will be visible and can be re-downloaded if needed
         filled_candles = all_candles  # No gap filling
         
-        # Calculate statistics
-        stats = self._calculate_statistics(all_candles, filled_candles, timeframe)
+        # Calculate statistics (force 1m timeframe)
+        stats = self._calculate_statistics(all_candles, filled_candles, "1m")
         stats.update({
             'symbol': symbol,
-            'timeframe': timeframe,
+            'timeframe': '1m',  # ALWAYS 1m
+            'storage_timeframe': '1m',  # Architecture marker
             'start_date': start_date,
             'end_date': end_date,
             'hours_downloaded': downloaded,
             'hours_failed': failed,
-            'total_hours': total_hours
+            'total_hours': total_hours,
+            'note': '1m is source of truth; higher TFs derived on-demand'
         })
+        
+        logger.info(f"[1M ARCHITECTURE] {len(filled_candles)} 1m candles ready for storage")
         
         return {
             'candles': filled_candles,
