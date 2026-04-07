@@ -86,6 +86,12 @@ class FactoryRun(BaseModel):
     portfolio_diversity_score: float = 0.0
     correlation_method: str = ""
     
+    # AI optimization metrics
+    ai_optimization_count: int = 0
+    ai_optimization_results: List[Dict] = []
+    ai_optimization_completed_at: Optional[str] = None
+    strategies_ready_for_ai: int = 0
+    
     strategies: List[GeneratedStrategy] = []
     best_strategy: Optional[GeneratedStrategy] = None
 

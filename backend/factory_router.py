@@ -363,3 +363,85 @@ async def list_factory_runs(session_id: str):
         ],
         "count": len(docs),
     }
+
+
+
+@router.post("/optimize-ai/{run_id}")
+async def optimize_strategies_with_ai(run_id: str):
+    """
+    Run AI optimization on top strategies from a factory run
+    Uses OpenAI + Claude to improve strategy parameters
+    """
+    if _db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    # Get the factory run
+    doc = await _db.factory_runs.find_one({"id": run_id})
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"Factory run {run_id} not found")
+    
+    run = FactoryRun(**doc)
+    
+    if run.status != FactoryStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Factory run not completed yet")
+    
+    if len(run.strategies) == 0:
+        raise HTTPException(status_code=400, detail="No strategies to optimize")
+    
+    # Import AI optimizer
+    from ai_strategy_optimizer import optimize_portfolio_strategies
+    import os
+    
+    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    if not api_key:
+        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
+    
+    logger.info(f"[AI OPTIMIZER] Starting optimization for run {run_id}")
+    
+    # Convert top strategies to dict format
+    strategy_dicts = []
+    for strat in run.strategies[:5]:  # Top 5 max
+        strategy_dicts.append({
+            "id": strat.id,
+            "template_id": strat.template_id.value,
+            "genes": strat.genes,
+            "fitness": strat.fitness,
+            "sharpe_ratio": strat.sharpe_ratio,
+            "max_drawdown_pct": strat.max_drawdown_pct,
+            "profit_factor": strat.profit_factor,
+            "win_rate": strat.win_rate,
+            "total_trades": strat.total_trades,
+        })
+    
+    try:
+        # Run AI optimization (max 3 strategies to avoid long wait)
+        optimization_results = await optimize_portfolio_strategies(
+            strategies=strategy_dicts,
+            api_key=api_key,
+            max_strategies=min(3, len(strategy_dicts))
+        )
+        
+        # Update factory run with AI results
+        await _db.factory_runs.update_one(
+            {"id": run_id},
+            {
+                "$set": {
+                    "ai_optimization_count": len(optimization_results),
+                    "ai_optimization_results": optimization_results,
+                    "ai_optimization_completed_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        logger.info(f"[AI OPTIMIZER] Completed optimization for {len(optimization_results)} strategies")
+        
+        return {
+            "success": True,
+            "run_id": run_id,
+            "optimized_count": len(optimization_results),
+            "results": optimization_results
+        }
+        
+    except Exception as e:
+        logger.error(f"[AI OPTIMIZER] Failed: {e}")
+        raise HTTPException(status_code=500, detail=f"AI optimization failed: {str(e)}")

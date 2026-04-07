@@ -275,6 +275,18 @@ class FactoryRunner:
             # Store filtered results as main strategies list
             factory_run.strategies = all_strategies_filtered
             factory_run.best_strategy = all_strategies[0] if all_strategies else None
+            
+            # ============================================================
+            # AI OPTIMIZATION LAYER (Run in background)
+            # ============================================================
+            logger.info(f"[AI OPTIMIZER] Preparing {len(all_strategies_filtered)} strategies for AI optimization")
+            
+            # Store strategy data for async AI optimization
+            # This will be picked up by a separate endpoint
+            factory_run.ai_optimization_count = 0
+            factory_run.ai_optimization_results = []
+            factory_run.strategies_ready_for_ai = len(all_strategies_filtered)
+            
             factory_run.status = FactoryStatus.COMPLETED
 
         except Exception as e:
