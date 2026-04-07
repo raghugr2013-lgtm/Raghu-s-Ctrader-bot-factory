@@ -23,12 +23,28 @@ def run_backtest_on_real_candles(
     duration_days: int,
     initial_balance: float,
     strategy_type: str = "trend_following",
+    from_date: datetime = None,  # NEW: Custom start date
+    to_date: datetime = None,    # NEW: Custom end date
 ) -> Tuple[List[TradeRecord], List[EquityPoint], BacktestConfig]:
     """
     Run backtest using REAL candle data.
     
     This generates trades based on actual price movements,
     providing realistic performance metrics.
+    
+    Args:
+        candles: List of real market candles
+        bot_name: Strategy name
+        symbol: Trading symbol
+        timeframe: Candle timeframe
+        duration_days: Backtest duration (used if from_date/to_date not provided)
+        initial_balance: Starting balance
+        strategy_type: Strategy type (trend_following, mean_reversion, breakout)
+        from_date: Custom backtest start date (overrides duration_days)
+        to_date: Custom backtest end date (defaults to last candle)
+    
+    Returns:
+        Tuple of (trades, equity_curve, config)
     """
     if not candles:
         raise ValueError("No candles provided for backtest")
@@ -39,17 +55,35 @@ def run_backtest_on_real_candles(
     candles = sorted(candles, key=lambda c: c.timestamp)
     
     # Determine backtest period
-    end_date = candles[-1].timestamp
-    start_date = end_date - timedelta(days=duration_days)
+    if to_date is None:
+        end_date = candles[-1].timestamp
+    else:
+        end_date = to_date if isinstance(to_date, datetime) else datetime.fromisoformat(to_date)
     
-    # Filter candles to duration
-    filtered_candles = [c for c in candles if c.timestamp >= start_date]
+    if from_date is None:
+        # Use duration_days if no custom start date
+        start_date = end_date - timedelta(days=duration_days)
+    else:
+        start_date = from_date if isinstance(from_date, datetime) else datetime.fromisoformat(from_date)
+    
+    # Filter candles to date range
+    filtered_candles = [
+        c for c in candles 
+        if start_date <= c.timestamp <= end_date
+    ]
+    
     if len(filtered_candles) < 20:
-        # Use all available candles if not enough for duration
+        # Use all available candles if not enough for date range
+        logger.warning(
+            f"Only {len(filtered_candles)} candles in range {start_date} to {end_date}. "
+            f"Using all {len(candles)} available candles."
+        )
         filtered_candles = candles
         start_date = filtered_candles[0].timestamp
+        end_date = filtered_candles[-1].timestamp
     
     logger.info(f"Using {len(filtered_candles)} candles from {start_date} to {end_date}")
+    logger.info(f"Backtest period: {(end_date - start_date).days} days")
     
     # Create backtest config with proper timeframe handling
     try:
@@ -61,8 +95,8 @@ def run_backtest_on_real_candles(
     config = BacktestConfig(
         symbol=symbol,
         timeframe=config_timeframe,
-        start_date=start_date if isinstance(start_date, datetime) else datetime.now(timezone.utc) - timedelta(days=duration_days),
-        end_date=end_date if isinstance(end_date, datetime) else datetime.now(timezone.utc),
+        start_date=start_date,
+        end_date=end_date,
         initial_balance=initial_balance,
         spread_pips=1.5,
         commission_per_lot=7.0,

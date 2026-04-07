@@ -14,6 +14,7 @@ from master_pipeline_controller import (
     PipelineConfig,
     PipelineRun
 )
+from progress_tracker import get_progress_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ router = APIRouter(prefix="/api/pipeline", tags=["Master Pipeline"])
 
 # Global pipeline controller instance
 controller = MasterPipelineController()
+
+# Global progress tracker
+progress_tracker = get_progress_tracker()
 
 
 # Request/Response Models
@@ -36,6 +40,10 @@ class MasterPipelineRequest(BaseModel):
     timeframe: str = "1h"
     initial_balance: float = 10000.0
     duration_days: int = 365
+    
+    # Backtest date range (NEW)
+    backtest_from_date: Optional[str] = None  # ISO format: YYYY-MM-DD
+    backtest_to_date: Optional[str] = None    # ISO format: YYYY-MM-DD
     
     # Filter thresholds
     diversity_min_score: float = 60.0
@@ -158,6 +166,8 @@ async def run_master_pipeline(
             timeframe=request.timeframe,
             initial_balance=request.initial_balance,
             duration_days=request.duration_days,
+            backtest_from_date=request.backtest_from_date,  # NEW
+            backtest_to_date=request.backtest_to_date,      # NEW
             diversity_min_score=request.diversity_min_score,
             correlation_max_threshold=request.correlation_max_threshold,
             min_sharpe_ratio=request.min_sharpe_ratio,
@@ -175,12 +185,30 @@ async def run_master_pipeline(
         
         logger.info("[MASTER PIPELINE API] Starting pipeline execution...")
         
+        # Initialize progress tracking (NEW)
+        total_strategies = len(config.templates) * config.strategies_per_template
+        run_id = None  # Will be assigned after pipeline starts
+        
         # Run pipeline with timeout protection (300 seconds = 5 minutes)
         try:
             pipeline_run = await asyncio.wait_for(
                 controller.run_full_pipeline(config),
                 timeout=300.0
             )
+            run_id = pipeline_run.run_id
+            
+            # Initialize progress tracker with run_id
+            progress_tracker.start_job(
+                job_id=run_id,
+                total_strategies=total_strategies,
+                config={
+                    "symbol": config.symbol,
+                    "timeframe": config.timeframe,
+                    "backtest_from_date": config.backtest_from_date,
+                    "backtest_to_date": config.backtest_to_date
+                }
+            )
+            
         except asyncio.TimeoutError:
             logger.error("[MASTER PIPELINE API] Pipeline execution timed out after 300 seconds")
             raise HTTPException(
@@ -284,6 +312,62 @@ async def list_pipeline_runs():
     except Exception as e:
         logger.error(f"[MASTER PIPELINE API] Failed to list runs: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/progress/{job_id}")
+async def get_job_progress(job_id: str):
+    """
+    Get real-time progress for a running pipeline job.
+    
+    Returns:
+        - job_id: Job identifier
+        - stage: Current stage (generation, backtesting, validation, etc.)
+        - percent: Progress percentage (0-100)
+        - current: Current item being processed
+        - total: Total items to process
+        - message: Human-readable status message
+        - timestamp: Last update timestamp
+        - started_at: Job start time
+        - total_strategies: Total strategies in pipeline
+        - errors: List of errors encountered
+    """
+    try:
+        progress = progress_tracker.get_progress(job_id)
+        
+        if not progress:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Job {job_id} not found. It may have been completed or cleaned up."
+            )
+        
+        return {
+            "success": True,
+            "progress": progress
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting progress for {job_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/progress")
+async def get_all_active_jobs():
+    """Get all active pipeline jobs and their progress."""
+    try:
+        active_jobs = progress_tracker.get_all_active_jobs()
+        
+        return {
+            "success": True,
+            "active_jobs": active_jobs,
+            "count": len(active_jobs)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting active jobs: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.get("/health")

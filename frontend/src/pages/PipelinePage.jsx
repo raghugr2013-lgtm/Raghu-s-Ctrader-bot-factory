@@ -36,6 +36,10 @@ export default function PipelinePage() {
   const [pipelineResult, setPipelineResult] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   
+  // Progress tracking state (NEW)
+  const [jobId, setJobId] = useState(null);
+  const [progress, setProgress] = useState(null);
+  
   const [config, setConfig] = useState({
     // Core settings (always visible)
     generation_mode: 'factory',
@@ -44,6 +48,10 @@ export default function PipelinePage() {
     timeframe: '1h',
     strategies_per_template: 10,
     portfolio_size: 5,
+    
+    // Backtest date range (NEW)
+    backtest_from_date: '',  // YYYY-MM-DD
+    backtest_to_date: '',    // YYYY-MM-DD
     
     // Advanced settings (collapsible)
     templates: ['ema_crossover', 'rsi_mean_reversion', 'macd_trend'],
@@ -66,12 +74,39 @@ export default function PipelinePage() {
   const handleRunPipeline = async () => {
     setIsRunning(true);
     setPipelineResult(null);
+    setProgress(null);
 
     try {
       toast.info('Starting Pipeline...');
       
       const response = await axios.post(`${API}/master-run`, config);
       const data = response.data;
+      
+      // Store job ID for progress tracking
+      if (data.run_id) {
+        setJobId(data.run_id);
+        
+        // Start polling for progress
+        const progressInterval = setInterval(async () => {
+          try {
+            const progressRes = await axios.get(`${API}/progress/${data.run_id}`);
+            if (progressRes.data.success) {
+              setProgress(progressRes.data.progress);
+              
+              // Stop polling if completed or failed
+              if (progressRes.data.progress.stage === 'completed' || 
+                  progressRes.data.progress.stage === 'failed') {
+                clearInterval(progressInterval);
+              }
+            }
+          } catch (err) {
+            console.error('Progress polling error:', err);
+          }
+        }, 2000); // Poll every 2 seconds
+        
+        // Store interval ID for cleanup
+        window._progressInterval = progressInterval;
+      }
 
       setPipelineResult(data);
 
@@ -95,6 +130,12 @@ export default function PipelinePage() {
       });
     } finally {
       setIsRunning(false);
+      
+      // Cleanup progress interval
+      if (window._progressInterval) {
+        clearInterval(window._progressInterval);
+        window._progressInterval = null;
+      }
     }
   };
 
@@ -251,6 +292,32 @@ export default function PipelinePage() {
                 <option value="1d">Daily</option>
               </select>
             </div>
+            
+            {/* Backtest From Date (NEW) */}
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Backtest From Date</label>
+              <input
+                type="date"
+                value={config.backtest_from_date}
+                onChange={(e) => setConfig({...config, backtest_from_date: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Leave empty for auto"
+              />
+              <p className="text-xs text-zinc-600 mt-1">Optional: Custom start date</p>
+            </div>
+            
+            {/* Backtest To Date (NEW) */}
+            <div>
+              <label className="block text-sm text-zinc-400 mb-2">Backtest To Date</label>
+              <input
+                type="date"
+                value={config.backtest_to_date}
+                onChange={(e) => setConfig({...config, backtest_to_date: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Leave empty for latest"
+              />
+              <p className="text-xs text-zinc-600 mt-1">Optional: Custom end date</p>
+            </div>
 
             {/* Symbol */}
             <div>
@@ -378,6 +445,57 @@ export default function PipelinePage() {
           </div>
         </div>
 
+        {/* Progress Tracker (NEW) */}
+        {isRunning && progress && (
+          <div className="bg-[#0F0F10] border border-white/10 rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Pipeline Progress</h2>
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                <span className="text-sm text-zinc-400">
+                  {progress.current} / {progress.total} strategies
+                </span>
+              </div>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-mono text-zinc-400 uppercase tracking-wide">
+                  {progress.stage}
+                </span>
+                <span className="text-sm font-mono text-blue-400">
+                  {progress.percent}%
+                </span>
+              </div>
+              <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 h-full transition-all duration-300 ease-out"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+            </div>
+            
+            {/* Status Message */}
+            <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-white/10">
+              <ChevronRight className="w-4 h-4 text-blue-400 shrink-0" />
+              <p className="text-sm text-zinc-300">{progress.message}</p>
+            </div>
+            
+            {/* Errors (if any) */}
+            {progress.errors && progress.errors.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {progress.errors.map((error, idx) => (
+                  <div key={idx} className="flex items-start gap-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400">
+                    <XCircle className="w-3 h-3 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Pipeline Results */}
         {pipelineResult && (
           <div className="space-y-6">
@@ -447,9 +565,28 @@ export default function PipelinePage() {
                       key={idx}
                       className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10"
                     >
-                      <div>
+                      <div className="flex-1">
                         <p className="font-mono font-bold">#{idx + 1} {strategy.name}</p>
                         <p className="text-xs text-zinc-500">{strategy.template_id || 'N/A'}</p>
+                        {/* Backtest Period (NEW) */}
+                        {(config.backtest_from_date || config.backtest_to_date) && (
+                          <div className="mt-2 flex items-center gap-4 text-xs text-zinc-400">
+                            <div className="flex items-center gap-1">
+                              <span className="text-zinc-600">Symbol:</span>
+                              <span className="font-mono">{config.symbol}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-zinc-600">Timeframe:</span>
+                              <span className="font-mono">{config.timeframe}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-zinc-600">Backtest:</span>
+                              <span className="font-mono">
+                                {config.backtest_from_date || 'Auto'} → {config.backtest_to_date || 'Latest'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-6 text-sm">
                         <div>

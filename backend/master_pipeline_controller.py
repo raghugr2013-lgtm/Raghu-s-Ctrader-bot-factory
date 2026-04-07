@@ -61,6 +61,10 @@ class PipelineConfig:
     initial_balance: float = 10000.0
     duration_days: int = 365
     
+    # Backtest date range (NEW)
+    backtest_from_date: Optional[str] = None  # ISO format: YYYY-MM-DD
+    backtest_to_date: Optional[str] = None    # ISO format: YYYY-MM-DD
+    
     # Filter thresholds
     diversity_min_score: float = 60.0
     correlation_max_threshold: float = 0.7
