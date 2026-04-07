@@ -169,10 +169,10 @@ class DukascopyDownloader:
         # Sort candles by timestamp
         all_candles.sort(key=lambda c: c['timestamp'])
         
-        # Fill missing candles (small gaps only)
-        filled_candles = self.aggregator.fill_missing_candles(
-            all_candles, timeframe, max_fill_gap=3
-        )
+        # DO NOT FILL GAPS - Use only real Dukascopy data
+        # Synthetic data has been removed for trading accuracy
+        # Gaps will be visible and can be re-downloaded if needed
+        filled_candles = all_candles  # No gap filling
         
         # Calculate statistics
         stats = self._calculate_statistics(all_candles, filled_candles, timeframe)

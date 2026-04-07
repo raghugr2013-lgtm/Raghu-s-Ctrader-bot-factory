@@ -85,7 +85,8 @@ class TickAggregator:
                 'close': prices[-1],
                 'volume': sum(volumes),
                 'tick_count': len(candle_ticks),
-                'is_filled': False  # Original data, not filled
+                'is_filled': False,  # Real data from Dukascopy
+                'provider': 'dukascopy'  # Mark as real data source
             }
             
             candles.append(candle)
