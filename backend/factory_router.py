@@ -371,6 +371,7 @@ async def optimize_strategies_with_ai(run_id: str):
     """
     Run AI optimization on top strategies from a factory run
     Uses OpenAI + Claude to improve strategy parameters
+    Automatically backtests optimized versions and compares performance
     """
     if _db is None:
         raise HTTPException(status_code=500, detail="Database not initialized")
@@ -396,7 +397,7 @@ async def optimize_strategies_with_ai(run_id: str):
     if not api_key:
         raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
     
-    logger.info(f"[AI OPTIMIZER] Starting optimization for run {run_id}")
+    logger.info(f"[AI OPTIMIZER] Starting optimization with auto-backtest for run {run_id}")
     
     # Convert top strategies to dict format
     strategy_dicts = []
@@ -411,14 +412,21 @@ async def optimize_strategies_with_ai(run_id: str):
             "profit_factor": strat.profit_factor,
             "win_rate": strat.win_rate,
             "total_trades": strat.total_trades,
+            "net_profit": strat.net_profit,
         })
     
     try:
-        # Run AI optimization (max 3 strategies to avoid long wait)
+        # Run AI optimization with auto-backtest (max 3 strategies)
         optimization_results = await optimize_portfolio_strategies(
             strategies=strategy_dicts,
             api_key=api_key,
-            max_strategies=min(3, len(strategy_dicts))
+            max_strategies=min(3, len(strategy_dicts)),
+            run_backtest=True,  # Enable auto-backtest
+            symbol=run.symbol,
+            timeframe=run.timeframe,
+            duration_days=run.duration_days,
+            initial_balance=run.initial_balance,
+            db=_db
         )
         
         # Update factory run with AI results
@@ -433,12 +441,19 @@ async def optimize_strategies_with_ai(run_id: str):
             }
         )
         
-        logger.info(f"[AI OPTIMIZER] Completed optimization for {len(optimization_results)} strategies")
+        # Count validated improvements
+        validated_count = sum(
+            1 for r in optimization_results 
+            if r.get("backtest_comparison", {}).get("validation_status") == "verified"
+        )
+        
+        logger.info(f"[AI OPTIMIZER] Completed: {len(optimization_results)} optimized, {validated_count} validated improvements")
         
         return {
             "success": True,
             "run_id": run_id,
             "optimized_count": len(optimization_results),
+            "validated_improvements": validated_count,
             "results": optimization_results
         }
         

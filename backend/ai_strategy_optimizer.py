@@ -1,11 +1,13 @@
 """
 AI Strategy Optimizer
 Post-processing layer that uses AI to improve strategies selected by Codex
+Includes automatic backtesting to validate improvements
 """
 
 import logging
 from typing import Dict, List, Optional, Tuple
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -208,21 +210,118 @@ Return optimized parameters as JSON."""
         return merged
 
 
+async def backtest_strategy_params(
+    symbol: str,
+    timeframe: str,
+    template_id: str,
+    params: Dict,
+    initial_balance: float,
+    duration_days: int,
+    db
+) -> Dict:
+    """
+    Run backtest on strategy parameters
+    
+    Returns:
+        Dict with backtest metrics
+    """
+    from backtest_real_engine import run_backtest_real
+    from market_data_service import MarketDataService
+    
+    try:
+        # Get market data
+        data_service = MarketDataService(db)
+        
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=duration_days)
+        
+        candles = await data_service.get_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
+            limit=10000
+        )
+        
+        if not candles or len(candles) < 50:
+            return {
+                "success": False,
+                "error": "Insufficient data for backtest",
+                "metrics": {}
+            }
+        
+        # Map template to backtest strategy type
+        template_strategy_map = {
+            "ema_crossover": "trend_following",
+            "rsi_mean_reversion": "mean_reversion",
+            "macd_trend": "trend_following",
+            "bollinger_breakout": "breakout",
+            "atr_volatility_breakout": "breakout"
+        }
+        
+        strategy_type = template_strategy_map.get(template_id, "trend_following")
+        
+        # Run backtest
+        result = run_backtest_real(
+            symbol=symbol,
+            timeframe=timeframe,
+            initial_balance=initial_balance,
+            duration_days=duration_days,
+            strategy_type=strategy_type,
+            params=params,
+            candles=candles
+        )
+        
+        return {
+            "success": True,
+            "metrics": {
+                "net_profit": result.net_profit,
+                "profit_factor": result.profit_factor,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown_pct": result.max_drawdown_percent,
+                "win_rate": result.win_rate,
+                "total_trades": result.total_trades,
+                "avg_win": result.avg_win,
+                "avg_loss": result.avg_loss,
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Backtest failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "metrics": {}
+        }
+
+
 async def optimize_portfolio_strategies(
     strategies: List[Dict],
     api_key: str,
-    max_strategies: int = 5
+    max_strategies: int = 5,
+    run_backtest: bool = True,
+    symbol: str = "EURUSD",
+    timeframe: str = "1h",
+    duration_days: int = 365,
+    initial_balance: float = 10000.0,
+    db = None
 ) -> List[Dict]:
     """
-    Optimize top strategies from portfolio
+    Optimize top strategies from portfolio with automatic backtesting
     
     Args:
         strategies: List of strategy dicts (already sorted by fitness)
         api_key: Emergent LLM key
         max_strategies: Maximum strategies to optimize
+        run_backtest: Whether to backtest optimized strategies
+        symbol: Trading symbol for backtest
+        timeframe: Timeframe for backtest
+        duration_days: Backtest duration
+        initial_balance: Starting balance
+        db: Database connection for backtest data
     
     Returns:
-        List of dicts with original and optimized versions
+        List of dicts with original, optimized versions, and comparison
     """
     optimizer = AIStrategyOptimizer(api_key)
     
@@ -236,10 +335,82 @@ async def optimize_portfolio_strategies(
         # Run dual optimization
         optimization = await optimizer.dual_optimization(strategy)
         
-        results.append({
+        result_entry = {
             "original": strategy,
             "optimization": optimization,
             "status": "optimized" if optimization["claude"]["success"] or optimization["openai"]["success"] else "failed"
-        })
+        }
+        
+        # Auto-backtest if enabled
+        if run_backtest and db is not None and optimization["claude"]["success"]:
+            logger.info(f"[AI OPTIMIZER] Backtesting optimized strategy {strategy['id']}")
+            
+            # Get optimized parameters (use consensus)
+            optimized_params = optimization.get("consensus_params", {})
+            
+            # Merge with original params (in case some weren't optimized)
+            original_genes = strategy.get("genes", {})
+            final_params = {**original_genes, **optimized_params}
+            
+            # Backtest optimized version
+            backtest_result = await backtest_strategy_params(
+                symbol=symbol,
+                timeframe=timeframe,
+                template_id=strategy.get("template_id", ""),
+                params=final_params,
+                initial_balance=initial_balance,
+                duration_days=duration_days,
+                db=db
+            )
+            
+            if backtest_result["success"]:
+                # Compare with original metrics
+                original_metrics = {
+                    "profit_factor": strategy.get("profit_factor", 0),
+                    "sharpe_ratio": strategy.get("sharpe_ratio", 0),
+                    "max_drawdown_pct": strategy.get("max_drawdown_pct", 0),
+                    "win_rate": strategy.get("win_rate", 0),
+                    "total_trades": strategy.get("total_trades", 0),
+                    "net_profit": strategy.get("net_profit", 0),
+                }
+                
+                optimized_metrics = backtest_result["metrics"]
+                
+                # Calculate improvements
+                improvements = {}
+                for key in ["profit_factor", "sharpe_ratio", "win_rate", "net_profit"]:
+                    original_val = original_metrics.get(key, 0)
+                    optimized_val = optimized_metrics.get(key, 0)
+                    if original_val > 0:
+                        improvement_pct = ((optimized_val - original_val) / original_val) * 100
+                        improvements[f"{key}_improvement_pct"] = round(improvement_pct, 2)
+                    else:
+                        improvements[f"{key}_improvement_pct"] = 0
+                
+                # Drawdown improvement (lower is better)
+                original_dd = original_metrics.get("max_drawdown_pct", 0)
+                optimized_dd = optimized_metrics.get("max_drawdown_pct", 0)
+                if original_dd > 0:
+                    dd_improvement = ((original_dd - optimized_dd) / original_dd) * 100
+                    improvements["drawdown_reduction_pct"] = round(dd_improvement, 2)
+                else:
+                    improvements["drawdown_reduction_pct"] = 0
+                
+                # Add backtest comparison
+                result_entry["backtest_comparison"] = {
+                    "original_metrics": original_metrics,
+                    "optimized_metrics": optimized_metrics,
+                    "improvements": improvements,
+                    "validation_status": "verified" if improvements.get("profit_factor_improvement_pct", 0) > 0 else "no_improvement"
+                }
+                
+                logger.info(f"[AI OPTIMIZER] Backtest complete - PF improvement: {improvements.get('profit_factor_improvement_pct', 0):.2f}%")
+            else:
+                result_entry["backtest_comparison"] = {
+                    "error": backtest_result.get("error", "Unknown error"),
+                    "validation_status": "failed"
+                }
+        
+        results.append(result_entry)
     
     return results
