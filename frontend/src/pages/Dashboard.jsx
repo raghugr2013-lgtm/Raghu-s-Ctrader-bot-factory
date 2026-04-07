@@ -388,10 +388,24 @@ export default function Dashboard() {
     try {
       // STEP 1: Check LOCAL CSV market data availability FIRST
       setIsCheckingData(true);
+      
+      // DEBUG: Log selected parameters
+      console.log('[TIMEFRAME DEBUG] Selected parameters:', {
+        symbol: selectedPair,
+        timeframe: selectedTimeframe
+      });
+      
       const dataCheckResponse = await axios.post(`${API}/marketdata/ensure-real-data`, {
         symbol: selectedPair,
         timeframe: selectedTimeframe,
         min_candles: 60
+      });
+      
+      // DEBUG: Log data check response
+      console.log('[TIMEFRAME DEBUG] Data check response:', {
+        success: dataCheckResponse.data.success,
+        candles: dataCheckResponse.data.candle_count,
+        timeframe_used: dataCheckResponse.data.timeframe
       });
       
       setDataAvailability(dataCheckResponse.data);
@@ -1023,6 +1037,25 @@ Generate a complete cTrader cBot implementing this strategy.`;
                         <SelectItem value="NAS100" className="text-xs">NAS100 (Nasdaq)</SelectItem>
                         <SelectItem value="BTCUSD" className="text-xs">BTC/USD</SelectItem>
                         <SelectItem value="ETHUSD" className="text-xs">ETH/USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Timeframe Selection */}
+                  <div>
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Timeframe</label>
+                    <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
+                      <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="timeframe-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#0F0F10] border-white/10">
+                        <SelectItem value="1m" className="text-xs">1 Minute (1m)</SelectItem>
+                        <SelectItem value="5m" className="text-xs">5 Minutes (5m)</SelectItem>
+                        <SelectItem value="15m" className="text-xs">15 Minutes (15m)</SelectItem>
+                        <SelectItem value="30m" className="text-xs">30 Minutes (30m)</SelectItem>
+                        <SelectItem value="1h" className="text-xs">1 Hour (1h)</SelectItem>
+                        <SelectItem value="4h" className="text-xs">4 Hours (4h)</SelectItem>
+                        <SelectItem value="1d" className="text-xs">1 Day (1d)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
