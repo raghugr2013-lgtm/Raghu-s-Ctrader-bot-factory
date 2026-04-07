@@ -1238,7 +1238,7 @@ async def run_real_backtest(
                 "grade": strategy_score.grade,
                 "execution_time": execution_time
             },
-            "message": f"Backtest completed successfully with real market data"
+            "message": "Backtest completed successfully with real market data"
         }
         
     except HTTPException:
@@ -1879,6 +1879,121 @@ async def import_csv_data(request: MarketDataImportRequest):
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 
+@api_router.post("/marketdata/import/bi5")
+async def import_bi5_data(file: UploadFile, symbol: str = Form(...)):
+    """
+    Import Dukascopy BI5/ZIP raw tick data and convert to 1m candles
+    Supports:
+    - .bi5 files (single hour of tick data)
+    - .zip archives containing multiple BI5 files
+    """
+    try:
+        from bi5_decoder import BI5Decoder
+        from timeframe_aggregator import TimeframeAggregator
+        import zipfile
+        import io
+        import pandas as pd
+        
+        logger.info(f"Receiving BI5/ZIP upload for {symbol}: {file.filename}")
+        
+        # Read file content
+        file_content = await file.read()
+        file_ext = file.filename.lower().split('.')[-1]
+        
+        all_ticks = []
+        
+        # Handle ZIP archives
+        if file_ext == 'zip':
+            logger.info(f"Processing ZIP archive: {file.filename}")
+            try:
+                with zipfile.ZipFile(io.BytesIO(file_content)) as zip_ref:
+                    bi5_files = [f for f in zip_ref.namelist() if f.endswith('.bi5')]
+                    logger.info(f"Found {len(bi5_files)} BI5 files in ZIP")
+                    
+                    for bi5_file in bi5_files:
+                        bi5_content = zip_ref.read(bi5_file)
+                        ticks = BI5Decoder.decode_bi5(bi5_content)
+                        all_ticks.extend(ticks)
+            except zipfile.BadZipFile:
+                raise HTTPException(status_code=400, detail="Invalid ZIP file")
+        
+        # Handle single BI5 file
+        elif file_ext == 'bi5':
+            logger.info(f"Processing BI5 file: {file.filename}")
+            ticks = BI5Decoder.decode_bi5(file_content)
+            all_ticks.extend(ticks)
+        
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format: {file_ext}. Use .bi5 or .zip"
+            )
+        
+        if not all_ticks:
+            raise HTTPException(status_code=400, detail="No tick data found in file")
+        
+        logger.info(f"Decoded {len(all_ticks)} ticks from {file.filename}")
+        
+        # Convert ticks to 1m candles using pandas
+        # Create DataFrame from ticks
+        df = pd.DataFrame(all_ticks)
+        df['timestamp'] = pd.to_datetime(df['timestamp_ms'], unit='ms')
+        df.set_index('timestamp', inplace=True)
+        df.sort_index(inplace=True)
+        
+        # Resample to 1m OHLC using mid price
+        candles_df = df['mid'].resample('1min').agg(['first', 'max', 'min', 'last', 'count'])
+        candles_df.columns = ['open', 'high', 'low', 'close', 'volume']
+        candles_df = candles_df.dropna()
+        
+        # Convert to Candle objects
+        from models import Candle
+        candles = []
+        for timestamp, row in candles_df.iterrows():
+            candle = Candle(
+                symbol=symbol,
+                timeframe="1m",
+                timestamp=timestamp.to_pydatetime().replace(tzinfo=timezone.utc),
+                open=float(row['open']),
+                high=float(row['high']),
+                low=float(row['low']),
+                close=float(row['close']),
+                volume=float(row['volume'])
+            )
+            candles.append(candle)
+        
+        if not candles:
+            raise HTTPException(status_code=400, detail="No 1m candles generated from tick data")
+        
+        # Store in database as 1m candles
+        result = await market_data_service.store_candles(candles, provider="bi5_import")
+        
+        logger.info(f"BI5 import complete: {result['inserted']} candles inserted")
+        
+        return {
+            "success": True,
+            "symbol": symbol,
+            "timeframe": "1m",
+            "ticks_processed": len(all_ticks),
+            "candles_generated": len(candles),
+            "imported": result["inserted"],
+            "skipped": result["skipped"],
+            "updated": result["updated"],
+            "date_range": {
+                "start": candles[0].timestamp.isoformat() if candles else None,
+                "end": candles[-1].timestamp.isoformat() if candles else None
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"BI5 import error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"BI5 import failed: {str(e)}")
+
+
 @api_router.get("/marketdata/{symbol}/{timeframe}")
 async def get_market_data(
     symbol: str,
@@ -2177,7 +2292,6 @@ async def detect_gaps_and_coverage(symbol: str, timeframe: str):
     Detect gaps in market data and calculate true coverage percentage.
     Returns available_ranges, missing_ranges, and coverage stats.
     """
-    from datetime import timedelta
     
     # Get timeframe interval in minutes
     interval_minutes = get_timeframe_minutes(timeframe)
@@ -2516,7 +2630,7 @@ async def download_real_data_for_gap(symbol: str, timeframe: str, start_str: str
         candles = result.get('candles', [])
         stats = result.get('stats', {})
         
-        logger.info(f"[GAP FIX] ✓ Dukascopy download complete")
+        logger.info("[GAP FIX] ✓ Dukascopy download complete")
         logger.info(f"[GAP FIX] ✓ Ticks downloaded: {stats.get('hours_downloaded', 0)} hours processed")
         logger.info(f"[GAP FIX] ✓ Candles generated from ticks: {len(candles)}")
         logger.info(f"[GAP FIX] ✓ Real data quality score: {stats.get('data_quality_score', 0):.1f}%")
@@ -2534,7 +2648,7 @@ async def download_real_data_for_gap(symbol: str, timeframe: str, start_str: str
     
     except Exception as e:
         logger.error(f"[GAP FIX] ✗ Dukascopy download FAILED: {str(e)}")
-        logger.error(f"[GAP FIX] ✗ Gap will remain unfilled (NO SYNTHETIC DATA FALLBACK)")
+        logger.error("[GAP FIX] ✗ Gap will remain unfilled (NO SYNTHETIC DATA FALLBACK)")
         raise  # Re-raise to handle in caller
 
 
@@ -2566,7 +2680,7 @@ async def process_gap_fixes(task_id: str):
             gap_end = gap.get('end', 'N/A')
             task.message = f"Fixing gap {idx + 1}/{task.total_gaps}: {gap_start} → {gap_end}"
             
-            logger.info(f"[GAP FIX TASK] ═══════════════════════════════════════")
+            logger.info("[GAP FIX TASK] ═══════════════════════════════════════")
             logger.info(f"[GAP FIX TASK] Processing gap {idx + 1}/{task.total_gaps}")
             logger.info(f"[GAP FIX TASK] Range: {gap_start} → {gap_end}")
             
@@ -2617,8 +2731,8 @@ async def process_gap_fixes(task_id: str):
                 logger.info(f"[GAP FIX TASK] ✓ Gap {idx + 1} FIXED")
                 logger.info(f"[GAP FIX TASK] ✓ Inserted: {inserted_count} candles")
                 logger.info(f"[GAP FIX TASK] ✓ Skipped (duplicates): {skipped_count}")
-                logger.info(f"[GAP FIX TASK] ✓ Provider: dukascopy (REAL DATA)")
-                logger.info(f"[GAP FIX TASK] ✓ is_filled: False")
+                logger.info("[GAP FIX TASK] ✓ Provider: dukascopy (REAL DATA)")
+                logger.info("[GAP FIX TASK] ✓ is_filled: False")
             else:
                 raise Exception("No candles returned from Dukascopy")
         
@@ -2643,7 +2757,7 @@ async def process_gap_fixes(task_id: str):
                     "retries": retries
                 })
                 logger.error(f"[GAP FIX TASK] ✗ Gap {idx + 1} permanently failed after {retries} retries")
-                logger.error(f"[GAP FIX TASK] ✗ Gap will remain UNFILLED (NO SYNTHETIC DATA)")
+                logger.error("[GAP FIX TASK] ✗ Gap will remain UNFILLED (NO SYNTHETIC DATA)")
         
         # Small delay to prevent Dukascopy rate limiting
         await asyncio.sleep(0.2)
@@ -2652,13 +2766,13 @@ async def process_gap_fixes(task_id: str):
     if task.failed_gaps == 0:
         task.status = "completed"
         task.message = f"Successfully fixed all {task.completed_gaps} gaps ({task.candles_fixed} REAL candles from Dukascopy)"
-        logger.info(f"[GAP FIX TASK] ✓✓✓ TASK COMPLETED SUCCESSFULLY ✓✓✓")
-        logger.info(f"[GAP FIX TASK] ✓ All gaps fixed with REAL Dukascopy data")
+        logger.info("[GAP FIX TASK] ✓✓✓ TASK COMPLETED SUCCESSFULLY ✓✓✓")
+        logger.info("[GAP FIX TASK] ✓ All gaps fixed with REAL Dukascopy data")
         logger.info(f"[GAP FIX TASK] ✓ Total candles inserted: {task.candles_fixed}")
     else:
         task.status = "completed_with_errors"
         task.message = f"Completed: {task.completed_gaps} fixed, {task.failed_gaps} failed (NO SYNTHETIC DATA USED)"
-        logger.warning(f"[GAP FIX TASK] ⚠ TASK COMPLETED WITH ERRORS")
+        logger.warning("[GAP FIX TASK] ⚠ TASK COMPLETED WITH ERRORS")
         logger.warning(f"[GAP FIX TASK] ⚠ Fixed: {task.completed_gaps} gaps")
         logger.warning(f"[GAP FIX TASK] ⚠ Failed: {task.failed_gaps} gaps (left unfilled)")
     

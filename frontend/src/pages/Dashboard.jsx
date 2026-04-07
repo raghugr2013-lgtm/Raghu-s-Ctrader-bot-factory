@@ -20,7 +20,7 @@ import {
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
-  GripVertical, GripHorizontal, Upload
+  GripVertical, GripHorizontal, Upload, DollarSign
 } from 'lucide-react';
 import { formatDate, formatDateRange } from '@/lib/dateUtils';
 import {
@@ -242,6 +242,10 @@ export default function Dashboard() {
   const [reviewerModel, setReviewerModel] = useState('openai');
   const [optimizerModel, setOptimizerModel] = useState('claude');
   const [propFirm, setPropFirm] = useState('none');
+  
+  // Account Size & Risk Configuration (CRITICAL)
+  const [accountSize, setAccountSize] = useState(10000);
+  const [riskPerTrade, setRiskPerTrade] = useState(1.0);
 
   const [generatedCode, setGeneratedCode] = useState('// Your generated cBot code will appear here...');
   const [sessionId, setSessionId] = useState(null);
@@ -328,6 +332,8 @@ export default function Dashboard() {
       strategy_prompt: strategyPrompt,
       ai_mode: aiMode,
       prop_firm: propFirm,
+      account_size: accountSize,
+      risk_per_trade: riskPerTrade,
     };
 
     if (aiMode === 'single') {
@@ -430,7 +436,9 @@ export default function Dashboard() {
       const response = await axios.post(`${API}/bot/validate`, {
         code: generatedCode,
         session_id: sessionId,
-        prop_firm: propFirm
+        prop_firm: propFirm,
+        account_size: accountSize,
+        risk_per_trade: riskPerTrade
       });
 
       const data = response.data;
@@ -1179,6 +1187,51 @@ Generate a complete cTrader cBot implementing this strategy.`;
                       </div>
                     </div>
                   )}
+
+                  {/* CRITICAL: Account Size & Risk Configuration */}
+                  <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-sm p-3 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-4 h-4 text-emerald-400" />
+                      <p className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold">Risk Configuration</p>
+                    </div>
+                    
+                    {/* Account Size */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 mb-1 block">
+                        Account Size ($) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={accountSize}
+                        onChange={(e) => setAccountSize(parseFloat(e.target.value) || 10000)}
+                        min="100"
+                        step="100"
+                        required
+                        className="w-full bg-[#18181B] border-white/10 text-sm text-white px-2 py-1.5 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        data-testid="account-size-input"
+                      />
+                      <p className="text-[9px] text-zinc-600 mt-1">Total capital for trading</p>
+                    </div>
+                    
+                    {/* Risk Per Trade */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 mb-1 block">
+                        Risk Per Trade (%) <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={riskPerTrade}
+                        onChange={(e) => setRiskPerTrade(parseFloat(e.target.value) || 1.0)}
+                        min="0.1"
+                        max="5.0"
+                        step="0.1"
+                        required
+                        className="w-full bg-[#18181B] border-white/10 text-sm text-white px-2 py-1.5 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        data-testid="risk-per-trade-input"
+                      />
+                      <p className="text-[9px] text-zinc-600 mt-1">Risk per trade (1% = conservative)</p>
+                    </div>
+                  </div>
 
                   {/* Prop Firm Selector */}
                   <div>

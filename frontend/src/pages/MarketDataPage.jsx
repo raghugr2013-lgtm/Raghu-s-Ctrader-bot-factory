@@ -449,7 +449,7 @@ export default function MarketDataPage() {
 
   const uploadCSV = async () => {
     if (!selectedFile) {
-      toast.error('Please select a CSV file');
+      toast.error('Please select a file');
       return;
     }
 
@@ -457,35 +457,79 @@ export default function MarketDataPage() {
     setUploadResult(null);
 
     try {
-      const fileContent = await selectedFile.text();
-      const requestData = {
-        symbol: symbol,
-        timeframe: '1m', // Hardcoded to 1m as per architecture
-        format_type: csvFormat,
-        data: fileContent,
-        skip_validation: false
-      };
-
-      toast.info('Uploading CSV data...');
-      const response = await axios.post(`${API}/marketdata/import/csv`, requestData);
-
-      if (response.data.success) {
-        setUploadResult({
-          success: true,
-          symbol: response.data.symbol,
-          timeframe: response.data.timeframe,
-          imported: response.data.imported,
-          skipped: response.data.skipped,
-          total: response.data.total_processed
-        });
-
-        toast.success(`✅ Uploaded ${response.data.imported} candles`);
-        setSelectedFile(null);
+      const fileName = selectedFile.name.toLowerCase();
+      const fileExtension = fileName.split('.').pop();
+      
+      // Handle BI5/ZIP files
+      if (fileExtension === 'bi5' || fileExtension === 'zip') {
+        toast.info('Processing Dukascopy raw data...');
         
-        // Reload coverage if on that tab
-        if (activeTab === 'coverage') {
-          loadCoverage();
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('symbol', symbol);
+        
+        const response = await axios.post(`${API}/marketdata/import/bi5`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        if (response.data.success) {
+          setUploadResult({
+            success: true,
+            symbol: response.data.symbol,
+            timeframe: response.data.timeframe,
+            imported: response.data.imported,
+            skipped: response.data.skipped,
+            total: response.data.candles_generated,
+            ticksProcessed: response.data.ticks_processed
+          });
+          
+          toast.success(`✅ Processed ${response.data.ticks_processed} ticks → ${response.data.candles_generated} 1m candles (${response.data.imported} imported)`);
+          setSelectedFile(null);
+          
+          // Reload coverage if on that tab
+          if (activeTab === 'coverage') {
+            loadCoverage();
+          }
         }
+      }
+      // Handle CSV files
+      else if (fileExtension === 'csv') {
+        const fileContent = await selectedFile.text();
+        const requestData = {
+          symbol: symbol,
+          timeframe: '1m', // Hardcoded to 1m as per architecture
+          format_type: csvFormat,
+          data: fileContent,
+          skip_validation: false
+        };
+
+        toast.info('Uploading 1m CSV data...');
+        const response = await axios.post(`${API}/marketdata/import/csv`, requestData);
+
+        if (response.data.success) {
+          setUploadResult({
+            success: true,
+            symbol: response.data.symbol,
+            timeframe: response.data.timeframe,
+            imported: response.data.imported,
+            skipped: response.data.skipped,
+            total: response.data.total_processed
+          });
+
+          toast.success(`✅ Uploaded ${response.data.imported} candles`);
+          setSelectedFile(null);
+          
+          // Reload coverage if on that tab
+          if (activeTab === 'coverage') {
+            loadCoverage();
+          }
+        }
+      }
+      else {
+        toast.error(`Unsupported file format: ${fileExtension}. Use .bi5, .zip, or .csv`);
+        return;
       }
     } catch (error) {
       const errorMsg = error.response?.data?.detail || error.message;
@@ -744,7 +788,7 @@ export default function MarketDataPage() {
             <Card className="bg-[#0F0F10] border-white/10 p-6">
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-blue-400" />
-                Upload CSV Data
+                Upload Market Data
               </h2>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -763,19 +807,23 @@ export default function MarketDataPage() {
                     </Select>
                   </div>
 
-                  {/* 1m Architecture Info */}
+                  {/* UPDATED: BI5/ZIP + CSV Support */}
                   <Card className="bg-blue-950/20 border-blue-500/30 p-3">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="text-xs text-blue-300">
-                        <p className="font-bold text-blue-400 mb-1">1-Minute OHLC Data Only</p>
-                        <p className="text-[11px] leading-relaxed">Upload <span className="font-bold">only 1-minute OHLC CSV data</span> OR use Dukascopy downloader. Higher timeframe CSVs will be rejected. All higher timeframes are derived automatically.</p>
+                        <p className="font-bold text-blue-400 mb-1">Upload Formats Supported</p>
+                        <div className="text-[11px] leading-relaxed space-y-1">
+                          <p>• <span className="font-bold">Dukascopy raw data</span> (.bi5 or .zip with BI5 files)</p>
+                          <p>• <span className="font-bold">1-minute OHLC CSV</span> (clean format only)</p>
+                          <p className="text-blue-400/80 mt-2">All data will be stored as 1-minute candles. Higher timeframes are derived automatically.</p>
+                        </div>
                       </div>
                     </div>
                   </Card>
 
                   <div>
-                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">CSV Format</label>
+                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">CSV Format (for CSV uploads)</label>
                     <Select value={csvFormat} onValueChange={setCsvFormat}>
                       <SelectTrigger className="bg-[#18181B] border-white/10">
                         <SelectValue />
@@ -797,14 +845,25 @@ export default function MarketDataPage() {
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
                   >
-                    <input type="file" id="csv-file-input" accept=".csv" onChange={handleFileInput} className="hidden" />
+                    <input 
+                      type="file" 
+                      id="csv-file-input" 
+                      accept=".csv,.bi5,.zip" 
+                      onChange={handleFileInput} 
+                      className="hidden" 
+                    />
                     
                     {selectedFile ? (
                       <div className="space-y-3">
                         <FileSpreadsheet className="w-12 h-12 mx-auto text-emerald-400" />
                         <div>
                           <p className="text-sm font-mono text-white">{selectedFile.name}</p>
-                          <p className="text-xs text-zinc-500">{(selectedFile.size / 1024).toFixed(2)} KB</p>
+                          <p className="text-xs text-zinc-500">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                          <Badge variant="outline" className="mt-2 text-[10px]">
+                            {selectedFile.name.endsWith('.bi5') ? 'BI5 Raw Data' : 
+                             selectedFile.name.endsWith('.zip') ? 'ZIP Archive' : 
+                             '1m CSV'}
+                          </Badge>
                         </div>
                         <Button onClick={() => setSelectedFile(null)} variant="outline" size="sm">Remove</Button>
                       </div>
@@ -812,7 +871,8 @@ export default function MarketDataPage() {
                       <div className="space-y-3">
                         <Upload className="w-12 h-12 mx-auto text-zinc-500" />
                         <div>
-                          <p className="text-sm text-zinc-300 mb-1">Drag & drop CSV file here</p>
+                          <p className="text-sm text-zinc-300 mb-1">Drag & drop file here</p>
+                          <p className="text-xs text-zinc-500 mb-1">.bi5, .zip, or .csv</p>
                           <p className="text-xs text-zinc-500 mb-3">or</p>
                           <label htmlFor="csv-file-input" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md cursor-pointer">
                             <FileText className="w-4 h-4" />
@@ -832,7 +892,7 @@ export default function MarketDataPage() {
                     ) : (
                       <>
                         <Upload className="w-4 h-4 mr-2" />
-                        Upload CSV Data
+                        Upload Data
                       </>
                     )}
                   </Button>
