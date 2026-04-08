@@ -348,7 +348,7 @@ export default function MarketDataPage() {
     try {
       const params = new URLSearchParams({
         symbol: exportSymbol,
-        timeframe: exportTimeframe,
+        timeframe: '1m', // Hardcoded to 1m as per architecture
         start_date: exportStartDate,
         end_date: exportEndDate
       });
@@ -440,6 +440,18 @@ export default function MarketDataPage() {
       toast.error('Please select a valid file (.bi5, .zip, or .csv)');
       return;
     }
+    
+    // File size validation
+    const fileSizeMB = file.size / (1024 * 1024);
+    const maxSizeMB = fileName.endsWith('.zip') ? 200 : 100; // 200MB for ZIP, 100MB for others
+    
+    if (fileSizeMB > maxSizeMB) {
+      toast.error(`File too large (${fileSizeMB.toFixed(1)}MB). Maximum allowed: ${maxSizeMB}MB. Please split the file or contact support for large datasets.`, {
+        duration: 6000
+      });
+      return;
+    }
+    
     setSelectedFile(file);
     setUploadResult(null);
   };
