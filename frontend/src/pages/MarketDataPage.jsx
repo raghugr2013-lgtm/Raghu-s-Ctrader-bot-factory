@@ -468,6 +468,7 @@ export default function MarketDataPage() {
       if (fileExtension === 'bi5' || fileExtension === 'zip') {
         toast.info('Processing Dukascopy raw data...');
         
+        // Create FormData and append file immediately
         const formData = new FormData();
         formData.append('file', selectedFile);
         formData.append('symbol', symbol);
@@ -500,7 +501,16 @@ export default function MarketDataPage() {
       }
       // Handle CSV files
       else if (fileExtension === 'csv') {
-        const fileContent = await selectedFile.text();
+        toast.info('Reading CSV file...');
+        
+        // Read file content first, before any API calls
+        let fileContent;
+        try {
+          fileContent = await selectedFile.text();
+        } catch (readError) {
+          throw new Error(`Failed to read file: ${readError.message}`);
+        }
+        
         const requestData = {
           symbol: symbol,
           timeframe: '1m', // Hardcoded to 1m as per architecture
