@@ -2900,6 +2900,7 @@ async def get_all_gap_fix_status():
 
 
 
+@api_router.get("/marketdata/export")
 async def export_market_data(
     symbol: str,
     timeframe: str,
