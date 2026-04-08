@@ -42,13 +42,16 @@ def map_timeframe_from_dukascopy(tf: str) -> str:
     """
     Convert Dukascopy format back to internal format
     
+    CRITICAL: TICK data is always converted to 1m candles in our architecture.
+    
     Args:
-        tf: Dukascopy timeframe (e.g., "M1", "H1")
+        tf: Dukascopy timeframe (e.g., "M1", "H1", "TICK")
     
     Returns:
         Internal timeframe (e.g., "1m", "1h")
     """
     reverse_mapping = {
+        "TICK": "1m",  # Tick data → 1m candles (architecture principle)
         "M1": "1m",
         "M5": "5m",
         "M15": "15m",
@@ -58,7 +61,7 @@ def map_timeframe_from_dukascopy(tf: str) -> str:
         "D1": "1d"
     }
     
-    result = reverse_mapping.get(tf.upper() if tf else "", tf.lower() if tf else "1h")
+    result = reverse_mapping.get(tf.upper() if tf else "", "1m")  # Default to 1m
     return result
 
 
@@ -141,7 +144,7 @@ class DukascopyDownloader:
                     if ticks:
                         # Aggregate to 1m candles ONLY
                         candles = self.aggregator.aggregate_ticks_to_candles(
-                            ticks, hour_dt, "1m"  # FORCE 1m
+                            ticks, hour_dt, "M1"  # FORCE 1m (Dukascopy format)
                         )
                         all_candles.extend(candles)
                         downloaded += 1
@@ -288,7 +291,10 @@ class DukascopyDownloader:
         if len(candles) < 2:
             return 0
         
-        candle_minutes = TickAggregator.TIMEFRAME_MINUTES[timeframe]
+        # Convert timeframe to Dukascopy format if needed
+        timeframe_map = {"1m": "M1", "5m": "M5", "15m": "M15", "30m": "M30", "1h": "H1", "4h": "H4", "1d": "D1"}
+        tf_key = timeframe_map.get(timeframe, timeframe)
+        candle_minutes = TickAggregator.TIMEFRAME_MINUTES[tf_key]
         expected_delta = timedelta(minutes=candle_minutes)
         large_gaps = 0
         

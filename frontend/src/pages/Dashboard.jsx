@@ -884,7 +884,7 @@ Generate a complete cTrader cBot implementing this strategy.`;
   // Strategy Config State
   const [selectedPair, setSelectedPair] = useState('EURUSD');
   const [strategyMode, setStrategyMode] = useState('standard'); // 'standard' | 'pro'
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('1m');
 
   // Check data availability when pair or timeframe changes
   useEffect(() => {
