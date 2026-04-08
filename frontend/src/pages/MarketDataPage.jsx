@@ -95,6 +95,11 @@ export default function MarketDataPage() {
     }
   }, [activeTab]);
 
+  // Load coverage data once on component mount
+  useEffect(() => {
+    loadCoverage();
+  }, []);
+
   // Poll download status
   useEffect(() => {
     if (downloadTaskId && downloading) {
