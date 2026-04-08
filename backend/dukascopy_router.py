@@ -156,15 +156,16 @@ async def start_download(
         # Convert to Dukascopy format
         dukascopy_timeframe = map_timeframe_to_dukascopy(request.timeframe)
         
-        # Validate supported timeframes
-        supported = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1']
-        if dukascopy_timeframe not in supported:
+        # Validate: After 1m architecture refactor, all downloads use TICK format
+        # The system converts tick data to 1m candles automatically
+        if dukascopy_timeframe not in ['TICK', 'M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1']:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Unsupported timeframe '{request.timeframe}'. Supported: 1m, 5m, 15m, 30m, 1h, 4h, 1d"
+                detail=f"Unsupported timeframe mapping: '{request.timeframe}' → '{dukascopy_timeframe}'"
             )
         
         logger.info(f"[DUKASCOPY] API request timeframe: '{request.timeframe}' → Dukascopy: '{dukascopy_timeframe}'")
+
         
         # Create task
         task_id = str(uuid.uuid4())
