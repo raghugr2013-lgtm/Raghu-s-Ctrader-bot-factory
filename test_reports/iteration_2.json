@@ -1,0 +1,63 @@
+{
+  "summary": "Completed E2E testing of Market Data system - Upload (CSV), Download (Dukascopy), Coverage, Fix Gaps, Delete endpoints. All 18 tests passed. BI5 import fix verified (correct import from market_data_models). Export endpoint is NOT registered (function exists but missing route decorator).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/marketdata/export",
+        "issue": "Export endpoint function exists (line 2903) but is NOT registered with @api_router decorator - returns 405 Method Not Allowed",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "API root connectivity",
+    "Data integrity check endpoint",
+    "CSV import with valid 1m data - imports correctly",
+    "CSV import with invalid data - correctly rejected (400/500)",
+    "CSV import with empty data - correctly rejected",
+    "Coverage endpoint returns symbols array with timeframe metrics",
+    "Coverage includes data integrity information",
+    "Dukascopy download starts background task correctly",
+    "Dukascopy download rejects invalid date format (400)",
+    "Dukascopy task status returns 404 for non-existent task",
+    "Fix gaps endpoint works (no gaps scenario)",
+    "Fix gaps forces 1m architecture (ignores higher TF requests)",
+    "Delete endpoint removes data correctly",
+    "Delete non-existent data returns 0 count",
+    "Get market data after import works",
+    "Get market data rejects invalid timeframe (400)",
+    "Purge synthetic data endpoint works",
+    "Test data cleanup successful"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_market_data_e2e.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add @api_router.get('/marketdata/export') decorator to export_market_data function at line 2903 in server.py"
+  ],
+  "critical_code_review_comments": [
+    "export_market_data function (line 2903) is defined but NOT registered as an API route - needs @api_router.get('/marketdata/export') decorator",
+    "BI5 import fix verified: correctly imports Candle from market_data_models (line 1950)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_market_data_e2e.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "N/A - backend only testing requested"
+  },
+  "seed_data_creation": "Test data created with TEST_ prefix (TEST_EURUSD, TEST_GET, etc.) and cleaned up after tests",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All market data endpoints working except export. BI5 import fix verified. Dukascopy download works but may timeout on certain dates (holidays). Database has 38,872 real candles from Dukascopy/CSV sources. 1m architecture is enforced - all data stored as 1m candles.",
+  "verified_fixes": {
+    "BI5_import_fix": "VERIFIED - line 1950 correctly uses 'from market_data_models import Candle'"
+  }
+}

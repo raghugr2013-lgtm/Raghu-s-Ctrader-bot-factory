@@ -1947,7 +1947,7 @@ async def import_bi5_data(file: UploadFile, symbol: str = Form(...)):
         candles_df = candles_df.dropna()
         
         # Convert to Candle objects
-        from models import Candle
+        from market_data_models import Candle
         candles = []
         for timestamp, row in candles_df.iterrows():
             candle = Candle(
