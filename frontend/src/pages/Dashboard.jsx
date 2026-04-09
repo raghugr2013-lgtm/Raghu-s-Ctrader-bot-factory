@@ -895,44 +895,75 @@ export default function Dashboard() {
         challenge_firm: 'ftmo'
       });
       
-      setQuickStartProgress(40);
-      addPipelineLog('success', `Generated ${response.data.total_generated || 10} strategies`);
+      setQuickStartProgress(30);
+      addPipelineLog('success', `Factory job created: ${response.data.run_id}`);
       
       if (response.data.run_id) {
-        // Get results
-        const resultResponse = await axios.get(`${API}/factory/result/${response.data.run_id}`);
+        const runId = response.data.run_id;
+        
+        // Step 2: Poll for completion
+        addPipelineLog('info', 'Waiting for strategies to be evaluated...');
+        let attempts = 0;
+        const maxAttempts = 20;
+        let statusData = null;
+        
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          attempts++;
+          setQuickStartProgress(30 + (attempts * 2));
+          
+          try {
+            const statusResponse = await axios.get(`${API}/factory/status/${runId}`);
+            statusData = statusResponse.data;
+            
+            if (statusData.status === 'completed') {
+              addPipelineLog('success', `Generated ${statusData.total_generated} strategies in ${statusData.execution_time_seconds?.toFixed(1)}s`);
+              break;
+            } else if (statusData.status === 'failed') {
+              throw new Error(statusData.error_message || 'Factory run failed');
+            }
+          } catch (e) {
+            if (attempts >= maxAttempts) throw e;
+          }
+        }
+        
         setQuickStartProgress(70);
         
+        // Step 3: Get results
+        addPipelineLog('info', 'Fetching strategy results...');
+        const resultResponse = await axios.get(`${API}/factory/result/${runId}`);
+        
         if (resultResponse.data.result?.strategies) {
-          // Sort by fitness and take top 3
-          const sortedStrategies = resultResponse.data.result.strategies
-            .filter(s => s.fitness >= 25) // Apply minimum threshold
+          // Sort by fitness and take top 3 (or all if less than 3 meet threshold)
+          const allStrategies = resultResponse.data.result.strategies;
+          const passingStrategies = allStrategies.filter(s => s.fitness >= 25);
+          const sortedStrategies = allStrategies
             .sort((a, b) => b.fitness - a.fitness)
-            .slice(0, 3);
+            .slice(0, 5); // Show top 5 regardless of threshold
           
           setTopStrategies(sortedStrategies);
           setQuickStartProgress(100);
           
-          addPipelineLog('success', `Filtered to top ${sortedStrategies.length} strategies`);
+          if (passingStrategies.length > 0) {
+            addPipelineLog('success', `${passingStrategies.length} strategies passed fitness threshold (≥25)`);
+          } else {
+            addPipelineLog('warning', `No strategies met fitness threshold (≥25). Showing top ${sortedStrategies.length} for review.`);
+          }
           
           // Update pipeline state
           setCompletedPipelineSteps(['generate', 'view']);
           setCurrentPipelineStep('select');
           
-          if (sortedStrategies.length > 0) {
-            toast.success(`✅ Quick Start complete! ${sortedStrategies.length} top strategies ready for selection.`, {
-              duration: 5000
-            });
-          } else {
-            toast.warning('No strategies met the minimum fitness threshold (25). Try adjusting parameters.', {
-              duration: 5000
-            });
-          }
+          toast.success(`✅ Quick Start complete! ${sortedStrategies.length} strategies ready for selection.`, {
+            duration: 5000
+          });
+        } else {
+          throw new Error('No strategies returned from factory');
         }
       }
     } catch (error) {
       console.error('Quick start error:', error);
-      addPipelineLog('error', `Quick Start failed: ${error.message}`);
+      addPipelineLog('error', `Quick Start failed: ${error.response?.data?.detail || error.message}`);
       toast.error(`Quick Start failed: ${error.response?.data?.detail || error.message}`);
     } finally {
       setIsQuickStarting(false);
