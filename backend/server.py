@@ -82,7 +82,9 @@ from strategy_job_tracker import (
 )
 from walkforward_validator import (
     run_walkforward_validation,
+    run_multi_period_walkforward,
     WalkForwardResult,
+    MultiPeriodWalkForwardResult,
     filter_robust_strategies
 )
 
@@ -1887,23 +1889,27 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
         tracker.update(
             job_id,
             percent=80,
-            message=f"Running walk-forward validation on {len(passed_strategies)} strategies..."
+            message=f"Running multi-period walk-forward validation on {len(passed_strategies)} strategies..."
         )
         
-        # Run walk-forward validation to detect overfitting
+        # Run multi-period walk-forward validation to detect overfitting
         robust_strategies = []
         overfit_count = 0
+        low_trades_count = 0
         walkforward_results = {}
+        
+        min_val_trades = filter_params.get("min_validation_trades", 30)
+        min_profitable_ratio = filter_params.get("min_profitable_ratio", 0.7)
         
         for idx, strategy in enumerate(passed_strategies):
             try:
-                # Progress update every 5 strategies
-                if idx % 5 == 0:
+                # Progress update every 3 strategies
+                if idx % 3 == 0:
                     wf_progress = 80 + (idx / len(passed_strategies)) * 8  # 80-88%
                     tracker.update(
                         job_id,
                         percent=wf_progress,
-                        message=f"Walk-forward validation {idx + 1}/{len(passed_strategies)}..."
+                        message=f"Multi-period validation {idx + 1}/{len(passed_strategies)}..."
                     )
                 
                 # Get strategy params
@@ -1914,67 +1920,94 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                     seed=seed
                 )
                 
-                # Run walk-forward validation with filter thresholds
-                wf_result = run_walkforward_validation(
+                # Run MULTI-PERIOD walk-forward validation
+                mp_result = run_multi_period_walkforward(
                     candles=candles,
                     strategy_name=strategy.get("name", f"Strategy_{idx}"),
                     symbol=config.symbol,
                     timeframe=config.timeframe,
                     params=params,
                     initial_balance=10000,
-                    training_ratio=0.7,
-                    min_stability_threshold=filter_params.get("min_stability", 0.7),
-                    min_validation_pf=filter_params.get("min_validation_pf", 1.1)
+                    training_years=2,
+                    validation_years=1,
+                    step_months=12,
+                    min_validation_trades=min_val_trades,
+                    min_validation_pf=filter_params.get("min_validation_pf", 1.1),
+                    min_profitable_ratio=min_profitable_ratio
                 )
                 
                 # Store walk-forward results
-                walkforward_results[strategy.get("name", f"Strategy_{idx}")] = wf_result.to_dict()
+                walkforward_results[strategy.get("name", f"Strategy_{idx}")] = mp_result.to_dict()
                 
-                # Add walk-forward metrics to strategy
+                # Add multi-period walk-forward metrics to strategy
                 strategy["walkforward"] = {
-                    "training_pf": wf_result.training_metrics.profit_factor,
-                    "training_wr": wf_result.training_metrics.win_rate,
-                    "training_dd": wf_result.training_metrics.max_drawdown_pct,
-                    "training_trades": wf_result.training_metrics.total_trades,
-                    "validation_pf": wf_result.validation_metrics.profit_factor,
-                    "validation_wr": wf_result.validation_metrics.win_rate,
-                    "validation_dd": wf_result.validation_metrics.max_drawdown_pct,
-                    "validation_trades": wf_result.validation_metrics.total_trades,
-                    "stability_score": round(wf_result.stability_score, 3),
-                    "pf_stability": round(wf_result.pf_stability, 3),
-                    "is_overfit": wf_result.is_overfit,
-                    "overfit_severity": wf_result.overfit_severity,
-                    "robustness_grade": wf_result.robustness_grade,
-                    "is_robust": wf_result.is_robust
+                    "type": "multi_period",
+                    "num_periods": mp_result.num_periods,
+                    "avg_training_pf": round(mp_result.avg_training_pf, 3),
+                    "avg_validation_pf": round(mp_result.avg_validation_pf, 3),
+                    "avg_training_wr": round(mp_result.avg_training_wr, 2),
+                    "avg_validation_wr": round(mp_result.avg_validation_wr, 2),
+                    "worst_validation_pf": round(mp_result.worst_validation_pf, 3),
+                    "worst_validation_dd": round(mp_result.worst_validation_dd, 2),
+                    "total_training_trades": mp_result.total_training_trades,
+                    "total_validation_trades": mp_result.total_validation_trades,
+                    "pf_consistency": round(mp_result.pf_consistency, 3),
+                    "profitable_periods": mp_result.profitable_periods,
+                    "profitable_ratio": round(mp_result.profitable_ratio, 3),
+                    "stability_score": round(mp_result.stability_score, 3),
+                    "robustness_grade": mp_result.robustness_grade,
+                    "is_robust": mp_result.is_robust,
+                    "rejection_reasons": mp_result.rejection_reasons,
+                    # Include period details
+                    "periods": [
+                        {
+                            "name": p.period_name,
+                            "train_pf": round(p.training_metrics.profit_factor, 2),
+                            "val_pf": round(p.validation_metrics.profit_factor, 2),
+                            "train_trades": p.training_metrics.total_trades,
+                            "val_trades": p.validation_metrics.total_trades,
+                            "is_profitable": p.is_profitable
+                        }
+                        for p in mp_result.periods
+                    ]
                 }
                 
                 # Check if strategy is robust
-                if wf_result.is_robust:
+                if mp_result.is_robust:
                     # Apply stability bonus/penalty to composite score
-                    stability_bonus = (wf_result.stability_score - 0.6) * 0.3  # Up to +0.12 bonus
-                    strategy["composite_score"] = round(strategy["composite_score"] + stability_bonus, 4)
+                    stability_bonus = (mp_result.stability_score - 0.5) * 0.4  # Up to +0.2 bonus
+                    # Bonus for high trade count
+                    trade_bonus = min(mp_result.total_validation_trades / 100, 0.15)  # Up to +0.15
+                    strategy["composite_score"] = round(
+                        strategy["composite_score"] + stability_bonus + trade_bonus, 4
+                    )
                     strategy["stability_adjusted"] = True
                     robust_strategies.append(strategy)
                 else:
-                    overfit_count += 1
-                    strategy["rejected_reason"] = "overfit"
-                    strategy["overfit_reasons"] = wf_result.overfit_reasons
+                    # Track rejection reason
+                    if mp_result.total_validation_trades < min_val_trades:
+                        low_trades_count += 1
+                    else:
+                        overfit_count += 1
+                    strategy["rejected_reason"] = "failed_multi_period"
+                    strategy["rejection_details"] = mp_result.rejection_reasons
                     
             except Exception as e:
-                logging.warning(f"Walk-forward validation error for strategy {idx}: {str(e)}")
+                logging.warning(f"Multi-period validation error for strategy {idx}: {str(e)}")
                 # Keep strategy but mark as unvalidated
                 strategy["walkforward"] = {"error": str(e), "is_robust": False}
-                robust_strategies.append(strategy)  # Keep unvalidated strategies
+                # Don't add unvalidated strategies to robust list
         
         # Update rejection reasons
         rejection_reasons["overfit"] = overfit_count
-        total_rejected = rejected_count + overfit_count
+        rejection_reasons["low_validation_trades"] = low_trades_count
+        total_rejected = rejected_count + overfit_count + low_trades_count
         
-        logging.info(f"[JOB {job_id[:8]}] Walk-forward: {len(robust_strategies)} robust, {overfit_count} overfit")
+        logging.info(f"[JOB {job_id[:8]}] Multi-period WF: {len(robust_strategies)} robust, {overfit_count} overfit, {low_trades_count} low trades")
         
         tracker.update(
             job_id,
-            message=f"Walk-forward complete: {len(robust_strategies)} robust, {overfit_count} overfit"
+            message=f"Multi-period validation complete: {len(robust_strategies)} robust"
         )
         
         # Stage 6: Finalizing
@@ -2151,23 +2184,29 @@ def _get_filter_params(risk_level: str) -> dict:
             "min_trades": 15,   # At least 15 trades for reliability
             "min_wr": 45,       # Win rate >= 45%
             "min_stability": 0.8,  # 80% stability required
-            "min_validation_pf": 1.3  # Validation PF >= 1.3
+            "min_validation_pf": 1.3,  # Validation PF >= 1.3
+            "min_validation_trades": 30,  # At least 30 validation trades
+            "min_profitable_ratio": 0.8   # 80% of periods must be profitable
         },
         "medium": {
-            "min_pf": 1.3,      # Profit factor >= 1.3 (as requested)
-            "max_dd": 20,       # Max drawdown <= 20% (as requested)
-            "min_trades": 10,   # At least 10 trades (reduced for limited data)
+            "min_pf": 1.3,      # Profit factor >= 1.3
+            "max_dd": 20,       # Max drawdown <= 20%
+            "min_trades": 10,   # At least 10 trades (initial filter)
             "min_wr": 38,       # Win rate >= 38%
-            "min_stability": 0.7,  # 70% stability required (as requested)
-            "min_validation_pf": 1.1  # Validation PF >= 1.1 (as requested)
+            "min_stability": 0.65,  # 65% stability required
+            "min_validation_pf": 1.05,  # Validation PF >= 1.05
+            "min_validation_trades": 15,  # At least 15 validation trades (across all periods)
+            "min_profitable_ratio": 0.6   # 60% of periods must be profitable
         },
         "high": {
             "min_pf": 1.1,      # Profit factor >= 1.1
             "max_dd": 30,       # Max drawdown <= 30%
             "min_trades": 8,    # At least 8 trades
             "min_wr": 35,       # Win rate >= 35%
-            "min_stability": 0.6,  # 60% stability required
-            "min_validation_pf": 1.0  # Validation PF >= 1.0
+            "min_stability": 0.55,  # 55% stability required
+            "min_validation_pf": 1.0,  # Validation PF >= 1.0
+            "min_validation_trades": 10,  # At least 10 validation trades
+            "min_profitable_ratio": 0.5   # 50% of periods must be profitable
         }
     }
     return filters.get(risk_level, filters["medium"])

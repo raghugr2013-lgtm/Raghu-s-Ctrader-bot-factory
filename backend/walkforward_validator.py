@@ -2,19 +2,21 @@
 Walk-Forward Validation System
 Ensures strategies are robust and not curve-fitted.
 
-Splits data into:
-- Training Period (70%): Strategy must perform well here
-- Validation Period (30%): Strategy must ALSO perform here
+Supports:
+1. Single split validation (70% training / 30% validation)
+2. Multi-period rolling validation (advanced)
 
 Rejects strategies that:
 - Perform well in training but poorly in validation (overfitting)
 - Show large performance degradation between periods
+- Have insufficient trade count for statistical reliability
 """
 
 import logging
+import statistics
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from market_data_models import Candle
 from backtest_models import TradeRecord, EquityPoint, BacktestConfig
@@ -99,6 +101,89 @@ class WalkForwardResult:
             "overfit_reasons": self.overfit_reasons,
             "is_robust": self.is_robust,
             "robustness_grade": self.robustness_grade
+        }
+
+
+@dataclass
+class RollingPeriodResult:
+    """Result for a single rolling period validation."""
+    period_name: str
+    training_start: datetime
+    training_end: datetime
+    validation_start: datetime
+    validation_end: datetime
+    training_metrics: PeriodMetrics
+    validation_metrics: PeriodMetrics
+    pf_stability: float
+    wr_stability: float
+    is_profitable: bool  # Validation PF > 1.0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "period_name": self.period_name,
+            "training_period": f"{self.training_start.strftime('%Y-%m')} to {self.training_end.strftime('%Y-%m')}",
+            "validation_period": f"{self.validation_start.strftime('%Y-%m')} to {self.validation_end.strftime('%Y-%m')}",
+            "training": self.training_metrics.to_dict(),
+            "validation": self.validation_metrics.to_dict(),
+            "pf_stability": round(self.pf_stability, 3),
+            "wr_stability": round(self.wr_stability, 3),
+            "is_profitable": self.is_profitable
+        }
+
+
+@dataclass
+class MultiPeriodWalkForwardResult:
+    """
+    Complete multi-period rolling walk-forward validation result.
+    Tests strategy across multiple time periods for consistency.
+    """
+    strategy_name: str
+    num_periods: int
+    periods: List[RollingPeriodResult] = field(default_factory=list)
+    
+    # Aggregated metrics
+    avg_training_pf: float = 0.0
+    avg_validation_pf: float = 0.0
+    avg_training_wr: float = 0.0
+    avg_validation_wr: float = 0.0
+    worst_validation_pf: float = 0.0
+    worst_validation_dd: float = 0.0
+    
+    # Total trade counts
+    total_training_trades: int = 0
+    total_validation_trades: int = 0
+    
+    # Consistency metrics
+    pf_consistency: float = 0.0  # Lower std dev = more consistent
+    profitable_periods: int = 0  # Periods with validation PF > 1.0
+    profitable_ratio: float = 0.0
+    
+    # Overall stability
+    stability_score: float = 0.0
+    robustness_grade: str = "F"
+    is_robust: bool = False
+    rejection_reasons: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "strategy_name": self.strategy_name,
+            "num_periods": self.num_periods,
+            "periods": [p.to_dict() for p in self.periods],
+            "avg_training_pf": round(self.avg_training_pf, 3),
+            "avg_validation_pf": round(self.avg_validation_pf, 3),
+            "avg_training_wr": round(self.avg_training_wr, 2),
+            "avg_validation_wr": round(self.avg_validation_wr, 2),
+            "worst_validation_pf": round(self.worst_validation_pf, 3),
+            "worst_validation_dd": round(self.worst_validation_dd, 2),
+            "total_training_trades": self.total_training_trades,
+            "total_validation_trades": self.total_validation_trades,
+            "pf_consistency": round(self.pf_consistency, 3),
+            "profitable_periods": self.profitable_periods,
+            "profitable_ratio": round(self.profitable_ratio, 3),
+            "stability_score": round(self.stability_score, 3),
+            "robustness_grade": self.robustness_grade,
+            "is_robust": self.is_robust,
+            "rejection_reasons": self.rejection_reasons
         }
 
 
@@ -484,3 +569,314 @@ def filter_robust_strategies(
             robust.append(r)
     
     return robust
+
+
+
+def create_rolling_periods(
+    candles: List[Candle],
+    training_years: int = 2,
+    validation_years: int = 1,
+    step_months: int = 12
+) -> List[Tuple[List[Candle], List[Candle], str]]:
+    """
+    Create rolling train/validation periods from candles.
+    
+    Example with training_years=2, validation_years=1, step_months=12:
+    - Period 1: Train 2020-2022, Validate 2022-2023
+    - Period 2: Train 2021-2023, Validate 2023-2024
+    - Period 3: Train 2022-2024, Validate 2024-2025
+    
+    Args:
+        candles: Full list of candles (sorted by timestamp)
+        training_years: Years of data for training
+        validation_years: Years of data for validation
+        step_months: Months to step forward for each period
+    
+    Returns:
+        List of (training_candles, validation_candles, period_name) tuples
+    """
+    if not candles:
+        return []
+    
+    sorted_candles = sorted(candles, key=lambda c: c.timestamp)
+    
+    first_date = sorted_candles[0].timestamp
+    last_date = sorted_candles[-1].timestamp
+    
+    training_days = training_years * 365
+    validation_days = validation_years * 365
+    step_days = step_months * 30
+    
+    periods = []
+    current_start = first_date
+    period_num = 1
+    
+    while True:
+        train_end = current_start + timedelta(days=training_days)
+        val_start = train_end
+        val_end = val_start + timedelta(days=validation_days)
+        
+        # Stop if we don't have enough data for validation
+        if val_end > last_date:
+            break
+        
+        # Get candles for each period
+        train_candles = [c for c in sorted_candles 
+                        if current_start <= c.timestamp < train_end]
+        val_candles = [c for c in sorted_candles 
+                      if val_start <= c.timestamp < val_end]
+        
+        # Only add period if we have minimum candles
+        if len(train_candles) >= 500 and len(val_candles) >= 200:
+            period_name = f"Period {period_num}: {current_start.strftime('%Y')}-{train_end.strftime('%Y')} → {val_end.strftime('%Y')}"
+            periods.append((train_candles, val_candles, period_name))
+            period_num += 1
+        
+        # Step forward
+        current_start = current_start + timedelta(days=step_days)
+        
+        # Safety limit
+        if period_num > 10:
+            break
+    
+    logger.info(f"Created {len(periods)} rolling walk-forward periods")
+    return periods
+
+
+def run_multi_period_walkforward(
+    candles: List[Candle],
+    strategy_name: str,
+    symbol: str,
+    timeframe: str,
+    params: StrategyParameters,
+    initial_balance: float = 10000,
+    training_years: int = 2,
+    validation_years: int = 1,
+    step_months: int = 12,
+    min_validation_trades: int = 30,
+    min_validation_pf: float = 1.1,
+    min_profitable_ratio: float = 0.7  # At least 70% of periods must be profitable
+) -> MultiPeriodWalkForwardResult:
+    """
+    Run multi-period rolling walk-forward validation.
+    
+    This tests the strategy across multiple overlapping time periods
+    to ensure consistency and statistical reliability.
+    
+    Args:
+        candles: Full historical data
+        strategy_name: Name of the strategy
+        symbol: Trading symbol
+        timeframe: Timeframe
+        params: Strategy parameters
+        initial_balance: Starting balance
+        training_years: Years per training period
+        validation_years: Years per validation period
+        step_months: Months to step forward
+        min_validation_trades: Minimum trades required in validation
+        min_validation_pf: Minimum validation profit factor
+        min_profitable_ratio: Minimum ratio of profitable periods
+    
+    Returns:
+        MultiPeriodWalkForwardResult with aggregated metrics
+    """
+    from backtest_models import Timeframe
+    
+    # Create rolling periods
+    periods = create_rolling_periods(
+        candles, training_years, validation_years, step_months
+    )
+    
+    if len(periods) < 2:
+        logger.warning("Insufficient data for multi-period walk-forward validation")
+        return MultiPeriodWalkForwardResult(
+            strategy_name=strategy_name,
+            num_periods=0,
+            rejection_reasons=["Insufficient data for multi-period validation"],
+            is_robust=False,
+            robustness_grade="F"
+        )
+    
+    # Setup
+    tf_map = {"1m": Timeframe.M1, "5m": Timeframe.M5, "15m": Timeframe.M15,
+              "30m": Timeframe.M30, "1h": Timeframe.H1, "4h": Timeframe.H4, "1d": Timeframe.D1}
+    tf = tf_map.get(timeframe, Timeframe.H1)
+    
+    config = BacktestConfig(
+        symbol=symbol,
+        timeframe=tf,
+        start_date=candles[0].timestamp,
+        end_date=candles[-1].timestamp,
+        initial_balance=initial_balance,
+        spread_pips=1.5,
+        commission_per_lot=7.0,
+        leverage=100,
+    )
+    
+    # Run validation on each period
+    period_results = []
+    training_pfs = []
+    validation_pfs = []
+    training_wrs = []
+    validation_wrs = []
+    total_train_trades = 0
+    total_val_trades = 0
+    profitable_count = 0
+    worst_val_pf = float('inf')
+    worst_val_dd = 0
+    
+    for train_candles, val_candles, period_name in periods:
+        # Run on training period
+        train_trades, train_equity = _run_parameterized_strategy(
+            train_candles, config, params
+        )
+        train_metrics = calculate_period_metrics(
+            train_trades, train_equity, "training", train_candles, initial_balance
+        )
+        
+        # Run on validation period (same params)
+        val_trades, val_equity = _run_parameterized_strategy(
+            val_candles, config, params
+        )
+        val_metrics = calculate_period_metrics(
+            val_trades, val_equity, "validation", val_candles, initial_balance
+        )
+        
+        # Calculate stability
+        pf_stability = _calculate_stability_ratio(
+            val_metrics.profit_factor, train_metrics.profit_factor, True
+        )
+        wr_stability = _calculate_stability_ratio(
+            val_metrics.win_rate, train_metrics.win_rate, True
+        )
+        
+        is_profitable = val_metrics.profit_factor >= 1.0
+        
+        period_result = RollingPeriodResult(
+            period_name=period_name,
+            training_start=train_candles[0].timestamp,
+            training_end=train_candles[-1].timestamp,
+            validation_start=val_candles[0].timestamp,
+            validation_end=val_candles[-1].timestamp,
+            training_metrics=train_metrics,
+            validation_metrics=val_metrics,
+            pf_stability=pf_stability,
+            wr_stability=wr_stability,
+            is_profitable=is_profitable
+        )
+        period_results.append(period_result)
+        
+        # Collect stats
+        training_pfs.append(train_metrics.profit_factor)
+        validation_pfs.append(val_metrics.profit_factor)
+        training_wrs.append(train_metrics.win_rate)
+        validation_wrs.append(val_metrics.win_rate)
+        total_train_trades += train_metrics.total_trades
+        total_val_trades += val_metrics.total_trades
+        
+        if is_profitable:
+            profitable_count += 1
+        
+        if val_metrics.profit_factor < worst_val_pf:
+            worst_val_pf = val_metrics.profit_factor
+        if val_metrics.max_drawdown_pct > worst_val_dd:
+            worst_val_dd = val_metrics.max_drawdown_pct
+    
+    # Calculate aggregated metrics
+    avg_train_pf = statistics.mean(training_pfs) if training_pfs else 0
+    avg_val_pf = statistics.mean(validation_pfs) if validation_pfs else 0
+    avg_train_wr = statistics.mean(training_wrs) if training_wrs else 0
+    avg_val_wr = statistics.mean(validation_wrs) if validation_wrs else 0
+    
+    # PF consistency (lower std dev = more consistent)
+    pf_std = statistics.stdev(validation_pfs) if len(validation_pfs) > 1 else 0
+    pf_consistency = max(0, 1 - (pf_std / (avg_val_pf + 0.01)))  # Normalize
+    
+    profitable_ratio = profitable_count / len(periods) if periods else 0
+    
+    # Rejection checks
+    rejection_reasons = []
+    
+    # Check 1: Minimum validation trades
+    if total_val_trades < min_validation_trades:
+        rejection_reasons.append(
+            f"Insufficient validation trades: {total_val_trades} < {min_validation_trades}"
+        )
+    
+    # Check 2: Average validation PF
+    if avg_val_pf < min_validation_pf:
+        rejection_reasons.append(
+            f"Low average validation PF: {avg_val_pf:.2f} < {min_validation_pf}"
+        )
+    
+    # Check 3: Profitable periods ratio
+    if profitable_ratio < min_profitable_ratio:
+        rejection_reasons.append(
+            f"Low profitable ratio: {profitable_ratio*100:.1f}% < {min_profitable_ratio*100:.1f}%"
+        )
+    
+    # Check 4: Worst-case validation PF
+    if worst_val_pf < 0.8:
+        rejection_reasons.append(
+            f"Worst validation PF too low: {worst_val_pf:.2f}"
+        )
+    
+    # Check 5: Consistency
+    if pf_consistency < 0.5:
+        rejection_reasons.append(
+            f"Inconsistent performance: consistency score {pf_consistency:.2f}"
+        )
+    
+    # Calculate overall stability score
+    stability_score = (
+        min(avg_val_pf / 2, 1.0) * 0.30 +  # Avg PF (cap at 2.0)
+        pf_consistency * 0.25 +             # Consistency
+        profitable_ratio * 0.25 +           # Profitable periods
+        (1 - worst_val_dd / 50) * 0.20      # Worst DD penalty (cap at 50%)
+    )
+    stability_score = max(0, min(1, stability_score))
+    
+    # Determine grade
+    is_robust = len(rejection_reasons) == 0
+    if stability_score >= 0.85 and total_val_trades >= 50:
+        robustness_grade = "A+"
+    elif stability_score >= 0.75 and total_val_trades >= 40:
+        robustness_grade = "A"
+    elif stability_score >= 0.65 and total_val_trades >= 30:
+        robustness_grade = "B"
+    elif stability_score >= 0.55:
+        robustness_grade = "C"
+    elif stability_score >= 0.45:
+        robustness_grade = "D"
+    else:
+        robustness_grade = "F"
+    
+    result = MultiPeriodWalkForwardResult(
+        strategy_name=strategy_name,
+        num_periods=len(periods),
+        periods=period_results,
+        avg_training_pf=avg_train_pf,
+        avg_validation_pf=avg_val_pf,
+        avg_training_wr=avg_train_wr,
+        avg_validation_wr=avg_val_wr,
+        worst_validation_pf=worst_val_pf if worst_val_pf != float('inf') else 0,
+        worst_validation_dd=worst_val_dd,
+        total_training_trades=total_train_trades,
+        total_validation_trades=total_val_trades,
+        pf_consistency=pf_consistency,
+        profitable_periods=profitable_count,
+        profitable_ratio=profitable_ratio,
+        stability_score=stability_score,
+        robustness_grade=robustness_grade,
+        is_robust=is_robust,
+        rejection_reasons=rejection_reasons
+    )
+    
+    logger.info(
+        f"Multi-period WF for {strategy_name}: "
+        f"Grade={robustness_grade}, Stability={stability_score:.2f}, "
+        f"Periods={len(periods)}, Profitable={profitable_count}/{len(periods)}, "
+        f"Val Trades={total_val_trades}"
+    )
+    
+    return result
