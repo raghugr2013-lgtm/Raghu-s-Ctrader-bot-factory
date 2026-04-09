@@ -54,6 +54,36 @@ async def generate_strategies(request: FactoryRunRequest):
     if _db is None:
         raise HTTPException(status_code=500, detail="Database not initialised")
 
+    # DATA SUFFICIENCY CHECK - Warn if less than 2 years of data
+    MIN_CANDLES_2_YEARS = {
+        "1h": 12_000,   # ~252 trading days * 24 hours * 2 years
+        "4h": 3_000,    # ~252 * 6 * 2
+        "1d": 500,      # ~252 * 2
+        "15m": 48_000,  # ~252 * 24 * 4 * 2
+        "30m": 24_000,  # ~252 * 24 * 2 * 2
+        "1m": 720_000,  # ~252 * 24 * 60 * 2
+        "5m": 144_000,  # ~252 * 24 * 12 * 2
+    }
+    
+    candle_count = await _db.market_candles.count_documents({
+        "symbol": request.symbol.upper(),
+        "timeframe": request.timeframe
+    })
+    
+    min_required = MIN_CANDLES_2_YEARS.get(request.timeframe, 12_000)
+    data_years = candle_count / (min_required / 2)  # Estimate years of data
+    
+    data_warning = None
+    if candle_count < min_required:
+        data_warning = {
+            "type": "INSUFFICIENT_DATA",
+            "message": f"⚠️ Only {candle_count:,} candles available ({data_years:.1f} years). Recommended: {min_required:,}+ candles (2+ years) for reliable strategy generation.",
+            "candle_count": candle_count,
+            "recommended_minimum": min_required,
+            "data_years_estimate": round(data_years, 1)
+        }
+        logger.warning(f"[DATA] Insufficient data for {request.symbol} {request.timeframe}: {candle_count:,} candles ({data_years:.1f} years)")
+
     # DATA INTEGRITY CHECK - Block if synthetic data exists
     synthetic_count = await _db.market_candles.count_documents({
         "provider": "gap_fill",
@@ -103,9 +133,13 @@ async def generate_strategies(request: FactoryRunRequest):
         "success": True,
         "run_id": run.id,
         "status": "pending",
+        "data_warning": data_warning,
+        "candle_count": candle_count,
+        "data_years_estimate": round(data_years, 1),
         "message": (
             f"Factory started: {len(request.templates)} templates x "
             f"{request.strategies_per_template} strategies each"
+            + (f" (⚠️ Limited data: {data_years:.1f} years)" if data_warning else f" ({candle_count:,} candles)")
         ),
     }
 

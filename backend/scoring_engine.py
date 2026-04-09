@@ -36,12 +36,21 @@ class CompositeScoreWeights:
 
 class QualityFilters:
     """Minimum quality thresholds for strategy validation"""
-    MIN_PROFIT_FACTOR = 1.2       # Must be profitable with margin
-    MAX_DRAWDOWN_PCT = 20.0       # Maximum allowed drawdown
-    MIN_STABILITY_PCT = 60.0      # Minimum stability score
+    MIN_PROFIT_FACTOR = 1.05      # Slightly profitable (discovery mode)
+    MAX_DRAWDOWN_PCT = 35.0       # Reasonable drawdown tolerance
+    MIN_STABILITY_PCT = 40.0      # Minimum stability score
     MIN_TRADES = 50               # Minimum number of trades
-    MIN_WIN_RATE = 30.0           # Minimum win rate %
-    MIN_SHARPE = 0.0              # Minimum Sharpe ratio (positive)
+    MIN_WIN_RATE = 25.0           # Minimum win rate %
+    MIN_SHARPE = -1.0             # Allow negative Sharpe for discovery
+    
+    # Stricter thresholds for "Strong" label
+    STRONG_PF = 1.5
+    STRONG_DD = 15.0
+    STRONG_SHARPE = 1.0
+    
+    # Moderate thresholds
+    MODERATE_PF = 1.2
+    MODERATE_DD = 25.0
     
     @classmethod
     def passes_all(cls, strategy: dict) -> tuple:
@@ -91,12 +100,17 @@ class QualityFilters:
         sharpe = strategy.get('sharpe_ratio', 0)
         
         # Strong: PF ≥ 1.5, DD ≤ 15%, Sharpe ≥ 1.0
-        if pf >= 1.5 and dd <= 15 and sharpe >= 1.0:
+        if pf >= cls.STRONG_PF and dd <= cls.STRONG_DD and sharpe >= cls.STRONG_SHARPE:
             return ('Strong', 'emerald', '🟢')
         
-        # Moderate: PF ≥ 1.2, DD ≤ 20%
-        if pf >= 1.2 and dd <= 20:
+        # Moderate: PF ≥ 1.2, DD ≤ 25%
+        if pf >= cls.MODERATE_PF and dd <= cls.MODERATE_DD:
             return ('Moderate', 'amber', '🟡')
+        
+        # Acceptable: Passes minimum filters
+        passes, _ = cls.passes_all(strategy)
+        if passes:
+            return ('Acceptable', 'blue', '🔵')
         
         # Weak: Everything else
         return ('Weak', 'red', '🔴')
