@@ -872,23 +872,32 @@ export default function Dashboard() {
     }]);
   };
   
-  // Quick Start function - generates 10 strategies and shows top 3
-  const handleQuickStart = async () => {
+  // Quick Start function - generates strategies with quality filtering and auto-retry
+  const handleQuickStart = async (retryCount = 0) => {
+    const MAX_RETRIES = 2;
     setIsQuickStarting(true);
     setQuickStartProgress(0);
-    setPipelineLogs([]);
-    addPipelineLog('info', 'Quick Start initiated - generating 10 strategies...');
+    
+    if (retryCount === 0) {
+      setPipelineLogs([]);
+      addPipelineLog('info', 'Quick Start initiated - generating validated strategies...');
+    } else {
+      addPipelineLog('info', `Retry ${retryCount}/${MAX_RETRIES} - generating more strategies...`);
+    }
     
     try {
       // Step 1: Generate strategies using factory
       setQuickStartProgress(10);
       addPipelineLog('info', 'Creating strategy generation job...');
       
+      // Increase strategies per template on retry
+      const strategiesPerTemplate = retryCount === 0 ? 3 : 5;
+      
       const response = await axios.post(`${API}/factory/generate`, {
         session_id: `quickstart-${Date.now()}`,
         symbol: selectedPair || 'EURUSD',
         timeframe: selectedTimeframe || '1h',
-        strategies_per_template: 2,
+        strategies_per_template: strategiesPerTemplate,
         templates: ['ema_crossover', 'rsi_mean_reversion', 'macd_trend', 'bollinger_breakout', 'atr_volatility_breakout'],
         duration_days: 365,
         initial_balance: 10000,
@@ -902,15 +911,15 @@ export default function Dashboard() {
         const runId = response.data.run_id;
         
         // Step 2: Poll for completion
-        addPipelineLog('info', 'Waiting for strategies to be evaluated...');
+        addPipelineLog('info', 'Evaluating strategies (PF, DD, Stability, Trades)...');
         let attempts = 0;
-        const maxAttempts = 20;
+        const maxAttempts = 30;
         let statusData = null;
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          await new Promise(resolve => setTimeout(resolve, 1000));
           attempts++;
-          setQuickStartProgress(30 + (attempts * 2));
+          setQuickStartProgress(30 + (attempts * 1.5));
           
           try {
             const statusResponse = await axios.get(`${API}/factory/status/${runId}`);
@@ -929,34 +938,61 @@ export default function Dashboard() {
         
         setQuickStartProgress(70);
         
-        // Step 3: Get results
-        addPipelineLog('info', 'Fetching strategy results...');
-        const resultResponse = await axios.get(`${API}/factory/result/${runId}`);
+        // Step 3: Get results with quality filters applied
+        addPipelineLog('info', 'Applying quality filters (PF≥1.2, DD≤20%, Trades≥50)...');
+        const resultResponse = await axios.get(`${API}/factory/result/${runId}?apply_filters=true`);
         
-        if (resultResponse.data.result?.strategies) {
-          // Sort by fitness and take top 3 (or all if less than 3 meet threshold)
-          const allStrategies = resultResponse.data.result.strategies;
-          const passingStrategies = allStrategies.filter(s => s.fitness >= 25);
-          const sortedStrategies = allStrategies
-            .sort((a, b) => b.fitness - a.fitness)
-            .slice(0, 5); // Show top 5 regardless of threshold
+        if (resultResponse.data.result) {
+          const result = resultResponse.data.result;
+          const allStrategies = result.strategies || [];
+          const passedCount = result.total_passed_filters || 0;
+          const rejectedCount = result.total_rejected || 0;
           
-          setTopStrategies(sortedStrategies);
-          setQuickStartProgress(100);
+          // Filter to only show strategies that pass quality filters
+          const qualityStrategies = allStrategies.filter(s => s.passes_quality_filter);
           
-          if (passingStrategies.length > 0) {
-            addPipelineLog('success', `${passingStrategies.length} strategies passed fitness threshold (≥25)`);
+          addPipelineLog('info', `Quality filter: ${passedCount} passed, ${rejectedCount} rejected`);
+          
+          if (qualityStrategies.length >= 3) {
+            // Success - show top 5 quality strategies
+            const topStrategies = qualityStrategies.slice(0, 5);
+            setTopStrategies(topStrategies);
+            setQuickStartProgress(100);
+            
+            const strongCount = topStrategies.filter(s => s.quality_label === 'Strong').length;
+            const moderateCount = topStrategies.filter(s => s.quality_label === 'Moderate').length;
+            
+            addPipelineLog('success', `✓ ${topStrategies.length} quality strategies found (${strongCount} Strong, ${moderateCount} Moderate)`);
+            
+            setCompletedPipelineSteps(['generate', 'view']);
+            setCurrentPipelineStep('select');
+            
+            toast.success(`✅ ${topStrategies.length} quality strategies ready! Select one to generate cBot.`, {
+              duration: 5000
+            });
+          } else if (retryCount < MAX_RETRIES) {
+            // Not enough quality strategies - auto retry
+            addPipelineLog('warning', `Only ${qualityStrategies.length} strategies passed quality filters. Generating more...`);
+            toast.info('🔄 No strong strategies found — generating more...', { duration: 3000 });
+            
+            // Recursive retry
+            await handleQuickStart(retryCount + 1);
+            return;
           } else {
-            addPipelineLog('warning', `No strategies met fitness threshold (≥25). Showing top ${sortedStrategies.length} for review.`);
+            // Max retries reached - show what we have with warning
+            const bestAvailable = allStrategies.slice(0, 5);
+            setTopStrategies(bestAvailable);
+            setQuickStartProgress(100);
+            
+            addPipelineLog('warning', `Max retries reached. Showing top ${bestAvailable.length} strategies (may not meet quality thresholds).`);
+            
+            setCompletedPipelineSteps(['generate', 'view']);
+            setCurrentPipelineStep('select');
+            
+            toast.warning(`⚠️ Limited quality strategies found. Consider adjusting parameters or loading more data.`, {
+              duration: 6000
+            });
           }
-          
-          // Update pipeline state
-          setCompletedPipelineSteps(['generate', 'view']);
-          setCurrentPipelineStep('select');
-          
-          toast.success(`✅ Quick Start complete! ${sortedStrategies.length} strategies ready for selection.`, {
-            duration: 5000
-          });
         } else {
           throw new Error('No strategies returned from factory');
         }
@@ -2898,7 +2934,17 @@ export default function Dashboard() {
                           #{strategy.rank || idx + 1}
                         </span>
                         <div>
-                          <h4 className="text-xs font-bold text-zinc-200 font-mono">{strategy.name || strategy.template_id}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-bold text-zinc-200 font-mono">{strategy.name || strategy.template_id}</h4>
+                            {/* Quality Label Badge */}
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                              strategy.quality_label === 'Strong' ? 'bg-emerald-600/30 text-emerald-400' :
+                              strategy.quality_label === 'Moderate' ? 'bg-amber-600/30 text-amber-400' :
+                              'bg-red-600/30 text-red-400'
+                            }`}>
+                              {strategy.quality_emoji || (strategy.passes_quality_filter ? '🟢' : '🔴')} {strategy.quality_label || (strategy.passes_quality_filter ? 'Valid' : 'Weak')}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{strategy.description || `Template: ${strategy.template_id}`}</p>
                         </div>
                       </div>
@@ -2912,13 +2958,12 @@ export default function Dashboard() {
                         }`}>
                           Fitness: {(strategy.fitness || 0).toFixed(1)}
                         </Badge>
-                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${
-                          (strategy.composite_score || 0) >= 0.7 ? 'border-emerald-500/40 text-emerald-400' :
-                          (strategy.composite_score || 0) >= 0.5 ? 'border-amber-500/40 text-amber-400' :
-                          'border-red-500/40 text-red-400'
-                        }`}>
-                          Score: {(strategy.composite_score || strategy.score || 0).toFixed(3)}
-                        </Badge>
+                        {/* Show rejection reasons if weak */}
+                        {!strategy.passes_quality_filter && strategy.filter_rejection_reasons?.length > 0 && (
+                          <span className="text-[8px] text-red-400 font-mono">
+                            {strategy.filter_rejection_reasons[0]}
+                          </span>
+                        )}
                       </div>
                     </div>
 

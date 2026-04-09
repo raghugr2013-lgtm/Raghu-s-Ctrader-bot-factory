@@ -20,18 +20,86 @@ class Grade(str, Enum):
 
 
 class CompositeScoreWeights:
-    """Default weights for composite score calculation"""
-    SHARPE_RATIO = 0.25      # 25% - Risk-adjusted returns
-    MAX_DRAWDOWN = 0.20      # 20% - Capital preservation
-    MONTE_CARLO = 0.30       # 30% - Statistical robustness (highest weight)
-    WALK_FORWARD = 0.15      # 15% - Generalization ability
-    PROFIT_FACTOR = 0.10     # 10% - Reliability
+    """Default weights for composite score calculation - UPDATED for quality"""
+    PROFIT_FACTOR = 0.35     # 35% - PRIMARY: Profitability (highest weight)
+    MAX_DRAWDOWN = 0.25      # 25% - Capital preservation  
+    SHARPE_RATIO = 0.20      # 20% - Risk-adjusted returns
+    MONTE_CARLO = 0.12       # 12% - Statistical robustness
+    WALK_FORWARD = 0.08      # 8% - Generalization ability
     
     @classmethod
     def validate(cls):
         """Ensure weights sum to 1.0"""
         total = cls.SHARPE_RATIO + cls.MAX_DRAWDOWN + cls.MONTE_CARLO + cls.WALK_FORWARD + cls.PROFIT_FACTOR
         assert abs(total - 1.0) < 0.001, f"Weights must sum to 1.0, got {total}"
+
+
+class QualityFilters:
+    """Minimum quality thresholds for strategy validation"""
+    MIN_PROFIT_FACTOR = 1.2       # Must be profitable with margin
+    MAX_DRAWDOWN_PCT = 20.0       # Maximum allowed drawdown
+    MIN_STABILITY_PCT = 60.0      # Minimum stability score
+    MIN_TRADES = 50               # Minimum number of trades
+    MIN_WIN_RATE = 30.0           # Minimum win rate %
+    MIN_SHARPE = 0.0              # Minimum Sharpe ratio (positive)
+    
+    @classmethod
+    def passes_all(cls, strategy: dict) -> tuple:
+        """
+        Check if strategy passes all quality filters.
+        Returns (passes: bool, reasons: list)
+        """
+        reasons = []
+        
+        pf = strategy.get('profit_factor', 0)
+        if pf < cls.MIN_PROFIT_FACTOR:
+            reasons.append(f"PF {pf:.2f} < {cls.MIN_PROFIT_FACTOR}")
+        
+        dd = abs(strategy.get('max_drawdown_pct', 100))
+        if dd > cls.MAX_DRAWDOWN_PCT:
+            reasons.append(f"DD {dd:.1f}% > {cls.MAX_DRAWDOWN_PCT}%")
+        
+        # Stability from walkforward or monte carlo
+        stability = strategy.get('stability_score', 0)
+        if not stability:
+            wf = strategy.get('walkforward', {})
+            stability = wf.get('stability_score', 0) * 100 if wf else 0
+        if not stability:
+            mc = strategy.get('monte_carlo_score', 0)
+            stability = mc if mc else 50  # Default to 50 if not calculated
+        if stability < cls.MIN_STABILITY_PCT:
+            reasons.append(f"Stability {stability:.0f}% < {cls.MIN_STABILITY_PCT}%")
+        
+        trades = strategy.get('total_trades', 0)
+        if trades < cls.MIN_TRADES:
+            reasons.append(f"Trades {trades} < {cls.MIN_TRADES}")
+        
+        sharpe = strategy.get('sharpe_ratio', -999)
+        if sharpe < cls.MIN_SHARPE:
+            reasons.append(f"Sharpe {sharpe:.2f} < {cls.MIN_SHARPE}")
+        
+        return (len(reasons) == 0, reasons)
+    
+    @classmethod
+    def get_quality_label(cls, strategy: dict) -> tuple:
+        """
+        Get quality label for strategy.
+        Returns (label: str, color: str, emoji: str)
+        """
+        pf = strategy.get('profit_factor', 0)
+        dd = abs(strategy.get('max_drawdown_pct', 100))
+        sharpe = strategy.get('sharpe_ratio', 0)
+        
+        # Strong: PF ≥ 1.5, DD ≤ 15%, Sharpe ≥ 1.0
+        if pf >= 1.5 and dd <= 15 and sharpe >= 1.0:
+            return ('Strong', 'emerald', '🟢')
+        
+        # Moderate: PF ≥ 1.2, DD ≤ 20%
+        if pf >= 1.2 and dd <= 20:
+            return ('Moderate', 'amber', '🟡')
+        
+        # Weak: Everything else
+        return ('Weak', 'red', '🔴')
 
 
 class MetricNormalizer:
@@ -127,22 +195,28 @@ class MetricNormalizer:
     def normalize_profit_factor(pf: float) -> float:
         """
         Normalize profit factor to 0-100 scale.
+        UPDATED: More aggressive scoring - PF near 1.0 gets very low scores.
         
         Reference scale:
         - < 1.0: 0 points (losing strategy)
-        - 1.0-1.5: 0-50 points (barely profitable)
-        - 1.5-2.0: 50-70 points (acceptable)
-        - 2.0-3.0: 70-90 points (good)
+        - 1.0-1.2: 0-20 points (barely profitable - NOT TRADABLE)
+        - 1.2-1.5: 20-50 points (marginal - minimum acceptable)
+        - 1.5-2.0: 50-75 points (good)
+        - 2.0-3.0: 75-90 points (very good)
         - > 3.0: 90-100 points (excellent)
         """
         if pf < 1.0:
             return 0.0
-        elif pf <= 1.5:
-            return (pf - 1.0) * 100.0
+        elif pf < 1.2:
+            # Heavily penalize PF between 1.0 and 1.2 (barely profitable)
+            return (pf - 1.0) * 100.0  # 0-20 points
+        elif pf < 1.5:
+            # Still penalized but acceptable range
+            return 20.0 + (pf - 1.2) * 100.0  # 20-50 points
         elif pf <= 2.0:
-            return 50.0 + (pf - 1.5) * 40.0
+            return 50.0 + (pf - 1.5) * 50.0  # 50-75 points
         elif pf <= 3.0:
-            return 70.0 + (pf - 2.0) * 20.0
+            return 75.0 + (pf - 2.0) * 15.0  # 75-90 points
         else:
             return min(100.0, 90.0 + (pf - 3.0) * 5.0)
 

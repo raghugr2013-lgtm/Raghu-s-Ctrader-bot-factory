@@ -325,14 +325,61 @@ async def get_factory_status(run_id: str):
 
 
 @router.get("/result/{run_id}")
-async def get_factory_result(run_id: str):
-    """Get the full result of a completed factory run."""
+async def get_factory_result(run_id: str, apply_filters: bool = True):
+    """
+    Get the full result of a completed factory run.
+    Applies quality filters and adds quality labels.
+    """
+    from scoring_engine import QualityFilters
+    
     doc = await _db.factory_runs.find_one({"id": run_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Factory run not found")
 
     if doc["status"] == FactoryStatus.RUNNING.value:
         raise HTTPException(status_code=409, detail="Factory run still in progress")
+
+    # Apply quality filtering and labeling to strategies
+    strategies = doc.get("strategies", [])
+    filtered_strategies = []
+    rejected_count = 0
+    
+    for strat in strategies:
+        # Add quality label
+        label, color, emoji = QualityFilters.get_quality_label(strat)
+        strat["quality_label"] = label
+        strat["quality_color"] = color
+        strat["quality_emoji"] = emoji
+        
+        # Check if passes filters
+        passes, reasons = QualityFilters.passes_all(strat)
+        strat["passes_quality_filter"] = passes
+        strat["filter_rejection_reasons"] = reasons
+        
+        if apply_filters:
+            if passes:
+                filtered_strategies.append(strat)
+            else:
+                rejected_count += 1
+        else:
+            filtered_strategies.append(strat)
+    
+    # Sort by fitness (highest first)
+    filtered_strategies.sort(key=lambda x: x.get("fitness", 0), reverse=True)
+    
+    # Update doc with filtered strategies
+    doc["strategies"] = filtered_strategies
+    doc["total_passed_filters"] = len([s for s in filtered_strategies if s.get("passes_quality_filter", False)])
+    doc["total_rejected"] = rejected_count
+    doc["quality_filter_applied"] = apply_filters
+    
+    # Update best_strategy to be highest fitness that passes filters
+    passing = [s for s in filtered_strategies if s.get("passes_quality_filter", False)]
+    if passing:
+        doc["best_strategy"] = passing[0]
+    elif filtered_strategies:
+        doc["best_strategy"] = filtered_strategies[0]
+        doc["best_strategy"]["warning"] = "No strategies passed quality filters"
 
     return {"success": True, "result": doc}
 
