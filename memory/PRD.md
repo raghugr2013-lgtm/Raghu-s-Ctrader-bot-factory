@@ -11,6 +11,7 @@ Build AI Trading Strategy Validation & Backtesting System with:
 - Filtering (PF, DD, WR, trades)
 - Stability scoring and overfitting detection
 - Job-based execution system with progress tracking
+- **NEW: Strategy Factory + Bot Engine Integration**
 
 ## Architecture Summary
 
@@ -23,6 +24,7 @@ Build AI Trading Strategy Validation & Backtesting System with:
 | Job Tracker | strategy_job_tracker.py | ✅ Working |
 | Data Service | market_data_service.py | ✅ Working |
 | Scoring Engine | scoring_engine.py | ✅ Working |
+| **Strategy-to-Bot Pipeline** | server.py | ✅ **NEW** |
 
 ### Data Status (Apr 9, 2026)
 - EURUSD H1: 946 candles (2020-2024)
@@ -41,14 +43,67 @@ Build AI Trading Strategy Validation & Backtesting System with:
 - [x] Fitness Scoring (Sharpe, PF, DD, Monte Carlo)
 - [x] Job Progress Tracking
 - [x] Factory Pipeline (generate → evaluate → rank)
+- [x] **Strategy-to-Bot Conversion Pipeline**
+- [x] **Bot Status System (draft/validated/robust/ready)**
+- [x] **Direct Bot Generation Warning**
+- [x] **Pipeline Stage Tracking**
+
+### Bot Status Progression
+```
+Strategy Factory → [fitness >= 25] → Bot Generation
+                                          ↓
+                   ┌─────────────────────────────────────┐
+                   │ PIPELINE STAGES:                    │
+                   │ 1. Safety Injection (20 pts)        │
+                   │ 2. Compile Check (20 pts)           │
+                   │ 3. Backtest Validation (20 pts)     │
+                   │ 4. Monte Carlo (20 pts)             │
+                   │ 5. Walk-Forward (20 pts)            │
+                   └─────────────────────────────────────┘
+                                          ↓
+                   Bot Status: draft → validated → robust → ready
+```
 
 ### Branches Analysis
-- **main** (current): Full walkforward_validator.py, strategy_job_tracker.py
-- **conflict_080426_2112**: Experimental 1m aggregation architecture (NOT merged)
+- **main** (current): Full integration complete
+- **conflict_080426_2112**: Experimental 1m aggregation (NOT merged)
+
+## API Endpoints
+
+### Core Endpoints
+- `POST /api/factory/generate` - Generate strategies from templates
+- `GET /api/factory/status/{run_id}` - Check factory run status
+- `GET /api/factory/result/{run_id}` - Get factory results
+- `POST /api/strategy/generate-job` - Create AI strategy job
+- `GET /api/strategy/job-status/{job_id}` - Track job progress
+- `GET /api/data-integrity/check` - Verify data quality
+- `GET /api/marketdata/available` - List available datasets
+
+### NEW Pipeline Endpoints
+- `POST /api/bot/generate-from-strategy` - Generate cBot from validated strategy
+- `GET /api/bot/pipeline-status/{session_id}` - Check pipeline bot status
+- `GET /api/bot/pipeline-list` - List all pipeline bots
+
+## Configuration
+
+### Environment Variables
+```
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=test_database
+EMERGENT_LLM_KEY=<required for AI generation>
+```
+
+### Strategy Templates
+1. EMA Crossover
+2. RSI Mean Reversion
+3. MACD Trend Following
+4. Bollinger Breakout
+5. ATR Volatility Breakout
 
 ## Prioritized Backlog
 
 ### P0 - Critical
+- [x] Strategy-to-Bot Pipeline Integration
 - [ ] Import more EURUSD data (2021-2026)
 - [ ] LLM budget top-up for AI strategy generation
 
@@ -66,30 +121,3 @@ Build AI Trading Strategy Validation & Backtesting System with:
 - [ ] 1m aggregation architecture (from conflict branch)
 - [ ] Real-time market data integration
 - [ ] Portfolio optimization
-
-## API Endpoints
-
-### Core Endpoints
-- `POST /api/factory/generate` - Generate strategies from templates
-- `GET /api/factory/status/{run_id}` - Check factory run status
-- `GET /api/factory/result/{run_id}` - Get factory results
-- `POST /api/strategy/generate-job` - Create AI strategy job
-- `GET /api/strategy/job-status/{job_id}` - Track job progress
-- `GET /api/data-integrity/check` - Verify data quality
-- `GET /api/marketdata/available` - List available datasets
-
-## Configuration
-
-### Environment Variables
-```
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=test_database
-EMERGENT_LLM_KEY=<required for AI generation>
-```
-
-### Strategy Templates
-1. EMA Crossover
-2. RSI Mean Reversion
-3. MACD Trend Following
-4. Bollinger Breakout
-5. ATR Volatility Breakout
