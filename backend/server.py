@@ -1914,7 +1914,7 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                     seed=seed
                 )
                 
-                # Run walk-forward validation
+                # Run walk-forward validation with filter thresholds
                 wf_result = run_walkforward_validation(
                     candles=candles,
                     strategy_name=strategy.get("name", f"Strategy_{idx}"),
@@ -1923,8 +1923,8 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                     params=params,
                     initial_balance=10000,
                     training_ratio=0.7,
-                    min_stability_threshold=0.6,
-                    min_validation_pf=1.0
+                    min_stability_threshold=filter_params.get("min_stability", 0.7),
+                    min_validation_pf=filter_params.get("min_validation_pf", 1.1)
                 )
                 
                 # Store walk-forward results
@@ -2143,25 +2143,31 @@ def _get_strategy_params(strategy_type: str, risk_level: str) -> dict:
 
 
 def _get_filter_params(risk_level: str) -> dict:
-    """Get filter parameters based on risk level - STRICT filtering"""
+    """Get filter parameters based on risk level - STRICT filtering for robust strategies"""
     filters = {
         "low": {
-            "min_pf": 1.3,      # Profit factor >= 1.3
-            "max_dd": 15,       # Max drawdown <= 15%
-            "min_trades": 30,   # At least 30 trades for reliability
-            "min_wr": 40        # Win rate >= 40%
+            "min_pf": 1.5,      # Profit factor >= 1.5 (strict)
+            "max_dd": 12,       # Max drawdown <= 12%
+            "min_trades": 15,   # At least 15 trades for reliability
+            "min_wr": 45,       # Win rate >= 45%
+            "min_stability": 0.8,  # 80% stability required
+            "min_validation_pf": 1.3  # Validation PF >= 1.3
         },
         "medium": {
-            "min_pf": 1.2,      # Profit factor >= 1.2
-            "max_dd": 25,       # Max drawdown <= 25%
-            "min_trades": 20,   # At least 20 trades
-            "min_wr": 35        # Win rate >= 35%
+            "min_pf": 1.3,      # Profit factor >= 1.3 (as requested)
+            "max_dd": 20,       # Max drawdown <= 20% (as requested)
+            "min_trades": 10,   # At least 10 trades (reduced for limited data)
+            "min_wr": 38,       # Win rate >= 38%
+            "min_stability": 0.7,  # 70% stability required (as requested)
+            "min_validation_pf": 1.1  # Validation PF >= 1.1 (as requested)
         },
         "high": {
-            "min_pf": 1.0,      # Profit factor >= 1.0 (just profitable)
-            "max_dd": 40,       # Max drawdown <= 40%
-            "min_trades": 10,   # At least 10 trades
-            "min_wr": 30        # Win rate >= 30%
+            "min_pf": 1.1,      # Profit factor >= 1.1
+            "max_dd": 30,       # Max drawdown <= 30%
+            "min_trades": 8,    # At least 8 trades
+            "min_wr": 35,       # Win rate >= 35%
+            "min_stability": 0.6,  # 60% stability required
+            "min_validation_pf": 1.0  # Validation PF >= 1.0
         }
     }
     return filters.get(risk_level, filters["medium"])
