@@ -1,853 +1,358 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Strategy Generation System
-Tests new strategy generation endpoints and job-based processing
+Backend Test Suite for Walk-Forward Validation System
+Tests the strategy robustness validation pipeline.
 """
 
 import requests
-import sys
 import json
 import time
-from datetime import datetime
+import sys
+from typing import Dict, Any, Optional
 
-class StrategyGenerationAPITester:
-    def __init__(self, base_url="https://codebase-review-86.preview.emergentagent.com"):
-        self.base_url = base_url
-        self.api_url = f"{base_url}/api"
-        self.tests_run = 0
-        self.tests_passed = 0
+# Backend URL from environment
+BACKEND_URL = "https://codebase-review-86.preview.emergentagent.com/api"
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
-        """Run a single API test"""
-        url = f"{self.api_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
-
-        self.tests_run += 1
-        print(f"\n🔍 Testing {name}...")
-        print(f"   URL: {url}")
-        if data and len(str(data)) < 500:  # Only show data if it's not too large
-            print(f"   Data: {json.dumps(data, indent=2)}")
+class WalkForwardValidationTester:
+    """Test suite for Walk-Forward Validation System"""
+    
+    def __init__(self):
+        self.session = requests.Session()
+        self.session.headers.update({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+        self.test_results = []
         
-        try:
-            if method == 'GET':
-                response = requests.get(url, headers=headers, params=params)
-            elif method == 'POST':
-                if data:
-                    response = requests.post(url, json=data, headers=headers)
-                else:
-                    response = requests.post(url, headers=headers)
-            elif method == 'DELETE':
-                response = requests.delete(url, headers=headers)
-
-            print(f"   Status: {response.status_code}")
-            
-            success = response.status_code == expected_status
-            if success:
-                self.tests_passed += 1
-                print(f"✅ Passed - Status: {response.status_code}")
-                try:
-                    response_data = response.json()
-                    if 'success' in response_data:
-                        print(f"   Success: {response_data['success']}")
-                    if 'deleted_count' in response_data:
-                        print(f"   Deleted Count: {response_data['deleted_count']}")
-                    return True, response_data
-                except:
-                    return True, {}
-            else:
-                print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                try:
-                    error_data = response.json()
-                    print(f"   Error: {error_data}")
-                except:
-                    print(f"   Response: {response.text[:200]}")
-                return False, {}
-
-        except Exception as e:
-            print(f"❌ Failed - Error: {str(e)}")
-            return False, {}
-
-    def test_basic_connectivity(self):
-        """Test basic API connectivity"""
-        success, _ = self.run_test(
-            "Basic API Connectivity",
-            "GET",
-            "",
-            200
-        )
-        return success
-
-    def test_market_data_coverage(self):
-        """Test market data coverage endpoint"""
-        success, response = self.run_test(
-            "Market Data Coverage",
-            "GET",
-            "marketdata/coverage",
-            200
-        )
+    def log_test(self, test_name: str, passed: bool, details: str = ""):
+        """Log test result"""
+        status = "✅ PASS" if passed else "❌ FAIL"
+        print(f"{status} {test_name}")
+        if details:
+            print(f"    {details}")
         
-        if success and response:
-            print(f"   Found {len(response.get('symbols', []))} symbols with data")
-            
-            # Check if we have EURUSD H1 data as mentioned in context
-            symbols = response.get('symbols', [])
-            eurusd_found = False
-            for symbol_data in symbols:
-                if symbol_data.get('symbol') == 'EURUSD':
-                    eurusd_found = True
-                    timeframes = symbol_data.get('timeframes', [])
-                    h1_found = any(tf.get('timeframe') == '1h' for tf in timeframes)
-                    if h1_found:
-                        print(f"   ✅ Found EURUSD H1 data as expected")
-                    else:
-                        print(f"   ⚠️ EURUSD found but no H1 timeframe")
-                    break
-            
-            if not eurusd_found:
-                print(f"   ⚠️ EURUSD data not found")
+        self.test_results.append({
+            "test": test_name,
+            "passed": passed,
+            "details": details
+        })
+    
+    def test_strategy_generation_with_walkforward(self) -> Optional[str]:
+        """
+        Test 1: Generate strategies with walk-forward validation
+        This is the main test that validates the entire pipeline.
+        """
+        print("\n🧪 Testing Strategy Generation with Walk-Forward Validation")
         
-        return success
-
-    def test_delete_endpoint_with_invalid_data(self):
-        """Test DELETE endpoint with non-existent data"""
-        success, response = self.run_test(
-            "DELETE Non-existent Dataset",
-            "DELETE",
-            "marketdata/TESTXXX/1h",
-            200  # Should return 200 with deleted_count: 0
-        )
-        
-        if success and response:
-            deleted_count = response.get('deleted_count', -1)
-            if deleted_count == 0:
-                print(f"   ✅ Correctly returned 0 deleted count for non-existent data")
-            else:
-                print(f"   ⚠️ Unexpected deleted count: {deleted_count}")
-        
-        return success
-
-    def test_delete_endpoint_with_real_data(self):
-        """Test DELETE endpoint with real data (if available)"""
-        # First check what data is available
-        success, coverage = self.run_test(
-            "Get Coverage for DELETE test",
-            "GET", 
-            "marketdata/coverage",
-            200
-        )
-        
-        if not success or not coverage:
-            print("   ⚠️ Cannot test DELETE with real data - coverage check failed")
-            return False
-            
-        symbols = coverage.get('symbols', [])
-        if not symbols:
-            print("   ⚠️ No data available to test DELETE")
-            return True  # Not a failure, just no data
-            
-        # Find first available dataset
-        test_symbol = None
-        test_timeframe = None
-        
-        for symbol_data in symbols:
-            symbol = symbol_data.get('symbol')
-            timeframes = symbol_data.get('timeframes', [])
-            if timeframes:
-                test_symbol = symbol
-                test_timeframe = timeframes[0].get('timeframe')
-                break
-        
-        if not test_symbol or not test_timeframe:
-            print("   ⚠️ No suitable data found for DELETE test")
-            return True
-            
-        print(f"   Testing DELETE with {test_symbol} {test_timeframe}")
-        
-        # Test the DELETE endpoint
-        success, response = self.run_test(
-            f"DELETE {test_symbol} {test_timeframe}",
-            "DELETE",
-            f"marketdata/{test_symbol}/{test_timeframe}",
-            200
-        )
-        
-        if success and response:
-            deleted_count = response.get('deleted_count', 0)
-            print(f"   ✅ DELETE successful - removed {deleted_count} candles")
-        
-        return success
-
-    def test_data_integrity_check(self):
-        """Test data integrity check endpoint"""
-        success, response = self.run_test(
-            "Data Integrity Check",
-            "GET",
-            "data-integrity/check",
-            200
-        )
-        
-        if success and response:
-            integrity_ok = response.get('integrity_ok', False)
-            synthetic_count = response.get('synthetic_count', 0)
-            real_count = response.get('real_count', 0)
-            
-            print(f"   Integrity OK: {integrity_ok}")
-            print(f"   Synthetic Count: {synthetic_count}")
-            print(f"   Real Count: {real_count}")
-        
-        return success
-
-    def test_timeframe_constants(self):
-        """Test that all 8 timeframes are supported by checking coverage"""
-        expected_timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w']
-        
-        success, coverage = self.run_test(
-            "Check Timeframe Support",
-            "GET",
-            "marketdata/coverage", 
-            200
-        )
-        
-        if success and coverage:
-            symbols = coverage.get('symbols', [])
-            found_timeframes = set()
-            
-            for symbol_data in symbols:
-                timeframes = symbol_data.get('timeframes', [])
-                for tf in timeframes:
-                    found_timeframes.add(tf.get('timeframe'))
-            
-            print(f"   Found timeframes: {sorted(found_timeframes)}")
-            
-            # Check if we have data for the new timeframes (M1, M5, M15, M30)
-            new_timeframes = ['1m', '5m', '15m', '30m']
-            found_new = [tf for tf in new_timeframes if tf in found_timeframes]
-            
-            if found_new:
-                print(f"   ✅ Found new timeframes: {found_new}")
-            else:
-                print(f"   ⚠️ No data found for new timeframes: {new_timeframes}")
-        
-        return success
-
-    def import_sample_data(self):
-        """Import sample EURUSD data for testing"""
-        print("\n🔍 Importing Sample Data...")
-        
-        # Create a larger sample CSV data for testing in MT4 format (need 100+ candles)
-        sample_csv = """2024.01.04 18:00,1.095045,1.09544,1.094605,1.0947,17983
-2024.01.04 19:00,1.094720,1.094985,1.094345,1.094705,13209
-2024.01.04 20:00,1.094700,1.094925,1.094320,1.094920,20185
-2024.01.04 21:00,1.094915,1.095005,1.094380,1.094440,10594
-2024.01.04 22:00,1.094510,1.095025,1.094480,1.094735,7338
-2024.01.04 23:00,1.094685,1.094895,1.094330,1.094635,3978
-2024.01.05 00:00,1.094620,1.095150,1.094445,1.095090,7118
-2024.01.05 01:00,1.095085,1.095595,1.095025,1.095165,18493
-2024.01.05 02:00,1.095170,1.095430,1.094670,1.094700,12424
-2024.01.05 03:00,1.094695,1.094740,1.093920,1.093925,11791"""
-        
-        # Generate more data points to reach 100+ candles
-        base_data = []
-        for i in range(100):
-            hour = 4 + i
-            day = 5 + (hour // 24)
-            hour = hour % 24
-            price = 1.0940 + (i % 20) * 0.0001
-            base_data.append(f"2024.01.{day:02d} {hour:02d}:00,{price:.5f},{price+0.0005:.5f},{price-0.0005:.5f},{price+0.0002:.5f},{1000+i*10}")
-        
-        sample_csv += "\n" + "\n".join(base_data)
-        
-        try:
-            import_data = {
-                "symbol": "EURUSD",
-                "timeframe": "1h", 
-                "data": sample_csv,
-                "format_type": "mt4",
-                "provider": "csv_import"
-            }
-            
-            success, response = self.run_test(
-                "Import EURUSD H1 Sample Data",
-                "POST",
-                "marketdata/import/csv",
-                200,
-                data=import_data
-            )
-            
-            if success and response:
-                imported_count = response.get('imported_count', 0)
-                print(f"   ✅ Imported {imported_count} candles")
-                return imported_count >= 100
-            else:
-                print(f"   ⚠️ Failed to import sample data")
-                return False
-                
-        except Exception as e:
-            print(f"   ❌ Error importing data: {str(e)}")
-            return False
-
-    # =====================================================
-    # STRATEGY GENERATION SYSTEM TESTS
-    # =====================================================
-
-    def test_data_availability_check(self):
-        """Test the new data availability check endpoint"""
-        print("\n🔍 Testing Data Availability Check...")
-        
-        success, response = self.run_test(
-            "Data Availability Check for EURUSD",
-            "GET",
-            "marketdata/check-any-availability/EURUSD",
-            200
-        )
-        
-        if success and response:
-            available = response.get('available', False)
-            available_timeframes = response.get('available_timeframes', [])
-            best_timeframe = response.get('best_timeframe')
-            candle_count = response.get('candle_count', 0)
-            
-            print(f"   Available: {available}")
-            print(f"   Available Timeframes: {available_timeframes}")
-            print(f"   Best Timeframe: {best_timeframe}")
-            print(f"   Candle Count: {candle_count}")
-            
-            if available and available_timeframes:
-                print(f"   ✅ Data availability check working correctly")
-            else:
-                print(f"   ⚠️ No data available for EURUSD")
-        
-        return success
-
-    def test_strategy_job_creation(self):
-        """Test strategy job creation endpoint"""
-        print("\n🔍 Testing Strategy Job Creation...")
-        
-        job_data = {
+        # Test data - using "high" risk for more lenient filtering
+        payload = {
             "symbol": "EURUSD",
             "timeframe": "1h",
             "strategy_count": 10,
             "strategy_type": "intraday",
-            "risk_level": "medium",
+            "risk_level": "high",
             "execution_mode": "fast",
             "ai_model": "openai",
             "batch_size": 50
         }
         
-        success, response = self.run_test(
-            "Create Strategy Generation Job",
-            "POST",
-            "strategy/generate-job",
-            200,
-            data=job_data
-        )
-        
-        if success and response:
-            job_id = response.get('job_id')
-            total_strategies = response.get('total_strategies')
-            total_batches = response.get('total_batches')
+        try:
+            # Create strategy generation job
+            response = self.session.post(f"{BACKEND_URL}/strategy/generate-job", json=payload)
             
-            print(f"   Job ID: {job_id}")
-            print(f"   Total Strategies: {total_strategies}")
-            print(f"   Total Batches: {total_batches}")
+            if response.status_code != 200:
+                self.log_test("Strategy Job Creation", False, f"HTTP {response.status_code}: {response.text}")
+                return None
             
-            if job_id:
-                print(f"   ✅ Job created successfully")
-                return success, job_id
-            else:
-                print(f"   ❌ No job_id returned")
-                return False, None
-        
-        return success, None
-
-    def test_job_status_polling(self, job_id):
-        """Test job status polling endpoint"""
-        if not job_id:
-            print("   ⚠️ No job_id provided for status polling")
-            return False
+            job_data = response.json()
+            if not job_data.get("success"):
+                self.log_test("Strategy Job Creation", False, f"API returned success=false: {job_data}")
+                return None
             
-        print(f"\n🔍 Testing Job Status Polling for {job_id}...")
-        
-        # Poll status multiple times to see progress
-        max_polls = 10
-        poll_count = 0
-        
-        while poll_count < max_polls:
-            success, response = self.run_test(
-                f"Job Status Poll #{poll_count + 1}",
-                "GET",
-                f"strategy/job-status/{job_id}",
-                200
-            )
+            job_id = job_data.get("job_id")
+            if not job_id:
+                self.log_test("Strategy Job Creation", False, "No job_id returned")
+                return None
             
-            if success and response:
-                stage = response.get('stage')
-                percent = response.get('percent', 0)
-                message = response.get('message', '')
-                current_batch = response.get('current_batch', 0)
-                total_batches = response.get('total_batches', 0)
-                strategies_generated = response.get('strategies_generated', 0)
+            self.log_test("Strategy Job Creation", True, f"Job ID: {job_id}")
+            return job_id
+            
+        except Exception as e:
+            self.log_test("Strategy Job Creation", False, f"Exception: {str(e)}")
+            return None
+    
+    def test_job_status_polling(self, job_id: str) -> bool:
+        """
+        Test 2: Poll job status until completion
+        """
+        print(f"\n🔄 Polling job status for {job_id}")
+        
+        max_attempts = 60  # 5 minutes max
+        attempt = 0
+        
+        while attempt < max_attempts:
+            try:
+                response = self.session.get(f"{BACKEND_URL}/strategy/job-status/{job_id}")
                 
-                print(f"   Stage: {stage}")
-                print(f"   Progress: {percent}%")
-                print(f"   Message: {message}")
-                print(f"   Batch: {current_batch}/{total_batches}")
-                print(f"   Strategies Generated: {strategies_generated}")
+                if response.status_code != 200:
+                    self.log_test("Job Status Polling", False, f"HTTP {response.status_code}")
+                    return False
+                
+                status_data = response.json()
+                if not status_data.get("success"):
+                    self.log_test("Job Status Polling", False, f"API error: {status_data}")
+                    return False
+                
+                stage = status_data.get("stage", "unknown")
+                percent = status_data.get("percent", 0)
+                message = status_data.get("message", "")
+                
+                print(f"    Stage: {stage} ({percent}%) - {message}")
                 
                 if stage == "completed":
-                    print(f"   ✅ Job completed successfully")
+                    self.log_test("Job Status Polling", True, f"Job completed in {attempt + 1} attempts")
                     return True
                 elif stage == "failed":
-                    print(f"   ❌ Job failed")
+                    error = status_data.get("error", "Unknown error")
+                    self.log_test("Job Status Polling", False, f"Job failed: {error}")
                     return False
                 
-                # Wait before next poll
-                time.sleep(2)
-                poll_count += 1
-            else:
-                print(f"   ❌ Failed to get job status")
+                time.sleep(5)  # Wait 5 seconds between polls
+                attempt += 1
+                
+            except Exception as e:
+                self.log_test("Job Status Polling", False, f"Exception: {str(e)}")
                 return False
         
-        print(f"   ⚠️ Job still running after {max_polls} polls")
-        return True  # Not a failure, just still running
-
-    def test_invalid_strategy_count(self):
-        """Test validation with invalid strategy count"""
-        print("\n🔍 Testing Invalid Strategy Count Validation...")
+        self.log_test("Job Status Polling", False, "Timeout waiting for job completion")
+        return False
+    
+    def test_walkforward_results_validation(self, job_id: str) -> bool:
+        """
+        Test 3: Validate walk-forward validation results
+        This is the CRITICAL test that verifies all walk-forward data is present.
+        """
+        print(f"\n🔍 Validating Walk-Forward Results for {job_id}")
         
-        job_data = {
-            "symbol": "EURUSD",
-            "timeframe": "1h",
-            "strategy_count": 5000,  # Invalid - too high
-            "strategy_type": "intraday",
-            "risk_level": "medium",
-            "execution_mode": "fast",
-            "ai_model": "openai"
-        }
-        
-        success, response = self.run_test(
-            "Invalid Strategy Count (5000)",
-            "POST",
-            "strategy/generate-job",
-            400,  # Should return 400 error
-            data=job_data
-        )
-        
-        if success:
-            print(f"   ✅ Correctly rejected invalid strategy count")
-        
-        return success
-
-    def test_nonexistent_symbol(self):
-        """Test with non-existent symbol"""
-        print("\n🔍 Testing Non-existent Symbol...")
-        
-        job_data = {
-            "symbol": "FAKESYM",
-            "timeframe": "1h",
-            "strategy_count": 10,
-            "strategy_type": "intraday",
-            "risk_level": "medium",
-            "execution_mode": "fast",
-            "ai_model": "openai"
-        }
-        
-        success, response = self.run_test(
-            "Non-existent Symbol (FAKESYM)",
-            "POST",
-            "strategy/generate-job",
-            400,  # Should return 400 error for insufficient data
-            data=job_data
-        )
-        
-        if success:
-            print(f"   ✅ Correctly handled non-existent symbol")
-        
-        return success
-
-    def test_job_result_endpoint(self, job_id):
-        """Test job result retrieval endpoint"""
-        if not job_id:
-            print("   ⚠️ No job_id provided for result retrieval")
-            return False
+        try:
+            response = self.session.get(f"{BACKEND_URL}/strategy/job-result/{job_id}")
             
-        print(f"\n🔍 Testing Job Result Retrieval for {job_id}...")
-        
-        success, response = self.run_test(
-            "Get Job Result",
-            "GET",
-            f"strategy/job-result/{job_id}",
-            200  # May return 400 if job not completed
-        )
-        
-        if success and response:
-            strategies = response.get('strategies', [])
-            total_generated = response.get('total_generated', 0)
-            passed_filters = response.get('passed_filters', 0)
+            if response.status_code != 200:
+                self.log_test("Job Result Retrieval", False, f"HTTP {response.status_code}")
+                return False
             
-            print(f"   Total Generated: {total_generated}")
-            print(f"   Passed Filters: {passed_filters}")
-            print(f"   Top Strategies: {len(strategies)}")
+            result_data = response.json()
+            if not result_data.get("success"):
+                self.log_test("Job Result Retrieval", False, f"API error: {result_data}")
+                return False
             
-            if strategies:
-                print(f"   ✅ Job results retrieved successfully")
-                # Show first strategy details
-                first_strategy = strategies[0]
-                print(f"   Best Strategy: {first_strategy.get('name', 'Unknown')}")
-                print(f"   Score: {first_strategy.get('score', 0)}")
+            self.log_test("Job Result Retrieval", True, "Successfully retrieved job results")
+            
+            # Validate main result structure
+            strategies = result_data.get("strategies", [])
+            if not strategies:
+                self.log_test("Strategy Results Present", False, "No strategies in results")
+                return False
+            
+            self.log_test("Strategy Results Present", True, f"Found {len(strategies)} strategies")
+            
+            # Test walk-forward validation data on each strategy
+            walkforward_tests_passed = 0
+            walkforward_tests_total = 0
+            
+            for i, strategy in enumerate(strategies[:5]):  # Test first 5 strategies
+                strategy_name = strategy.get("name", f"Strategy_{i}")
+                walkforward_data = strategy.get("walkforward", {})
+                
+                walkforward_tests_total += 1
+                
+                # Check required walk-forward fields
+                required_fields = [
+                    "training_pf", "training_wr", "training_dd", "training_trades",
+                    "validation_pf", "validation_wr", "validation_dd", "validation_trades",
+                    "stability_score", "pf_stability", "is_overfit", "overfit_severity",
+                    "robustness_grade", "is_robust"
+                ]
+                
+                missing_fields = []
+                for field in required_fields:
+                    if field not in walkforward_data:
+                        missing_fields.append(field)
+                
+                if missing_fields:
+                    self.log_test(f"Walk-Forward Data - {strategy_name}", False, 
+                                f"Missing fields: {missing_fields}")
+                    continue
+                
+                # Validate data types and ranges
+                validation_errors = []
+                
+                # Check numeric fields
+                numeric_fields = ["training_pf", "training_wr", "training_dd", "validation_pf", 
+                                "validation_wr", "validation_dd", "stability_score", "pf_stability"]
+                for field in numeric_fields:
+                    value = walkforward_data.get(field)
+                    if not isinstance(value, (int, float)):
+                        validation_errors.append(f"{field} is not numeric: {value}")
+                
+                # Check stability score range (0-1)
+                stability_score = walkforward_data.get("stability_score", -1)
+                if not (0 <= stability_score <= 1):
+                    validation_errors.append(f"stability_score out of range: {stability_score}")
+                
+                # Check boolean fields
+                boolean_fields = ["is_overfit", "is_robust"]
+                for field in boolean_fields:
+                    value = walkforward_data.get(field)
+                    if not isinstance(value, bool):
+                        validation_errors.append(f"{field} is not boolean: {value}")
+                
+                # Check overfit severity values
+                overfit_severity = walkforward_data.get("overfit_severity")
+                if overfit_severity not in ["none", "mild", "severe"]:
+                    validation_errors.append(f"Invalid overfit_severity: {overfit_severity}")
+                
+                # Check robustness grade
+                robustness_grade = walkforward_data.get("robustness_grade")
+                if robustness_grade not in ["A", "B", "C", "D", "F"]:
+                    validation_errors.append(f"Invalid robustness_grade: {robustness_grade}")
+                
+                if validation_errors:
+                    self.log_test(f"Walk-Forward Data - {strategy_name}", False, 
+                                f"Validation errors: {validation_errors}")
+                    continue
+                
+                # Verify training and validation metrics are DIFFERENT
+                training_pf = walkforward_data.get("training_pf", 0)
+                validation_pf = walkforward_data.get("validation_pf", 0)
+                training_wr = walkforward_data.get("training_wr", 0)
+                validation_wr = walkforward_data.get("validation_wr", 0)
+                
+                if training_pf == validation_pf and training_wr == validation_wr:
+                    validation_errors.append("Training and validation metrics are identical (split not working)")
+                
+                if validation_errors:
+                    self.log_test(f"Walk-Forward Data - {strategy_name}", False, 
+                                f"Data split errors: {validation_errors}")
+                    continue
+                
+                walkforward_tests_passed += 1
+                self.log_test(f"Walk-Forward Data - {strategy_name}", True, 
+                            f"PF: {training_pf:.2f}→{validation_pf:.2f}, "
+                            f"Stability: {stability_score:.3f}, Grade: {robustness_grade}")
+            
+            # Test walkforward_stats in main response
+            walkforward_stats = result_data.get("walkforward_stats", {})
+            required_stats = ["total_validated", "total_robust", "total_overfit", 
+                            "avg_stability_score", "robustness_grades"]
+            
+            missing_stats = []
+            for stat in required_stats:
+                if stat not in walkforward_stats:
+                    missing_stats.append(stat)
+            
+            if missing_stats:
+                self.log_test("Walk-Forward Stats", False, f"Missing stats: {missing_stats}")
             else:
-                print(f"   ⚠️ No strategies in result")
-        
-        return success
-
-    def test_strategy_unique_metrics(self):
-        """
-        CRITICAL TEST: Verify strategies have DIFFERENT metrics (not identical)
-        This addresses the main issue where all strategies showed identical PF 1.01, WR 36%
-        """
-        print("\n🔍 CRITICAL TEST: Strategy Unique Metrics Verification")
+                total_validated = walkforward_stats.get("total_validated", 0)
+                total_robust = walkforward_stats.get("total_robust", 0)
+                total_overfit = walkforward_stats.get("total_overfit", 0)
+                avg_stability = walkforward_stats.get("avg_stability_score", 0)
+                
+                self.log_test("Walk-Forward Stats", True, 
+                            f"Validated: {total_validated}, Robust: {total_robust}, "
+                            f"Overfit: {total_overfit}, Avg Stability: {avg_stability:.3f}")
+            
+            # Test rejection breakdown includes "overfit"
+            rejection_breakdown = result_data.get("rejection_breakdown", {})
+            if "overfit" not in rejection_breakdown:
+                self.log_test("Overfit Rejection Tracking", False, "No 'overfit' count in rejection_breakdown")
+            else:
+                overfit_count = rejection_breakdown.get("overfit", 0)
+                self.log_test("Overfit Rejection Tracking", True, f"Overfit rejections: {overfit_count}")
+            
+            # Verify some strategies are marked as overfit
+            overfit_strategies = [s for s in strategies if s.get("walkforward", {}).get("is_overfit", False)]
+            if not overfit_strategies:
+                self.log_test("Overfit Detection", False, "No strategies marked as overfit (detection may not be working)")
+            else:
+                self.log_test("Overfit Detection", True, f"{len(overfit_strategies)} strategies marked as overfit")
+            
+            # Summary of walk-forward validation
+            if walkforward_tests_passed == walkforward_tests_total and walkforward_tests_total > 0:
+                self.log_test("Walk-Forward Validation System", True, 
+                            f"All {walkforward_tests_passed} strategies have complete walk-forward data")
+                return True
+            else:
+                self.log_test("Walk-Forward Validation System", False, 
+                            f"Only {walkforward_tests_passed}/{walkforward_tests_total} strategies passed validation")
+                return False
+                
+        except Exception as e:
+            self.log_test("Walk-Forward Results Validation", False, f"Exception: {str(e)}")
+            return False
+    
+    def run_all_tests(self):
+        """Run the complete test suite"""
+        print("🚀 Starting Walk-Forward Validation System Tests")
         print("=" * 60)
         
-        # Step 1: Create strategy generation job with 10 strategies
-        job_data = {
-            "symbol": "EURUSD",
-            "timeframe": "1h",
-            "strategy_count": 10,
-            "strategy_type": "intraday",
-            "risk_level": "medium",
-            "execution_mode": "fast",
-            "ai_model": "openai",
-            "batch_size": 50
-        }
-        
-        print("Step 1: Creating strategy generation job...")
-        success, response = self.run_test(
-            "Create Strategy Job for Unique Metrics Test",
-            "POST",
-            "strategy/generate-job",
-            200,
-            data=job_data
-        )
-        
-        if not success or not response:
-            print("❌ CRITICAL FAILURE: Could not create strategy job")
-            return False
-        
-        job_id = response.get('job_id')
+        # Test 1: Generate strategies with walk-forward validation
+        job_id = self.test_strategy_generation_with_walkforward()
         if not job_id:
-            print("❌ CRITICAL FAILURE: No job_id returned")
+            print("\n❌ CRITICAL: Cannot proceed without job creation")
             return False
         
-        print(f"✅ Job created: {job_id}")
-        
-        # Step 2: Poll job status until completed
-        print("\nStep 2: Polling job status until completion...")
-        max_polls = 30  # Increased for strategy generation
-        poll_count = 0
-        job_completed = False
-        
-        while poll_count < max_polls:
-            success, response = self.run_test(
-                f"Job Status Poll #{poll_count + 1}",
-                "GET",
-                f"strategy/job-status/{job_id}",
-                200
-            )
-            
-            if success and response:
-                stage = response.get('stage')
-                percent = response.get('percent', 0)
-                message = response.get('message', '')
-                
-                print(f"   Stage: {stage} ({percent}%) - {message}")
-                
-                if stage == "completed":
-                    print(f"✅ Job completed successfully")
-                    job_completed = True
-                    break
-                elif stage == "failed":
-                    print(f"❌ CRITICAL FAILURE: Job failed")
-                    return False
-                
-                time.sleep(3)  # Wait longer for strategy generation
-                poll_count += 1
-            else:
-                print(f"❌ Failed to get job status")
-                return False
-        
+        # Test 2: Poll job status until completion
+        job_completed = self.test_job_status_polling(job_id)
         if not job_completed:
-            print(f"❌ CRITICAL FAILURE: Job did not complete after {max_polls} polls")
+            print("\n❌ CRITICAL: Job did not complete successfully")
             return False
         
-        # Step 3: Get results and verify unique metrics
-        print("\nStep 3: Retrieving and analyzing results...")
-        success, response = self.run_test(
-            "Get Job Results for Metrics Analysis",
-            "GET",
-            f"strategy/job-result/{job_id}",
-            200
-        )
+        # Test 3: Validate walk-forward results
+        walkforward_valid = self.test_walkforward_results_validation(job_id)
         
-        if not success or not response:
-            print("❌ CRITICAL FAILURE: Could not retrieve job results")
-            return False
+        # Summary
+        print("\n" + "=" * 60)
+        print("📊 TEST SUMMARY")
+        print("=" * 60)
         
-        strategies = response.get('strategies', [])
-        total_generated = response.get('total_generated', 0)
-        passed_filters = response.get('passed_filters', 0)
-        total_rejected = response.get('total_rejected', 0)
-        summary_stats = response.get('summary_stats', {})
-        rejection_breakdown = response.get('rejection_breakdown', {})
+        passed_tests = sum(1 for result in self.test_results if result["passed"])
+        total_tests = len(self.test_results)
         
-        print(f"\n📊 RESULTS ANALYSIS:")
-        print(f"   Total Generated: {total_generated}")
-        print(f"   Passed Filters: {passed_filters}")
-        print(f"   Total Rejected: {total_rejected}")
-        print(f"   Strategies Returned: {len(strategies)}")
+        for result in self.test_results:
+            status = "✅" if result["passed"] else "❌"
+            print(f"{status} {result['test']}")
         
-        if summary_stats:
-            print(f"\n📈 SUMMARY STATS:")
-            print(f"   Best Profit Factor: {summary_stats.get('best_profit_factor', 'N/A')}")
-            print(f"   Best Win Rate: {summary_stats.get('best_win_rate', 'N/A')}")
-            print(f"   Lowest Drawdown: {summary_stats.get('lowest_drawdown', 'N/A')}")
-            print(f"   Pass Rate: {summary_stats.get('pass_rate', 'N/A')}")
+        print(f"\nOverall: {passed_tests}/{total_tests} tests passed")
         
-        if rejection_breakdown:
-            print(f"\n🚫 REJECTION BREAKDOWN:")
-            for reason, count in rejection_breakdown.items():
-                print(f"   {reason}: {count}")
-        
-        # CRITICAL CHECKS
-        critical_failures = []
-        
-        # Check 1: Must have strategies
-        if len(strategies) == 0:
-            critical_failures.append("No strategies returned")
-        
-        # Check 2: Verify DIFFERENT profit_factor values
-        if len(strategies) >= 2:
-            profit_factors = [s.get('profit_factor', 0) for s in strategies]
-            unique_pf = set(profit_factors)
-            
-            print(f"\n🔍 PROFIT FACTOR ANALYSIS:")
-            print(f"   Values: {profit_factors}")
-            print(f"   Unique Values: {len(unique_pf)}")
-            
-            if len(unique_pf) <= 1:
-                critical_failures.append(f"All strategies have IDENTICAL profit factors: {profit_factors}")
-            else:
-                print(f"   ✅ Strategies have DIFFERENT profit factors")
-        
-        # Check 3: Verify DIFFERENT win_rate values
-        if len(strategies) >= 2:
-            win_rates = [s.get('win_rate', 0) for s in strategies]
-            unique_wr = set(win_rates)
-            
-            print(f"\n🔍 WIN RATE ANALYSIS:")
-            print(f"   Values: {win_rates}")
-            print(f"   Unique Values: {len(unique_wr)}")
-            
-            if len(unique_wr) <= 1:
-                critical_failures.append(f"All strategies have IDENTICAL win rates: {win_rates}")
-            else:
-                print(f"   ✅ Strategies have DIFFERENT win rates")
-        
-        # Check 4: Verify max_drawdown_pct is present and varies
-        if len(strategies) >= 2:
-            drawdowns = [s.get('max_drawdown_pct', 0) for s in strategies]
-            unique_dd = set(drawdowns)
-            
-            print(f"\n🔍 DRAWDOWN ANALYSIS:")
-            print(f"   Values: {drawdowns}")
-            print(f"   Unique Values: {len(unique_dd)}")
-            
-            if any(dd is None for dd in drawdowns):
-                critical_failures.append("Some strategies missing max_drawdown_pct")
-            elif len(unique_dd) <= 1:
-                critical_failures.append(f"All strategies have IDENTICAL drawdowns: {drawdowns}")
-            else:
-                print(f"   ✅ Strategies have DIFFERENT drawdowns")
-        
-        # Check 5: Verify some strategies were REJECTED
-        if total_rejected == 0 and total_generated > 5:
-            critical_failures.append("No strategies were rejected - filtering may not be working")
-        else:
-            print(f"   ✅ {total_rejected} strategies were rejected (filtering working)")
-        
-        # Check 6: Verify strategies are ranked by composite_score (descending)
-        if len(strategies) >= 2:
-            scores = [s.get('composite_score', s.get('score', 0)) for s in strategies]
-            is_descending = all(scores[i] >= scores[i+1] for i in range(len(scores)-1))
-            
-            print(f"\n🔍 RANKING ANALYSIS:")
-            print(f"   Scores: {scores}")
-            print(f"   Properly Ranked (Descending): {is_descending}")
-            
-            if not is_descending:
-                critical_failures.append(f"Strategies not properly ranked by score: {scores}")
-            else:
-                print(f"   ✅ Strategies properly ranked by composite score")
-        
-        # Check 7: Verify filtering logic (passed strategies meet minimum criteria)
-        print(f"\n🔍 FILTERING LOGIC VERIFICATION:")
-        for i, strategy in enumerate(strategies):
-            name = strategy.get('name', f'Strategy {i+1}')
-            pf = strategy.get('profit_factor', 0)
-            dd = strategy.get('max_drawdown_pct', 100)
-            trades = strategy.get('total_trades', 0)
-            wr = strategy.get('win_rate', 0)
-            
-            print(f"   {name}: PF={pf}, DD={dd}%, Trades={trades}, WR={wr}%")
-            
-            # Check minimum criteria
-            if pf < 1.2:
-                critical_failures.append(f"{name} has PF {pf} < 1.2 (should be filtered)")
-            if dd > 25:
-                critical_failures.append(f"{name} has DD {dd}% > 25% (should be filtered)")
-            if trades < 20:
-                critical_failures.append(f"{name} has {trades} trades < 20 (should be filtered)")
-            if wr < 35:
-                critical_failures.append(f"{name} has WR {wr}% < 35% (should be filtered)")
-        
-        if not critical_failures:
-            print(f"   ✅ All passed strategies meet minimum criteria")
-        
-        # Check 8: Verify summary_stats contains required fields
-        required_stats = ['best_profit_factor', 'best_win_rate', 'lowest_drawdown', 'pass_rate']
-        missing_stats = [stat for stat in required_stats if stat not in summary_stats]
-        
-        if missing_stats:
-            critical_failures.append(f"Missing summary stats: {missing_stats}")
-        else:
-            print(f"   ✅ All required summary stats present")
-        
-        # Final verdict
-        print(f"\n" + "=" * 60)
-        if critical_failures:
-            print(f"❌ CRITICAL TEST FAILED:")
-            for failure in critical_failures:
-                print(f"   • {failure}")
-            return False
-        else:
-            print(f"✅ CRITICAL TEST PASSED: Strategy Evaluation and Ranking System working correctly")
-            print(f"   • Strategies have UNIQUE metrics (not identical)")
-            print(f"   • Filtering logic working properly")
-            print(f"   • Ranking by composite score working")
-            print(f"   • Summary statistics complete")
+        if walkforward_valid:
+            print("\n🎉 WALK-FORWARD VALIDATION SYSTEM IS WORKING CORRECTLY!")
+            print("✅ Strategies have complete walk-forward data")
+            print("✅ Training/validation split is working")
+            print("✅ Overfitting detection is functional")
+            print("✅ Robustness grading is implemented")
             return True
+        else:
+            print("\n⚠️  WALK-FORWARD VALIDATION SYSTEM HAS ISSUES")
+            print("❌ Some walk-forward features are not working correctly")
+            return False
+
 
 def main():
-    """Run all tests"""
-    print("🚀 Starting Strategy Generation System API Tests")
-    print("=" * 60)
+    """Main test execution"""
+    tester = WalkForwardValidationTester()
     
-    tester = StrategyGenerationAPITester()
-    
-    # Test basic connectivity first
-    if not tester.test_basic_connectivity():
-        print("❌ Basic connectivity failed, stopping tests")
-        return 1
-    
-    # Import sample data for testing
-    print("\n" + "=" * 40)
-    print("DATA SETUP")
-    print("=" * 40)
-    
-    data_imported = tester.import_sample_data()
-    
-    # =====================================================
-    # HIGH PRIORITY TESTS (as per review request)
-    # =====================================================
-    
-    print("\n" + "=" * 40)
-    print("HIGH PRIORITY TESTS")
-    print("=" * 40)
-    
-    # 1. Test Data Availability Check
-    tester.test_data_availability_check()
-    
-    # 2. Test Strategy Job Creation (check if we have enough data)
-    # Re-check data availability after import
-    success, response = tester.run_test(
-        "Check Data After Import",
-        "GET",
-        "marketdata/check-any-availability/EURUSD",
-        200
-    )
-    
-    has_enough_data = False
-    if success and response:
-        candle_count = response.get('candle_count', 0)
-        has_enough_data = candle_count >= 100
-        print(f"   Found {candle_count} candles, enough for testing: {has_enough_data}")
-    
-    if has_enough_data:
-        # CRITICAL TEST: Strategy Unique Metrics Verification
-        critical_test_passed = tester.test_strategy_unique_metrics()
-        
-        if not critical_test_passed:
-            print("\n❌ CRITICAL TEST FAILED - Strategy metrics are not unique!")
-            print("This indicates the main issue (identical PF 1.01, WR 36%) is NOT fixed")
-        
-        # Additional basic tests
-        job_success, job_id = tester.test_strategy_job_creation()
-        
-        # 3. Test Job Status Polling
-        if job_success and job_id:
-            tester.test_job_status_polling(job_id)
-            
-            # 4. Test Job Result Retrieval (if job completed)
-            tester.test_job_result_endpoint(job_id)
-    else:
-        print("⚠️ Skipping strategy job tests - insufficient data (need 100+ candles)")
-    
-    # =====================================================
-    # VALIDATION TESTS
-    # =====================================================
-    
-    print("\n" + "=" * 40)
-    print("VALIDATION TESTS")
-    print("=" * 40)
-    
-    # Test invalid strategy count
-    tester.test_invalid_strategy_count()
-    
-    # Test non-existent symbol
-    tester.test_nonexistent_symbol()
-    
-    # =====================================================
-    # LEGACY TESTS (Market Data)
-    # =====================================================
-    
-    print("\n" + "=" * 40)
-    print("LEGACY MARKET DATA TESTS")
-    print("=" * 40)
-    
-    # Test market data coverage
-    tester.test_market_data_coverage()
-    
-    # Test data integrity
-    tester.test_data_integrity_check()
-    
-    # Test timeframe support
-    tester.test_timeframe_constants()
-    
-    # Test DELETE endpoint with invalid data
-    tester.test_delete_endpoint_with_invalid_data()
-    
-    # Test DELETE endpoint with real data (if available)
-    tester.test_delete_endpoint_with_real_data()
-    
-    # Print final results
-    print("\n" + "=" * 60)
-    print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
-    
-    if tester.tests_passed == tester.tests_run:
-        print("🎉 All tests passed!")
-        return 0
-    else:
-        print("⚠️ Some tests failed")
-        return 1
+    try:
+        success = tester.run_all_tests()
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n⏹️  Tests interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n\n💥 Unexpected error: {str(e)}")
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

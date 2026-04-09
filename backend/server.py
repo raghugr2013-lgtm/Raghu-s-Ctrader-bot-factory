@@ -80,6 +80,11 @@ from strategy_job_tracker import (
     StrategyType,
     RiskLevel
 )
+from walkforward_validator import (
+    run_walkforward_validation,
+    WalkForwardResult,
+    filter_robust_strategies
+)
 
 
 ROOT_DIR = Path(__file__).parent
@@ -1878,6 +1883,100 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             message=f"{len(passed_strategies)}/{len(results)} strategies passed filters (rejected: {rejected_count})"
         )
         
+        # Stage 5.5: Walk-Forward Validation (Robustness Check)
+        tracker.update(
+            job_id,
+            percent=80,
+            message=f"Running walk-forward validation on {len(passed_strategies)} strategies..."
+        )
+        
+        # Run walk-forward validation to detect overfitting
+        robust_strategies = []
+        overfit_count = 0
+        walkforward_results = {}
+        
+        for idx, strategy in enumerate(passed_strategies):
+            try:
+                # Progress update every 5 strategies
+                if idx % 5 == 0:
+                    wf_progress = 80 + (idx / len(passed_strategies)) * 8  # 80-88%
+                    tracker.update(
+                        job_id,
+                        percent=wf_progress,
+                        message=f"Walk-forward validation {idx + 1}/{len(passed_strategies)}..."
+                    )
+                
+                # Get strategy params
+                seed = strategy.get("params_seed", hash(strategy.get("name", f"s_{idx}")) % 999999)
+                params = StrategyParameters.generate_random(
+                    strategy_type=config.strategy_type,
+                    risk_level=config.risk_level,
+                    seed=seed
+                )
+                
+                # Run walk-forward validation
+                wf_result = run_walkforward_validation(
+                    candles=candles,
+                    strategy_name=strategy.get("name", f"Strategy_{idx}"),
+                    symbol=config.symbol,
+                    timeframe=config.timeframe,
+                    params=params,
+                    initial_balance=10000,
+                    training_ratio=0.7,
+                    min_stability_threshold=0.6,
+                    min_validation_pf=1.0
+                )
+                
+                # Store walk-forward results
+                walkforward_results[strategy.get("name", f"Strategy_{idx}")] = wf_result.to_dict()
+                
+                # Add walk-forward metrics to strategy
+                strategy["walkforward"] = {
+                    "training_pf": wf_result.training_metrics.profit_factor,
+                    "training_wr": wf_result.training_metrics.win_rate,
+                    "training_dd": wf_result.training_metrics.max_drawdown_pct,
+                    "training_trades": wf_result.training_metrics.total_trades,
+                    "validation_pf": wf_result.validation_metrics.profit_factor,
+                    "validation_wr": wf_result.validation_metrics.win_rate,
+                    "validation_dd": wf_result.validation_metrics.max_drawdown_pct,
+                    "validation_trades": wf_result.validation_metrics.total_trades,
+                    "stability_score": round(wf_result.stability_score, 3),
+                    "pf_stability": round(wf_result.pf_stability, 3),
+                    "is_overfit": wf_result.is_overfit,
+                    "overfit_severity": wf_result.overfit_severity,
+                    "robustness_grade": wf_result.robustness_grade,
+                    "is_robust": wf_result.is_robust
+                }
+                
+                # Check if strategy is robust
+                if wf_result.is_robust:
+                    # Apply stability bonus/penalty to composite score
+                    stability_bonus = (wf_result.stability_score - 0.6) * 0.3  # Up to +0.12 bonus
+                    strategy["composite_score"] = round(strategy["composite_score"] + stability_bonus, 4)
+                    strategy["stability_adjusted"] = True
+                    robust_strategies.append(strategy)
+                else:
+                    overfit_count += 1
+                    strategy["rejected_reason"] = "overfit"
+                    strategy["overfit_reasons"] = wf_result.overfit_reasons
+                    
+            except Exception as e:
+                logging.warning(f"Walk-forward validation error for strategy {idx}: {str(e)}")
+                # Keep strategy but mark as unvalidated
+                strategy["walkforward"] = {"error": str(e), "is_robust": False}
+                robust_strategies.append(strategy)  # Keep unvalidated strategies
+        
+        # Update rejection reasons
+        rejection_reasons["overfit"] = overfit_count
+        total_rejected = rejected_count + overfit_count
+        
+        logging.info(f"[JOB {job_id[:8]}] Walk-forward: {len(robust_strategies)} robust, {overfit_count} overfit")
+        
+        tracker.update(
+            job_id,
+            message=f"Walk-forward complete: {len(robust_strategies)} robust, {overfit_count} overfit"
+        )
+        
         # Stage 6: Finalizing
         tracker.update(
             job_id,
@@ -1886,9 +1985,9 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             message="Ranking and finalizing results..."
         )
         
-        # Rank strategies by composite score
+        # Rank strategies by composite score (now includes stability adjustment)
         ranked_strategies = sorted(
-            passed_strategies,
+            robust_strategies,
             key=lambda x: x["composite_score"],
             reverse=True
         )
@@ -1905,8 +2004,18 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             avg_pf = sum(s["profit_factor"] for s in ranked_strategies) / len(ranked_strategies)
             avg_wr = sum(s["win_rate"] for s in ranked_strategies) / len(ranked_strategies)
             avg_dd = sum(s["max_drawdown_pct"] for s in ranked_strategies) / len(ranked_strategies)
+            # Walk-forward stats
+            robust_count = len([s for s in ranked_strategies if s.get("walkforward", {}).get("is_robust", False)])
+            avg_stability = sum(s.get("walkforward", {}).get("stability_score", 0) for s in ranked_strategies) / len(ranked_strategies)
+            grade_counts = {}
+            for s in ranked_strategies:
+                grade = s.get("walkforward", {}).get("robustness_grade", "F")
+                grade_counts[grade] = grade_counts.get(grade, 0) + 1
         else:
             best_pf = best_wr = lowest_dd = avg_pf = avg_wr = avg_dd = 0
+            robust_count = 0
+            avg_stability = 0
+            grade_counts = {}
         
         # Prepare final result
         final_result = {
@@ -1917,8 +2026,9 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             "execution_mode": config.execution_mode,
             "total_generated": len(all_strategies),
             "total_backtested": len(results),
-            "total_passed": len(passed_strategies),
-            "total_rejected": rejected_count,
+            "total_passed_filters": len(passed_strategies),
+            "total_robust": len(robust_strategies),
+            "total_rejected": total_rejected,
             "rejection_breakdown": rejection_reasons,
             "strategies": ranked_strategies[:20],  # Top 20
             "all_strategies": ranked_strategies,
@@ -1934,6 +2044,15 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                 "avg_win_rate": round(avg_wr, 2),
                 "avg_drawdown": round(avg_dd, 2),
                 "pass_rate": round(len(passed_strategies) / len(results) * 100, 1) if results else 0
+            },
+            # Walk-forward validation stats
+            "walkforward_stats": {
+                "total_validated": len(passed_strategies),
+                "total_robust": robust_count,
+                "total_overfit": overfit_count,
+                "avg_stability_score": round(avg_stability, 3),
+                "robustness_grades": grade_counts,
+                "validation_ratio": 0.7  # 70% training, 30% validation
             }
         }
         

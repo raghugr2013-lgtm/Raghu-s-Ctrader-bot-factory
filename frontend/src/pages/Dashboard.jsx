@@ -2658,6 +2658,94 @@ Generate a complete cTrader cBot implementing this strategy.`;
                       </div>
                     </div>
 
+                    {/* Walk-Forward Validation Results */}
+                    {strategy.walkforward && (
+                      <div className={`border rounded-sm p-2 mb-3 ${
+                        strategy.walkforward.is_robust 
+                          ? 'bg-emerald-950/20 border-emerald-500/30' 
+                          : strategy.walkforward.is_overfit 
+                            ? 'bg-red-950/20 border-red-500/30'
+                            : 'bg-zinc-900/50 border-zinc-700/30'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500">
+                            Walk-Forward Validation
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                              strategy.walkforward.robustness_grade === 'A' ? 'bg-emerald-600/30 text-emerald-400' :
+                              strategy.walkforward.robustness_grade === 'B' ? 'bg-blue-600/30 text-blue-400' :
+                              strategy.walkforward.robustness_grade === 'C' ? 'bg-amber-600/30 text-amber-400' :
+                              'bg-red-600/30 text-red-400'
+                            }`}>
+                              Grade {strategy.walkforward.robustness_grade}
+                            </span>
+                            {strategy.walkforward.is_robust ? (
+                              <span className="text-[8px] text-emerald-400 font-mono">✓ ROBUST</span>
+                            ) : strategy.walkforward.is_overfit ? (
+                              <span className="text-[8px] text-red-400 font-mono">⚠ OVERFIT</span>
+                            ) : (
+                              <span className="text-[8px] text-zinc-500 font-mono">—</span>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Training vs Validation comparison */}
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <div className="bg-blue-950/30 rounded p-1.5">
+                            <p className="text-[8px] text-blue-400 font-mono mb-1">📈 TRAINING (70%)</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              <div>
+                                <span className="text-[7px] text-zinc-600">PF:</span>
+                                <span className="text-[9px] text-blue-300 ml-1 font-bold">{(strategy.walkforward.training_pf || 0).toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[7px] text-zinc-600">WR:</span>
+                                <span className="text-[9px] text-blue-300 ml-1 font-bold">{(strategy.walkforward.training_wr || 0).toFixed(0)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-purple-950/30 rounded p-1.5">
+                            <p className="text-[8px] text-purple-400 font-mono mb-1">🔮 VALIDATION (30%)</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              <div>
+                                <span className="text-[7px] text-zinc-600">PF:</span>
+                                <span className={`text-[9px] ml-1 font-bold ${
+                                  (strategy.walkforward.validation_pf || 0) >= 1.0 ? 'text-emerald-300' : 'text-red-300'
+                                }`}>{(strategy.walkforward.validation_pf || 0).toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[7px] text-zinc-600">WR:</span>
+                                <span className={`text-[9px] ml-1 font-bold ${
+                                  (strategy.walkforward.validation_wr || 0) >= 40 ? 'text-emerald-300' : 'text-amber-300'
+                                }`}>{(strategy.walkforward.validation_wr || 0).toFixed(0)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Stability Score Bar */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8px] text-zinc-500 font-mono w-16">Stability:</span>
+                          <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full transition-all ${
+                                (strategy.walkforward.stability_score || 0) >= 0.8 ? 'bg-emerald-500' :
+                                (strategy.walkforward.stability_score || 0) >= 0.6 ? 'bg-amber-500' :
+                                'bg-red-500'
+                              }`}
+                              style={{ width: `${(strategy.walkforward.stability_score || 0) * 100}%` }}
+                            />
+                          </div>
+                          <span className={`text-[9px] font-mono font-bold ${
+                            (strategy.walkforward.stability_score || 0) >= 0.8 ? 'text-emerald-400' :
+                            (strategy.walkforward.stability_score || 0) >= 0.6 ? 'text-amber-400' :
+                            'text-red-400'
+                          }`}>{((strategy.walkforward.stability_score || 0) * 100).toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-2">
                       <Button
                         onClick={() => handleGenerateCBotFromStrategy(strategy)}
