@@ -1,0 +1,42 @@
+{
+  "filters": {
+    "min_profit_factor": 1.2,
+    "max_drawdown_pct": 20.0,
+    "min_stability_pct": 60.0,
+    "min_trades": 50,
+    "min_sharpe_ratio": 0.0,
+    "min_win_rate": 30.0,
+    "strong_pf": 1.5,
+    "strong_dd": 15.0,
+    "strong_sharpe": 1.0,
+    "moderate_pf": 1.2,
+    "moderate_dd": 20.0
+  },
+  "generation": {
+    "default_strategy_count": 50,
+    "batch_size": 10,
+    "max_retries": 3,
+    "strategies_per_retry": 25,
+    "min_data_years": 2.0,
+    "default_duration_days": 1825
+  },
+  "scoring": {
+    "profit_factor_weight": 0.35,
+    "drawdown_weight": 0.25,
+    "sharpe_weight": 0.20,
+    "monte_carlo_weight": 0.12,
+    "walkforward_weight": 0.08,
+    "fitness_threshold_strong": 70.0,
+    "fitness_threshold_moderate": 50.0
+  },
+  "safety": {
+    "max_daily_loss_pct": 5.0,
+    "max_total_loss_pct": 10.0,
+    "require_stop_loss": true,
+    "require_take_profit": true,
+    "max_position_size_pct": 2.0
+  },
+  "version": "1.0.0",
+  "last_updated": "2026-04-09T18:00:00Z",
+  "updated_by": "system"
+}

@@ -1,6 +1,7 @@
 """
 Composite Scoring Engine
 Unified scoring system for ranking forex trading strategies based on multiple performance metrics.
+Uses dynamic configuration from strategy_config module.
 """
 
 import logging
@@ -8,6 +9,13 @@ from typing import Dict, Any, List, Tuple
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+# Import config manager
+try:
+    from strategy_config import config_manager, get_filters, get_scoring
+except ImportError:
+    config_manager = None
+    logger.warning("strategy_config not available, using hardcoded defaults")
 
 
 class Grade(str, Enum):
@@ -20,37 +28,62 @@ class Grade(str, Enum):
 
 
 class CompositeScoreWeights:
-    """Default weights for composite score calculation - UPDATED for quality"""
-    PROFIT_FACTOR = 0.35     # 35% - PRIMARY: Profitability (highest weight)
-    MAX_DRAWDOWN = 0.25      # 25% - Capital preservation  
-    SHARPE_RATIO = 0.20      # 20% - Risk-adjusted returns
-    MONTE_CARLO = 0.12       # 12% - Statistical robustness
-    WALK_FORWARD = 0.08      # 8% - Generalization ability
+    """Weights for composite score calculation - loads from config"""
+    
+    @classmethod
+    def get_weights(cls) -> Dict[str, float]:
+        """Get scoring weights from config"""
+        if config_manager:
+            s = config_manager.scoring
+            return {
+                'profit_factor': s.profit_factor_weight,
+                'max_drawdown': s.drawdown_weight,
+                'sharpe_ratio': s.sharpe_weight,
+                'monte_carlo': s.monte_carlo_weight,
+                'walk_forward': s.walkforward_weight
+            }
+        # Fallback defaults
+        return {
+            'profit_factor': 0.35,
+            'max_drawdown': 0.25,
+            'sharpe_ratio': 0.20,
+            'monte_carlo': 0.12,
+            'walk_forward': 0.08
+        }
     
     @classmethod
     def validate(cls):
         """Ensure weights sum to 1.0"""
-        total = cls.SHARPE_RATIO + cls.MAX_DRAWDOWN + cls.MONTE_CARLO + cls.WALK_FORWARD + cls.PROFIT_FACTOR
+        weights = cls.get_weights()
+        total = sum(weights.values())
         assert abs(total - 1.0) < 0.001, f"Weights must sum to 1.0, got {total}"
 
 
 class QualityFilters:
-    """Minimum quality thresholds for strategy validation"""
-    MIN_PROFIT_FACTOR = 1.05      # Slightly profitable (discovery mode)
-    MAX_DRAWDOWN_PCT = 35.0       # Reasonable drawdown tolerance
-    MIN_STABILITY_PCT = 40.0      # Minimum stability score
-    MIN_TRADES = 50               # Minimum number of trades
-    MIN_WIN_RATE = 25.0           # Minimum win rate %
-    MIN_SHARPE = -1.0             # Allow negative Sharpe for discovery
+    """
+    Quality filters for strategy validation.
+    Loads thresholds from config system - NO HARDCODED VALUES.
+    """
     
-    # Stricter thresholds for "Strong" label
-    STRONG_PF = 1.5
-    STRONG_DD = 15.0
-    STRONG_SHARPE = 1.0
-    
-    # Moderate thresholds
-    MODERATE_PF = 1.2
-    MODERATE_DD = 25.0
+    @classmethod
+    def _get_config(cls):
+        """Get filter config with fallback"""
+        if config_manager:
+            return config_manager.filters
+        # Fallback to strict defaults
+        class DefaultFilters:
+            min_profit_factor = 1.2
+            max_drawdown_pct = 20.0
+            min_stability_pct = 60.0
+            min_trades = 50
+            min_sharpe_ratio = 0.0
+            min_win_rate = 30.0
+            strong_pf = 1.5
+            strong_dd = 15.0
+            strong_sharpe = 1.0
+            moderate_pf = 1.2
+            moderate_dd = 20.0
+        return DefaultFilters()
     
     @classmethod
     def passes_all(cls, strategy: dict) -> tuple:
@@ -58,34 +91,35 @@ class QualityFilters:
         Check if strategy passes all quality filters.
         Returns (passes: bool, reasons: list)
         """
+        f = cls._get_config()
         reasons = []
         
         pf = strategy.get('profit_factor', 0)
-        if pf < cls.MIN_PROFIT_FACTOR:
-            reasons.append(f"PF {pf:.2f} < {cls.MIN_PROFIT_FACTOR}")
+        if pf < f.min_profit_factor:
+            reasons.append(f"PF {pf:.2f} < {f.min_profit_factor}")
         
         dd = abs(strategy.get('max_drawdown_pct', 100))
-        if dd > cls.MAX_DRAWDOWN_PCT:
-            reasons.append(f"DD {dd:.1f}% > {cls.MAX_DRAWDOWN_PCT}%")
+        if dd > f.max_drawdown_pct:
+            reasons.append(f"DD {dd:.1f}% > {f.max_drawdown_pct}%")
         
-        # Stability from walkforward or monte carlo
+        sharpe = strategy.get('sharpe_ratio', -999)
+        if sharpe < f.min_sharpe_ratio:
+            reasons.append(f"Sharpe {sharpe:.2f} < {f.min_sharpe_ratio}")
+        
+        trades = strategy.get('total_trades', 0)
+        if trades < f.min_trades:
+            reasons.append(f"Trades {trades} < {f.min_trades}")
+        
+        # Stability check
         stability = strategy.get('stability_score', 0)
         if not stability:
             wf = strategy.get('walkforward', {})
             stability = wf.get('stability_score', 0) * 100 if wf else 0
         if not stability:
             mc = strategy.get('monte_carlo_score', 0)
-            stability = mc if mc else 50  # Default to 50 if not calculated
-        if stability < cls.MIN_STABILITY_PCT:
-            reasons.append(f"Stability {stability:.0f}% < {cls.MIN_STABILITY_PCT}%")
-        
-        trades = strategy.get('total_trades', 0)
-        if trades < cls.MIN_TRADES:
-            reasons.append(f"Trades {trades} < {cls.MIN_TRADES}")
-        
-        sharpe = strategy.get('sharpe_ratio', -999)
-        if sharpe < cls.MIN_SHARPE:
-            reasons.append(f"Sharpe {sharpe:.2f} < {cls.MIN_SHARPE}")
+            stability = mc if mc else 50
+        if stability < f.min_stability_pct:
+            reasons.append(f"Stability {stability:.0f}% < {f.min_stability_pct}%")
         
         return (len(reasons) == 0, reasons)
     
@@ -94,26 +128,36 @@ class QualityFilters:
         """
         Get quality label for strategy.
         Returns (label: str, color: str, emoji: str)
+        Only Strong and Moderate shown - Weak hidden from results.
         """
+        f = cls._get_config()
         pf = strategy.get('profit_factor', 0)
         dd = abs(strategy.get('max_drawdown_pct', 100))
         sharpe = strategy.get('sharpe_ratio', 0)
         
-        # Strong: PF ≥ 1.5, DD ≤ 15%, Sharpe ≥ 1.0
-        if pf >= cls.STRONG_PF and dd <= cls.STRONG_DD and sharpe >= cls.STRONG_SHARPE:
+        # Check if passes minimum filters first
+        passes, _ = cls.passes_all(strategy)
+        
+        if not passes:
+            return ('Weak', 'red', '🔴')
+        
+        # Strong: High PF, Low DD, High Sharpe
+        if pf >= f.strong_pf and dd <= f.strong_dd and sharpe >= f.strong_sharpe:
             return ('Strong', 'emerald', '🟢')
         
-        # Moderate: PF ≥ 1.2, DD ≤ 25%
-        if pf >= cls.MODERATE_PF and dd <= cls.MODERATE_DD:
-            return ('Moderate', 'amber', '🟡')
-        
-        # Acceptable: Passes minimum filters
-        passes, _ = cls.passes_all(strategy)
-        if passes:
-            return ('Acceptable', 'blue', '🔵')
-        
-        # Weak: Everything else
-        return ('Weak', 'red', '🔴')
+        # Moderate: Passes minimum filters
+        return ('Moderate', 'amber', '🟡')
+    
+    @classmethod
+    def can_generate_cbot(cls, strategy: dict) -> tuple:
+        """
+        Check if strategy is allowed to generate cBot.
+        Returns (allowed: bool, reason: str)
+        """
+        passes, reasons = cls.passes_all(strategy)
+        if not passes:
+            return (False, f"Strategy does not meet quality filters: {', '.join(reasons)}")
+        return (True, "Strategy validated for cBot generation")
 
 
 class MetricNormalizer:

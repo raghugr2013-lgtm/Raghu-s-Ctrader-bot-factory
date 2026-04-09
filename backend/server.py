@@ -72,6 +72,19 @@ from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
 from dukascopy_router import router as dukascopy_router, init_dukascopy_router
 from pipeline_master_router import router as pipeline_master_router
+from strategy_config import (
+    config_manager,
+    get_config,
+    get_filters,
+    get_generation,
+    get_scoring,
+    update_config,
+    StrategyConfig,
+    FilterConfig,
+    GenerationConfig,
+    ScoringConfig,
+    SafetyConfig
+)
 from strategy_job_tracker import (
     get_job_tracker,
     StrategyJobRequest,
@@ -499,9 +512,11 @@ async def generate_bot_from_strategy(request: StrategyToBotRequest):
     """
     Generate cBot from a validated strategy with full pipeline integration.
     This is the RECOMMENDED flow: Strategy Factory → Validation → Bot Generation
+    BLOCKS weak strategies that don't meet quality filters.
     """
     try:
         from strategy_to_bot_converter import StrategyToBotConverter
+        from scoring_engine import QualityFilters
         
         session_id = str(uuid.uuid4())
         strategy = request.strategy_data
@@ -515,11 +530,29 @@ async def generate_bot_from_strategy(request: StrategyToBotRequest):
                 detail=f"Strategy missing validation metrics: {missing_fields}. Run factory validation first."
             )
         
-        # Check minimum quality thresholds
-        if strategy.get("fitness", 0) < 25:
+        # STRICT QUALITY CHECK - Block weak strategies
+        can_generate, reason = QualityFilters.can_generate_cbot(strategy)
+        if not can_generate:
+            filters = get_filters()
             raise HTTPException(
                 status_code=400,
-                detail=f"Strategy fitness ({strategy.get('fitness', 0):.1f}) below minimum threshold (25). Improve strategy quality first."
+                detail={
+                    "error": "QUALITY_FILTER_FAILED",
+                    "message": reason,
+                    "strategy_metrics": {
+                        "profit_factor": strategy.get("profit_factor", 0),
+                        "max_drawdown_pct": strategy.get("max_drawdown_pct", 0),
+                        "sharpe_ratio": strategy.get("sharpe_ratio", 0),
+                        "total_trades": strategy.get("total_trades", 0)
+                    },
+                    "required_thresholds": {
+                        "min_profit_factor": filters.min_profit_factor,
+                        "max_drawdown_pct": filters.max_drawdown_pct,
+                        "min_sharpe_ratio": filters.min_sharpe_ratio,
+                        "min_trades": filters.min_trades
+                    },
+                    "action": "Improve strategy quality or adjust configuration thresholds via /api/config/update"
+                }
             )
         
         # Create pipeline bot session
@@ -4097,6 +4130,85 @@ Requirements: Robot class, using statements, OnStart(), OnBar(), error handling.
     except Exception as e:
         return FullPipelineResponse(success=False, pipeline_id=pipeline_id, stages=stages, final_score=0.0, grade="F",
             decision="NOT_READY", total_execution_time=time.time() - start_time, summary={"error": str(e)})
+
+
+# ============================================================================
+# CONFIGURATION API ENDPOINTS
+# ============================================================================
+
+@api_router.get("/config")
+async def get_strategy_config():
+    """Get current strategy configuration"""
+    try:
+        config = get_config()
+        return {
+            "success": True,
+            "config": config.model_dump(),
+            "message": "Configuration loaded successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error getting config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/config/update")
+async def update_strategy_config(updates: Dict[str, Any]):
+    """
+    Update strategy configuration.
+    Supports partial updates: {"filters": {"min_profit_factor": 1.3}}
+    """
+    try:
+        updated_config = update_config(updates, updated_by="user")
+        return {
+            "success": True,
+            "config": updated_config.model_dump(),
+            "message": "Configuration updated successfully"
+        }
+    except Exception as e:
+        logger.error(f"Error updating config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/config/reset")
+async def reset_strategy_config():
+    """Reset configuration to defaults"""
+    try:
+        config_manager.reset_defaults()
+        return {
+            "success": True,
+            "config": config_manager.get_dict(),
+            "message": "Configuration reset to defaults"
+        }
+    except Exception as e:
+        logger.error(f"Error resetting config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/config/filters")
+async def get_filter_config():
+    """Get current filter configuration"""
+    return {
+        "success": True,
+        "filters": get_filters().model_dump()
+    }
+
+
+@api_router.get("/config/generation")
+async def get_generation_config():
+    """Get current generation configuration"""
+    return {
+        "success": True,
+        "generation": get_generation().model_dump()
+    }
+
+
+@api_router.get("/config/scoring")
+async def get_scoring_config():
+    """Get current scoring configuration"""
+    return {
+        "success": True,
+        "scoring": get_scoring().model_dump()
+    }
 
 
 # Include the router in the main app
