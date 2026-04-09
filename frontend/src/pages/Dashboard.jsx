@@ -2540,7 +2540,7 @@ Generate a complete cTrader cBot implementing this strategy.`;
                 <Trophy className="w-12 h-12 text-purple-500 mb-4" />
                 <p className="text-sm text-zinc-300 font-mono mb-2">Auto Strategy Generation</p>
                 <p className="text-xs text-zinc-500 font-mono max-w-md">
-                  Click "🚀 Generate Top Strategies" to automatically create, backtest, and rank 20 unique trading strategies
+                  Click "🚀 Generate Strategies" to automatically create, backtest, and rank unique trading strategies
                 </p>
               </div>
             ) : (
@@ -2552,40 +2552,109 @@ Generate a complete cTrader cBot implementing this strategy.`;
                   </Badge>
                 </div>
                 
-                {topStrategies.map((strategy, idx) => (
+                {topStrategies.map((strategy, idx) => {
+                  // Highlight best metrics
+                  const bestPF = Math.max(...topStrategies.map(s => s.profit_factor || 0));
+                  const bestWR = Math.max(...topStrategies.map(s => s.win_rate || 0));
+                  const lowestDD = Math.min(...topStrategies.map(s => s.max_drawdown_pct || 100));
+                  const isBestPF = strategy.profit_factor === bestPF;
+                  const isBestWR = strategy.win_rate === bestWR;
+                  const isLowestDD = strategy.max_drawdown_pct === lowestDD;
+                  
+                  return (
                   <div
                     key={idx}
-                    className="bg-[#0F0F10] border border-purple-500/20 p-3 rounded-sm hover:border-purple-500/40 transition-colors"
+                    className={`bg-[#0F0F10] border p-3 rounded-sm hover:border-purple-500/40 transition-colors ${
+                      idx === 0 ? 'border-yellow-500/40 bg-yellow-950/10' : 'border-purple-500/20'
+                    }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-purple-400">#{idx + 1}</span>
+                        <span className={`text-lg font-bold ${idx === 0 ? 'text-yellow-400' : idx < 3 ? 'text-purple-400' : 'text-zinc-500'}`}>
+                          #{strategy.rank || idx + 1}
+                        </span>
                         <div>
                           <h4 className="text-xs font-bold text-zinc-200 font-mono">{strategy.name}</h4>
-                          <p className="text-[10px] text-zinc-500 mt-0.5">{strategy.description}</p>
+                          <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{strategy.description}</p>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-400 px-1.5 py-0 h-4">
-                        Score: {strategy.score}
+                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${
+                        (strategy.composite_score || 0) >= 0.7 ? 'border-emerald-500/40 text-emerald-400' :
+                        (strategy.composite_score || 0) >= 0.5 ? 'border-amber-500/40 text-amber-400' :
+                        'border-red-500/40 text-red-400'
+                      }`}>
+                        Score: {(strategy.composite_score || strategy.score || 0).toFixed(3)}
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2 mb-3">
-                      <div className="bg-[#18181B] p-1.5 rounded-sm">
+                    {/* Enhanced metrics grid */}
+                    <div className="grid grid-cols-5 gap-2 mb-3">
+                      <div className={`p-1.5 rounded-sm ${isBestPF ? 'bg-emerald-950/30 border border-emerald-500/30' : 'bg-[#18181B]'}`}>
                         <p className="text-[9px] text-zinc-600 uppercase font-mono">Profit Factor</p>
-                        <p className="text-sm font-bold text-blue-400 font-mono">{strategy.profit_factor}</p>
+                        <p className={`text-sm font-bold font-mono ${
+                          (strategy.profit_factor || 0) >= 1.5 ? 'text-emerald-400' :
+                          (strategy.profit_factor || 0) >= 1.2 ? 'text-blue-400' :
+                          'text-amber-400'
+                        }`}>
+                          {(strategy.profit_factor || 0).toFixed(2)}
+                          {isBestPF && <span className="text-[8px] ml-1">🏆</span>}
+                        </p>
                       </div>
-                      <div className="bg-[#18181B] p-1.5 rounded-sm">
+                      <div className={`p-1.5 rounded-sm ${isBestWR ? 'bg-emerald-950/30 border border-emerald-500/30' : 'bg-[#18181B]'}`}>
                         <p className="text-[9px] text-zinc-600 uppercase font-mono">Win Rate</p>
-                        <p className="text-sm font-bold text-emerald-400 font-mono">{strategy.win_rate}%</p>
+                        <p className={`text-sm font-bold font-mono ${
+                          (strategy.win_rate || 0) >= 50 ? 'text-emerald-400' :
+                          (strategy.win_rate || 0) >= 40 ? 'text-blue-400' :
+                          'text-amber-400'
+                        }`}>
+                          {(strategy.win_rate || 0).toFixed(1)}%
+                          {isBestWR && <span className="text-[8px] ml-1">🏆</span>}
+                        </p>
+                      </div>
+                      <div className={`p-1.5 rounded-sm ${isLowestDD ? 'bg-emerald-950/30 border border-emerald-500/30' : 'bg-[#18181B]'}`}>
+                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Max DD</p>
+                        <p className={`text-sm font-bold font-mono ${
+                          (strategy.max_drawdown_pct || 0) <= 15 ? 'text-emerald-400' :
+                          (strategy.max_drawdown_pct || 0) <= 25 ? 'text-amber-400' :
+                          'text-red-400'
+                        }`}>
+                          {(strategy.max_drawdown_pct || 0).toFixed(1)}%
+                          {isLowestDD && <span className="text-[8px] ml-1">🏆</span>}
+                        </p>
                       </div>
                       <div className="bg-[#18181B] p-1.5 rounded-sm">
-                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Max DD</p>
-                        <p className="text-sm font-bold text-amber-400 font-mono">{strategy.max_drawdown}%</p>
+                        <p className="text-[9px] text-zinc-600 uppercase font-mono">Net Profit</p>
+                        <p className={`text-sm font-bold font-mono ${
+                          (strategy.net_profit || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
+                        }`}>
+                          ${(strategy.net_profit || 0).toLocaleString()}
+                        </p>
                       </div>
                       <div className="bg-[#18181B] p-1.5 rounded-sm">
                         <p className="text-[9px] text-zinc-600 uppercase font-mono">Trades</p>
-                        <p className="text-sm font-bold text-zinc-300 font-mono">{strategy.total_trades}</p>
+                        <p className="text-sm font-bold text-zinc-300 font-mono">{strategy.total_trades || 0}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Additional metrics row */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-[#18181B]/50 p-1 rounded-sm">
+                        <p className="text-[8px] text-zinc-600 uppercase font-mono">Sharpe</p>
+                        <p className={`text-xs font-bold font-mono ${
+                          (strategy.sharpe_ratio || 0) >= 1 ? 'text-emerald-400' : 'text-zinc-400'
+                        }`}>{(strategy.sharpe_ratio || 0).toFixed(2)}</p>
+                      </div>
+                      <div className="bg-[#18181B]/50 p-1 rounded-sm">
+                        <p className="text-[8px] text-zinc-600 uppercase font-mono">R:R</p>
+                        <p className="text-xs font-bold text-zinc-400 font-mono">{(strategy.risk_reward || 0).toFixed(2)}</p>
+                      </div>
+                      <div className="bg-[#18181B]/50 p-1 rounded-sm">
+                        <p className="text-[8px] text-zinc-600 uppercase font-mono">Avg Win/Loss</p>
+                        <p className="text-xs font-bold font-mono">
+                          <span className="text-emerald-400">${(strategy.avg_win || 0).toFixed(0)}</span>
+                          <span className="text-zinc-600">/</span>
+                          <span className="text-red-400">${(strategy.avg_loss || 0).toFixed(0)}</span>
+                        </p>
                       </div>
                     </div>
 
@@ -2601,14 +2670,15 @@ Generate a complete cTrader cBot implementing this strategy.`;
                         size="sm"
                         className="bg-[#18181B] hover:bg-[#1F1F23] text-zinc-400 border border-white/10 font-mono uppercase text-[10px] h-7"
                         onClick={() => {
-                          toast.info(strategy.logic, { duration: 10000 });
+                          toast.info(strategy.logic || strategy.description, { duration: 10000 });
                         }}
                       >
                         <HelpCircle className="w-3 h-3 mr-1" /> View Logic
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>

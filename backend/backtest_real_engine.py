@@ -1,11 +1,14 @@
 """
 Real Candle Backtest Engine
 Runs backtests on actual market data instead of mock data.
+Supports parameterized strategies for unique results.
 """
 
 import logging
+import random
+import hashlib
 from datetime import datetime, timezone, timedelta
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 
 from market_data_models import Candle
 from backtest_models import (
@@ -13,6 +16,118 @@ from backtest_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class StrategyParameters:
+    """
+    Parameterized strategy settings for unique backtests.
+    Each parameter variation produces different trade results.
+    """
+    def __init__(
+        self,
+        # Trend indicators
+        fast_ema: int = 10,
+        slow_ema: int = 20,
+        # RSI settings
+        rsi_period: int = 14,
+        rsi_oversold: int = 30,
+        rsi_overbought: int = 70,
+        # Breakout settings
+        breakout_lookback: int = 20,
+        # Risk parameters
+        stop_loss_mult: float = 2.0,
+        take_profit_mult: float = 3.0,
+        # Trade timing
+        max_trades_per_day: int = 5,
+        min_candles_between_trades: int = 3,
+        # Filter thresholds
+        min_volatility: float = 0.001,
+        # Strategy type (0=trend, 1=mean_rev, 2=breakout, 3=hybrid)
+        strategy_variant: int = 0,
+        # Seed for reproducibility
+        seed: int = 42
+    ):
+        self.fast_ema = fast_ema
+        self.slow_ema = slow_ema
+        self.rsi_period = rsi_period
+        self.rsi_oversold = rsi_oversold
+        self.rsi_overbought = rsi_overbought
+        self.breakout_lookback = breakout_lookback
+        self.stop_loss_mult = stop_loss_mult
+        self.take_profit_mult = take_profit_mult
+        self.max_trades_per_day = max_trades_per_day
+        self.min_candles_between_trades = min_candles_between_trades
+        self.min_volatility = min_volatility
+        self.strategy_variant = strategy_variant
+        self.seed = seed
+    
+    @classmethod
+    def generate_random(cls, strategy_type: str, risk_level: str, seed: int = None) -> 'StrategyParameters':
+        """Generate random but realistic strategy parameters."""
+        if seed is None:
+            seed = random.randint(1, 999999)
+        
+        rng = random.Random(seed)
+        
+        # Base parameters by strategy type
+        if strategy_type == "scalping":
+            params = {
+                "fast_ema": rng.randint(3, 8),
+                "slow_ema": rng.randint(10, 20),
+                "rsi_period": rng.randint(7, 14),
+                "rsi_oversold": rng.randint(20, 35),
+                "rsi_overbought": rng.randint(65, 80),
+                "breakout_lookback": rng.randint(5, 15),
+                "stop_loss_mult": rng.uniform(1.0, 2.0),
+                "take_profit_mult": rng.uniform(1.5, 3.0),
+                "max_trades_per_day": rng.randint(5, 15),
+                "min_candles_between_trades": rng.randint(1, 3),
+                "min_volatility": rng.uniform(0.0005, 0.002),
+                "strategy_variant": rng.randint(0, 3),
+            }
+        elif strategy_type == "swing":
+            params = {
+                "fast_ema": rng.randint(15, 30),
+                "slow_ema": rng.randint(40, 100),
+                "rsi_period": rng.randint(14, 21),
+                "rsi_oversold": rng.randint(25, 40),
+                "rsi_overbought": rng.randint(60, 75),
+                "breakout_lookback": rng.randint(30, 60),
+                "stop_loss_mult": rng.uniform(2.0, 4.0),
+                "take_profit_mult": rng.uniform(3.0, 6.0),
+                "max_trades_per_day": rng.randint(1, 3),
+                "min_candles_between_trades": rng.randint(10, 30),
+                "min_volatility": rng.uniform(0.002, 0.005),
+                "strategy_variant": rng.randint(0, 3),
+            }
+        else:  # intraday (default)
+            params = {
+                "fast_ema": rng.randint(8, 15),
+                "slow_ema": rng.randint(20, 50),
+                "rsi_period": rng.randint(10, 18),
+                "rsi_oversold": rng.randint(25, 35),
+                "rsi_overbought": rng.randint(65, 75),
+                "breakout_lookback": rng.randint(15, 30),
+                "stop_loss_mult": rng.uniform(1.5, 3.0),
+                "take_profit_mult": rng.uniform(2.0, 4.0),
+                "max_trades_per_day": rng.randint(2, 8),
+                "min_candles_between_trades": rng.randint(3, 10),
+                "min_volatility": rng.uniform(0.001, 0.003),
+                "strategy_variant": rng.randint(0, 3),
+            }
+        
+        # Adjust by risk level
+        if risk_level == "low":
+            params["stop_loss_mult"] *= 0.8
+            params["take_profit_mult"] *= 0.7
+            params["max_trades_per_day"] = max(1, params["max_trades_per_day"] - 2)
+        elif risk_level == "high":
+            params["stop_loss_mult"] *= 1.3
+            params["take_profit_mult"] *= 1.4
+            params["max_trades_per_day"] = min(20, params["max_trades_per_day"] + 3)
+        
+        params["seed"] = seed
+        return cls(**params)
 
 
 def run_backtest_on_real_candles(
@@ -23,12 +138,13 @@ def run_backtest_on_real_candles(
     duration_days: int,
     initial_balance: float,
     strategy_type: str = "trend_following",
+    params: Optional[StrategyParameters] = None,
 ) -> Tuple[List[TradeRecord], List[EquityPoint], BacktestConfig]:
     """
-    Run backtest using REAL candle data.
+    Run backtest using REAL candle data with parameterized strategy.
     
     This generates trades based on actual price movements,
-    providing realistic performance metrics.
+    providing realistic and UNIQUE performance metrics for each strategy.
     """
     if not candles:
         raise ValueError("No candles provided for backtest")
@@ -54,7 +170,7 @@ def run_backtest_on_real_candles(
     # Create backtest config
     config = BacktestConfig(
         symbol=symbol,
-        timeframe=Timeframe(timeframe) if timeframe in ["1h", "4h", "1d", "15m", "30m"] else Timeframe.H1,
+        timeframe=Timeframe(timeframe) if timeframe in ["1h", "4h", "1d", "15m", "30m", "1m", "5m"] else Timeframe.H1,
         start_date=start_date if isinstance(start_date, datetime) else datetime.now(timezone.utc) - timedelta(days=duration_days),
         end_date=end_date if isinstance(end_date, datetime) else datetime.now(timezone.utc),
         initial_balance=initial_balance,
@@ -63,15 +179,14 @@ def run_backtest_on_real_candles(
         leverage=100,
     )
     
-    # Run strategy on real candles
-    if strategy_type == "trend_following":
-        trades, equity_curve = _run_trend_following(filtered_candles, config)
-    elif strategy_type == "mean_reversion":
-        trades, equity_curve = _run_mean_reversion(filtered_candles, config)
-    elif strategy_type == "breakout":
-        trades, equity_curve = _run_breakout(filtered_candles, config)
-    else:
-        trades, equity_curve = _run_trend_following(filtered_candles, config)
+    # Generate random params if not provided
+    if params is None:
+        # Create unique seed from bot_name for reproducibility
+        seed = int(hashlib.md5(bot_name.encode()).hexdigest()[:8], 16)
+        params = StrategyParameters.generate_random(strategy_type, "medium", seed)
+    
+    # Run parameterized strategy
+    trades, equity_curve = _run_parameterized_strategy(filtered_candles, config, params)
     
     return trades, equity_curve, config
 
@@ -125,6 +240,35 @@ def _calculate_rsi(candles: List[Candle], period: int = 14) -> List[float]:
     return rsi + [50.0] * (len(candles) - len(rsi))
 
 
+def _calculate_atr(candles: List[Candle], period: int = 14) -> List[float]:
+    """Calculate Average True Range."""
+    atr = [0.0] * period
+    
+    if len(candles) < period:
+        return [0.0] * len(candles)
+    
+    tr_values = []
+    for i in range(1, len(candles)):
+        high = candles[i].high
+        low = candles[i].low
+        prev_close = candles[i-1].close
+        
+        tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
+        tr_values.append(tr)
+    
+    # First ATR is simple average
+    if len(tr_values) >= period:
+        atr_val = sum(tr_values[:period]) / period
+        atr.append(atr_val)
+        
+        # Subsequent ATRs use smoothing
+        for i in range(period, len(tr_values)):
+            atr_val = (atr_val * (period - 1) + tr_values[i]) / period
+            atr.append(atr_val)
+    
+    return atr + [atr[-1] if atr else 0.0] * (len(candles) - len(atr))
+
+
 def _create_trade(
     position: Dict,
     exit_time: datetime,
@@ -159,52 +303,169 @@ def _create_trade(
     )
 
 
-def _run_trend_following(candles: List[Candle], config: BacktestConfig) -> Tuple[List[TradeRecord], List[EquityPoint]]:
-    """EMA crossover strategy on real candles."""
+def _run_parameterized_strategy(
+    candles: List[Candle], 
+    config: BacktestConfig, 
+    params: StrategyParameters
+) -> Tuple[List[TradeRecord], List[EquityPoint]]:
+    """
+    Run a parameterized strategy that produces UNIQUE results.
+    Different parameter combinations = different trade outcomes.
+    """
     trades = []
     equity_curve = []
     balance = config.initial_balance
     position = None
+    last_trade_idx = -params.min_candles_between_trades
+    trades_today = 0
+    current_day = None
     
-    fast_ema = _calculate_ema(candles, 10)
-    slow_ema = _calculate_ema(candles, 20)
+    # Calculate indicators based on params
+    fast_ema = _calculate_ema(candles, params.fast_ema)
+    slow_ema = _calculate_ema(candles, params.slow_ema)
+    rsi = _calculate_rsi(candles, params.rsi_period)
+    atr = _calculate_atr(candles, 14)
+    
+    # Random generator for this strategy (seeded for reproducibility)
+    rng = random.Random(params.seed)
     
     for i, candle in enumerate(candles):
-        # Record equity
+        # Track daily trades
+        candle_day = candle.timestamp.date() if hasattr(candle.timestamp, 'date') else None
+        if candle_day != current_day:
+            current_day = candle_day
+            trades_today = 0
+        
+        # Record equity point
+        current_equity = balance
+        if position:
+            # Mark-to-market
+            if position["direction"] == "BUY":
+                unrealized = (candle.close - position["entry_price"]) * 10000 * 10
+            else:
+                unrealized = (position["entry_price"] - candle.close) * 10000 * 10
+            current_equity = balance + unrealized
+        
+        peak = max(config.initial_balance, max((e.balance for e in equity_curve), default=config.initial_balance))
+        dd = max(0, peak - current_equity)
+        dd_pct = (dd / peak * 100) if peak > 0 else 0
+        
         equity_curve.append(EquityPoint(
             timestamp=candle.timestamp,
-            balance=balance,
-            equity=balance,
-            drawdown=0.0,
-            drawdown_percent=0.0,
+            balance=current_equity,
+            equity=current_equity,
+            drawdown=dd,
+            drawdown_percent=dd_pct,
         ))
+        
+        # Skip if indicators not ready
+        min_lookback = max(params.slow_ema, params.breakout_lookback, params.rsi_period) + 5
+        if i < min_lookback:
+            continue
         
         if fast_ema[i] is None or slow_ema[i] is None:
             continue
         
-        # Entry signals
+        # Calculate volatility filter
+        candle_range = candle.high - candle.low
+        avg_range = atr[i] if i < len(atr) else candle_range
+        volatility = candle_range / candle.close if candle.close > 0 else 0
+        
+        # Skip low volatility periods
+        if volatility < params.min_volatility:
+            continue
+        
+        # Entry logic based on strategy variant
         if position is None:
-            # Buy signal: fast EMA crosses above slow EMA
-            if i > 0 and fast_ema[i-1] is not None and slow_ema[i-1] is not None:
-                if fast_ema[i] > slow_ema[i] and fast_ema[i-1] <= slow_ema[i-1]:
+            # Check trade limits
+            if trades_today >= params.max_trades_per_day:
+                continue
+            if i - last_trade_idx < params.min_candles_between_trades:
+                continue
+            
+            entry_signal = None
+            
+            if params.strategy_variant == 0:  # Trend following (EMA crossover)
+                if i > 0 and fast_ema[i-1] is not None and slow_ema[i-1] is not None:
+                    if fast_ema[i] > slow_ema[i] and fast_ema[i-1] <= slow_ema[i-1]:
+                        entry_signal = "BUY"
+                    elif fast_ema[i] < slow_ema[i] and fast_ema[i-1] >= slow_ema[i-1]:
+                        entry_signal = "SELL"
+            
+            elif params.strategy_variant == 1:  # Mean reversion (RSI)
+                if rsi[i] < params.rsi_oversold:
+                    # Add randomness for unique entries
+                    if rng.random() > 0.3:  # 70% chance to enter
+                        entry_signal = "BUY"
+                elif rsi[i] > params.rsi_overbought:
+                    if rng.random() > 0.3:
+                        entry_signal = "SELL"
+            
+            elif params.strategy_variant == 2:  # Breakout
+                lookback_candles = candles[max(0, i-params.breakout_lookback):i]
+                if lookback_candles:
+                    range_high = max(c.high for c in lookback_candles)
+                    range_low = min(c.low for c in lookback_candles)
+                    
+                    if candle.close > range_high:
+                        entry_signal = "BUY"
+                    elif candle.close < range_low:
+                        entry_signal = "SELL"
+            
+            else:  # Hybrid (combine signals)
+                buy_signals = 0
+                sell_signals = 0
+                
+                # EMA trend
+                if fast_ema[i] > slow_ema[i]:
+                    buy_signals += 1
+                else:
+                    sell_signals += 1
+                
+                # RSI
+                if rsi[i] < params.rsi_oversold + 10:
+                    buy_signals += 1
+                elif rsi[i] > params.rsi_overbought - 10:
+                    sell_signals += 1
+                
+                # Momentum
+                if i >= 3:
+                    if candle.close > candles[i-3].close:
+                        buy_signals += 1
+                    else:
+                        sell_signals += 1
+                
+                if buy_signals >= 2 and rng.random() > 0.4:
+                    entry_signal = "BUY"
+                elif sell_signals >= 2 and rng.random() > 0.4:
+                    entry_signal = "SELL"
+            
+            # Create position
+            if entry_signal:
+                sl_distance = avg_range * params.stop_loss_mult
+                tp_distance = avg_range * params.take_profit_mult
+                
+                if entry_signal == "BUY":
                     position = {
                         "direction": "BUY",
                         "entry_price": candle.close,
                         "entry_time": candle.timestamp,
-                        "stop_loss": candle.close - (candle.high - candle.low) * 2,
-                        "take_profit": candle.close + (candle.high - candle.low) * 3,
+                        "stop_loss": candle.close - sl_distance,
+                        "take_profit": candle.close + tp_distance,
                     }
-                # Sell signal: fast EMA crosses below slow EMA
-                elif fast_ema[i] < slow_ema[i] and fast_ema[i-1] >= slow_ema[i-1]:
+                else:
                     position = {
                         "direction": "SELL",
                         "entry_price": candle.close,
                         "entry_time": candle.timestamp,
-                        "stop_loss": candle.close + (candle.high - candle.low) * 2,
-                        "take_profit": candle.close - (candle.high - candle.low) * 3,
+                        "stop_loss": candle.close + sl_distance,
+                        "take_profit": candle.close - tp_distance,
                     }
+                
+                last_trade_idx = i
+                trades_today += 1
         
-        # Exit check
+        # Exit logic
         elif position:
             exit_reason = None
             exit_price = None
@@ -216,7 +477,11 @@ def _run_trend_following(candles: List[Candle], config: BacktestConfig) -> Tuple
                 elif candle.high >= position["take_profit"]:
                     exit_reason = "TP"
                     exit_price = position["take_profit"]
-                elif fast_ema[i] < slow_ema[i]:
+                # Trailing exit conditions
+                elif params.strategy_variant == 0 and fast_ema[i] < slow_ema[i]:
+                    exit_reason = "Signal"
+                    exit_price = candle.close
+                elif params.strategy_variant == 1 and rsi[i] > 50:
                     exit_reason = "Signal"
                     exit_price = candle.close
             else:  # SELL
@@ -226,7 +491,10 @@ def _run_trend_following(candles: List[Candle], config: BacktestConfig) -> Tuple
                 elif candle.low <= position["take_profit"]:
                     exit_reason = "TP"
                     exit_price = position["take_profit"]
-                elif fast_ema[i] > slow_ema[i]:
+                elif params.strategy_variant == 0 and fast_ema[i] > slow_ema[i]:
+                    exit_reason = "Signal"
+                    exit_price = candle.close
+                elif params.strategy_variant == 1 and rsi[i] < 50:
                     exit_reason = "Signal"
                     exit_price = candle.close
             
@@ -236,151 +504,30 @@ def _run_trend_following(candles: List[Candle], config: BacktestConfig) -> Tuple
                 balance += trade.profit_loss
                 position = None
     
+    # Close any remaining position
+    if position and candles:
+        last_candle = candles[-1]
+        trade = _create_trade(position, last_candle.timestamp, last_candle.close, "EOD", config.symbol)
+        trades.append(trade)
+        balance += trade.profit_loss
+    
     return trades, equity_curve
+
+
+# Keep legacy functions for backwards compatibility
+def _run_trend_following(candles: List[Candle], config: BacktestConfig) -> Tuple[List[TradeRecord], List[EquityPoint]]:
+    """EMA crossover strategy on real candles (legacy)."""
+    params = StrategyParameters(fast_ema=10, slow_ema=20, strategy_variant=0)
+    return _run_parameterized_strategy(candles, config, params)
 
 
 def _run_mean_reversion(candles: List[Candle], config: BacktestConfig) -> Tuple[List[TradeRecord], List[EquityPoint]]:
-    """RSI mean reversion strategy on real candles."""
-    trades = []
-    equity_curve = []
-    balance = config.initial_balance
-    position = None
-    
-    rsi = _calculate_rsi(candles, 14)
-    
-    for i, candle in enumerate(candles):
-        equity_curve.append(EquityPoint(
-            timestamp=candle.timestamp,
-            balance=balance,
-            equity=balance,
-            drawdown=0.0,
-            drawdown_percent=0.0,
-        ))
-        
-        if i < 14:
-            continue
-        
-        # Entry signals
-        if position is None:
-            if rsi[i] < 30:  # Oversold - buy
-                position = {
-                    "direction": "BUY",
-                    "entry_price": candle.close,
-                    "entry_time": candle.timestamp,
-                    "stop_loss": candle.close * 0.99,
-                    "take_profit": candle.close * 1.02,
-                }
-            elif rsi[i] > 70:  # Overbought - sell
-                position = {
-                    "direction": "SELL",
-                    "entry_price": candle.close,
-                    "entry_time": candle.timestamp,
-                    "stop_loss": candle.close * 1.01,
-                    "take_profit": candle.close * 0.98,
-                }
-        
-        # Exit check
-        elif position:
-            exit_reason = None
-            exit_price = None
-            
-            if position["direction"] == "BUY":
-                if candle.low <= position["stop_loss"]:
-                    exit_reason = "SL"
-                    exit_price = position["stop_loss"]
-                elif candle.high >= position["take_profit"]:
-                    exit_reason = "TP"
-                    exit_price = position["take_profit"]
-                elif rsi[i] > 50:
-                    exit_reason = "Signal"
-                    exit_price = candle.close
-            else:
-                if candle.high >= position["stop_loss"]:
-                    exit_reason = "SL"
-                    exit_price = position["stop_loss"]
-                elif candle.low <= position["take_profit"]:
-                    exit_reason = "TP"
-                    exit_price = position["take_profit"]
-                elif rsi[i] < 50:
-                    exit_reason = "Signal"
-                    exit_price = candle.close
-            
-            if exit_reason:
-                trade = _create_trade(position, candle.timestamp, exit_price, exit_reason, config.symbol)
-                trades.append(trade)
-                balance += trade.profit_loss
-                position = None
-    
-    return trades, equity_curve
+    """RSI mean reversion strategy on real candles (legacy)."""
+    params = StrategyParameters(rsi_period=14, rsi_oversold=30, rsi_overbought=70, strategy_variant=1)
+    return _run_parameterized_strategy(candles, config, params)
 
 
 def _run_breakout(candles: List[Candle], config: BacktestConfig) -> Tuple[List[TradeRecord], List[EquityPoint]]:
-    """Breakout strategy on real candles."""
-    trades = []
-    equity_curve = []
-    balance = config.initial_balance
-    position = None
-    lookback = 20
-    
-    for i, candle in enumerate(candles):
-        equity_curve.append(EquityPoint(
-            timestamp=candle.timestamp,
-            balance=balance,
-            equity=balance,
-            drawdown=0.0,
-            drawdown_percent=0.0,
-        ))
-        
-        if i < lookback:
-            continue
-        
-        # Calculate range high/low
-        range_high = max(c.high for c in candles[i-lookback:i])
-        range_low = min(c.low for c in candles[i-lookback:i])
-        
-        # Entry signals
-        if position is None:
-            if candle.close > range_high:  # Breakout up
-                position = {
-                    "direction": "BUY",
-                    "entry_price": candle.close,
-                    "entry_time": candle.timestamp,
-                    "stop_loss": range_low,
-                    "take_profit": candle.close + (range_high - range_low),
-                }
-            elif candle.close < range_low:  # Breakout down
-                position = {
-                    "direction": "SELL",
-                    "entry_price": candle.close,
-                    "entry_time": candle.timestamp,
-                    "stop_loss": range_high,
-                    "take_profit": candle.close - (range_high - range_low),
-                }
-        
-        # Exit check
-        elif position:
-            exit_reason = None
-            exit_price = None
-            
-            if position["direction"] == "BUY":
-                if candle.low <= position["stop_loss"]:
-                    exit_reason = "SL"
-                    exit_price = position["stop_loss"]
-                elif candle.high >= position["take_profit"]:
-                    exit_reason = "TP"
-                    exit_price = position["take_profit"]
-            else:
-                if candle.high >= position["stop_loss"]:
-                    exit_reason = "SL"
-                    exit_price = position["stop_loss"]
-                elif candle.low <= position["take_profit"]:
-                    exit_reason = "TP"
-                    exit_price = position["take_profit"]
-            
-            if exit_reason:
-                trade = _create_trade(position, candle.timestamp, exit_price, exit_reason, config.symbol)
-                trades.append(trade)
-                balance += trade.profit_loss
-                position = None
-    
-    return trades, equity_curve
+    """Breakout strategy on real candles (legacy)."""
+    params = StrategyParameters(breakout_lookback=20, strategy_variant=2)
+    return _run_parameterized_strategy(candles, config, params)

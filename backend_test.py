@@ -500,6 +500,242 @@ class StrategyGenerationAPITester:
         
         return success
 
+    def test_strategy_unique_metrics(self):
+        """
+        CRITICAL TEST: Verify strategies have DIFFERENT metrics (not identical)
+        This addresses the main issue where all strategies showed identical PF 1.01, WR 36%
+        """
+        print("\n🔍 CRITICAL TEST: Strategy Unique Metrics Verification")
+        print("=" * 60)
+        
+        # Step 1: Create strategy generation job with 10 strategies
+        job_data = {
+            "symbol": "EURUSD",
+            "timeframe": "1h",
+            "strategy_count": 10,
+            "strategy_type": "intraday",
+            "risk_level": "medium",
+            "execution_mode": "fast",
+            "ai_model": "openai",
+            "batch_size": 50
+        }
+        
+        print("Step 1: Creating strategy generation job...")
+        success, response = self.run_test(
+            "Create Strategy Job for Unique Metrics Test",
+            "POST",
+            "strategy/generate-job",
+            200,
+            data=job_data
+        )
+        
+        if not success or not response:
+            print("❌ CRITICAL FAILURE: Could not create strategy job")
+            return False
+        
+        job_id = response.get('job_id')
+        if not job_id:
+            print("❌ CRITICAL FAILURE: No job_id returned")
+            return False
+        
+        print(f"✅ Job created: {job_id}")
+        
+        # Step 2: Poll job status until completed
+        print("\nStep 2: Polling job status until completion...")
+        max_polls = 30  # Increased for strategy generation
+        poll_count = 0
+        job_completed = False
+        
+        while poll_count < max_polls:
+            success, response = self.run_test(
+                f"Job Status Poll #{poll_count + 1}",
+                "GET",
+                f"strategy/job-status/{job_id}",
+                200
+            )
+            
+            if success and response:
+                stage = response.get('stage')
+                percent = response.get('percent', 0)
+                message = response.get('message', '')
+                
+                print(f"   Stage: {stage} ({percent}%) - {message}")
+                
+                if stage == "completed":
+                    print(f"✅ Job completed successfully")
+                    job_completed = True
+                    break
+                elif stage == "failed":
+                    print(f"❌ CRITICAL FAILURE: Job failed")
+                    return False
+                
+                time.sleep(3)  # Wait longer for strategy generation
+                poll_count += 1
+            else:
+                print(f"❌ Failed to get job status")
+                return False
+        
+        if not job_completed:
+            print(f"❌ CRITICAL FAILURE: Job did not complete after {max_polls} polls")
+            return False
+        
+        # Step 3: Get results and verify unique metrics
+        print("\nStep 3: Retrieving and analyzing results...")
+        success, response = self.run_test(
+            "Get Job Results for Metrics Analysis",
+            "GET",
+            f"strategy/job-result/{job_id}",
+            200
+        )
+        
+        if not success or not response:
+            print("❌ CRITICAL FAILURE: Could not retrieve job results")
+            return False
+        
+        strategies = response.get('strategies', [])
+        total_generated = response.get('total_generated', 0)
+        passed_filters = response.get('passed_filters', 0)
+        total_rejected = response.get('total_rejected', 0)
+        summary_stats = response.get('summary_stats', {})
+        rejection_breakdown = response.get('rejection_breakdown', {})
+        
+        print(f"\n📊 RESULTS ANALYSIS:")
+        print(f"   Total Generated: {total_generated}")
+        print(f"   Passed Filters: {passed_filters}")
+        print(f"   Total Rejected: {total_rejected}")
+        print(f"   Strategies Returned: {len(strategies)}")
+        
+        if summary_stats:
+            print(f"\n📈 SUMMARY STATS:")
+            print(f"   Best Profit Factor: {summary_stats.get('best_profit_factor', 'N/A')}")
+            print(f"   Best Win Rate: {summary_stats.get('best_win_rate', 'N/A')}")
+            print(f"   Lowest Drawdown: {summary_stats.get('lowest_drawdown', 'N/A')}")
+            print(f"   Pass Rate: {summary_stats.get('pass_rate', 'N/A')}")
+        
+        if rejection_breakdown:
+            print(f"\n🚫 REJECTION BREAKDOWN:")
+            for reason, count in rejection_breakdown.items():
+                print(f"   {reason}: {count}")
+        
+        # CRITICAL CHECKS
+        critical_failures = []
+        
+        # Check 1: Must have strategies
+        if len(strategies) == 0:
+            critical_failures.append("No strategies returned")
+        
+        # Check 2: Verify DIFFERENT profit_factor values
+        if len(strategies) >= 2:
+            profit_factors = [s.get('profit_factor', 0) for s in strategies]
+            unique_pf = set(profit_factors)
+            
+            print(f"\n🔍 PROFIT FACTOR ANALYSIS:")
+            print(f"   Values: {profit_factors}")
+            print(f"   Unique Values: {len(unique_pf)}")
+            
+            if len(unique_pf) <= 1:
+                critical_failures.append(f"All strategies have IDENTICAL profit factors: {profit_factors}")
+            else:
+                print(f"   ✅ Strategies have DIFFERENT profit factors")
+        
+        # Check 3: Verify DIFFERENT win_rate values
+        if len(strategies) >= 2:
+            win_rates = [s.get('win_rate', 0) for s in strategies]
+            unique_wr = set(win_rates)
+            
+            print(f"\n🔍 WIN RATE ANALYSIS:")
+            print(f"   Values: {win_rates}")
+            print(f"   Unique Values: {len(unique_wr)}")
+            
+            if len(unique_wr) <= 1:
+                critical_failures.append(f"All strategies have IDENTICAL win rates: {win_rates}")
+            else:
+                print(f"   ✅ Strategies have DIFFERENT win rates")
+        
+        # Check 4: Verify max_drawdown_pct is present and varies
+        if len(strategies) >= 2:
+            drawdowns = [s.get('max_drawdown_pct', 0) for s in strategies]
+            unique_dd = set(drawdowns)
+            
+            print(f"\n🔍 DRAWDOWN ANALYSIS:")
+            print(f"   Values: {drawdowns}")
+            print(f"   Unique Values: {len(unique_dd)}")
+            
+            if any(dd is None for dd in drawdowns):
+                critical_failures.append("Some strategies missing max_drawdown_pct")
+            elif len(unique_dd) <= 1:
+                critical_failures.append(f"All strategies have IDENTICAL drawdowns: {drawdowns}")
+            else:
+                print(f"   ✅ Strategies have DIFFERENT drawdowns")
+        
+        # Check 5: Verify some strategies were REJECTED
+        if total_rejected == 0 and total_generated > 5:
+            critical_failures.append("No strategies were rejected - filtering may not be working")
+        else:
+            print(f"   ✅ {total_rejected} strategies were rejected (filtering working)")
+        
+        # Check 6: Verify strategies are ranked by composite_score (descending)
+        if len(strategies) >= 2:
+            scores = [s.get('composite_score', s.get('score', 0)) for s in strategies]
+            is_descending = all(scores[i] >= scores[i+1] for i in range(len(scores)-1))
+            
+            print(f"\n🔍 RANKING ANALYSIS:")
+            print(f"   Scores: {scores}")
+            print(f"   Properly Ranked (Descending): {is_descending}")
+            
+            if not is_descending:
+                critical_failures.append(f"Strategies not properly ranked by score: {scores}")
+            else:
+                print(f"   ✅ Strategies properly ranked by composite score")
+        
+        # Check 7: Verify filtering logic (passed strategies meet minimum criteria)
+        print(f"\n🔍 FILTERING LOGIC VERIFICATION:")
+        for i, strategy in enumerate(strategies):
+            name = strategy.get('name', f'Strategy {i+1}')
+            pf = strategy.get('profit_factor', 0)
+            dd = strategy.get('max_drawdown_pct', 100)
+            trades = strategy.get('total_trades', 0)
+            wr = strategy.get('win_rate', 0)
+            
+            print(f"   {name}: PF={pf}, DD={dd}%, Trades={trades}, WR={wr}%")
+            
+            # Check minimum criteria
+            if pf < 1.2:
+                critical_failures.append(f"{name} has PF {pf} < 1.2 (should be filtered)")
+            if dd > 25:
+                critical_failures.append(f"{name} has DD {dd}% > 25% (should be filtered)")
+            if trades < 20:
+                critical_failures.append(f"{name} has {trades} trades < 20 (should be filtered)")
+            if wr < 35:
+                critical_failures.append(f"{name} has WR {wr}% < 35% (should be filtered)")
+        
+        if not critical_failures:
+            print(f"   ✅ All passed strategies meet minimum criteria")
+        
+        # Check 8: Verify summary_stats contains required fields
+        required_stats = ['best_profit_factor', 'best_win_rate', 'lowest_drawdown', 'pass_rate']
+        missing_stats = [stat for stat in required_stats if stat not in summary_stats]
+        
+        if missing_stats:
+            critical_failures.append(f"Missing summary stats: {missing_stats}")
+        else:
+            print(f"   ✅ All required summary stats present")
+        
+        # Final verdict
+        print(f"\n" + "=" * 60)
+        if critical_failures:
+            print(f"❌ CRITICAL TEST FAILED:")
+            for failure in critical_failures:
+                print(f"   • {failure}")
+            return False
+        else:
+            print(f"✅ CRITICAL TEST PASSED: Strategy Evaluation and Ranking System working correctly")
+            print(f"   • Strategies have UNIQUE metrics (not identical)")
+            print(f"   • Filtering logic working properly")
+            print(f"   • Ranking by composite score working")
+            print(f"   • Summary statistics complete")
+            return True
+
 def main():
     """Run all tests"""
     print("🚀 Starting Strategy Generation System API Tests")
@@ -546,6 +782,14 @@ def main():
         print(f"   Found {candle_count} candles, enough for testing: {has_enough_data}")
     
     if has_enough_data:
+        # CRITICAL TEST: Strategy Unique Metrics Verification
+        critical_test_passed = tester.test_strategy_unique_metrics()
+        
+        if not critical_test_passed:
+            print("\n❌ CRITICAL TEST FAILED - Strategy metrics are not unique!")
+            print("This indicates the main issue (identical PF 1.01, WR 36%) is NOT fixed")
+        
+        # Additional basic tests
         job_success, job_id = tester.test_strategy_job_creation()
         
         # 3. Test Job Status Polling

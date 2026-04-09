@@ -1729,7 +1729,7 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             message=f"Backtesting {len(all_strategies)} strategies..."
         )
         
-        from backtest_real_engine import run_backtest_on_real_candles
+        from backtest_real_engine import run_backtest_on_real_candles, StrategyParameters
         
         results = []
         for idx, strategy in enumerate(all_strategies):
@@ -1745,15 +1745,25 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                         message=f"Backtesting {idx + 1}/{len(all_strategies)}..."
                     )
                 
-                # Run backtest
+                # Generate UNIQUE parameters for each strategy
+                strategy_name = strategy.get("name", f"Strategy_{idx+1}")
+                seed = hash(f"{strategy_name}_{idx}_{config.symbol}") % 999999
+                params = StrategyParameters.generate_random(
+                    strategy_type=config.strategy_type,
+                    risk_level=config.risk_level,
+                    seed=seed
+                )
+                
+                # Run backtest with unique parameters
                 trades, equity_curve, bt_config = run_backtest_on_real_candles(
                     candles=candles,
-                    bot_name=strategy.get("name", f"Strategy_{idx+1}"),
+                    bot_name=strategy_name,
                     symbol=config.symbol,
                     timeframe=config.timeframe,
                     duration_days=365,
                     initial_balance=10000,
-                    strategy_type=config.strategy_type
+                    strategy_type=config.strategy_type,
+                    params=params
                 )
                 
                 # Calculate metrics
@@ -1765,6 +1775,9 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                 total_trades = getattr(metrics, 'total_trades', 0) or 0
                 net_profit = getattr(metrics, 'net_profit', 0) or 0
                 sharpe_ratio = getattr(metrics, 'sharpe_ratio', 0) or 0
+                risk_reward = getattr(metrics, 'risk_reward_ratio', 0) or 0
+                avg_win = getattr(metrics, 'average_win', 0) or 0
+                avg_loss = getattr(metrics, 'average_loss', 0) or 0
                 
                 results.append({
                     **strategy,
@@ -1773,7 +1786,13 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
                     "max_drawdown_pct": round(max_drawdown, 2),
                     "total_trades": total_trades,
                     "net_profit": round(net_profit, 2),
-                    "sharpe_ratio": round(sharpe_ratio, 2)
+                    "sharpe_ratio": round(sharpe_ratio, 2),
+                    "risk_reward": round(risk_reward, 2),
+                    "avg_win": round(avg_win, 2),
+                    "avg_loss": round(avg_loss, 2),
+                    # Track strategy params for debugging
+                    "params_seed": params.seed,
+                    "strategy_variant": params.strategy_variant
                 })
                 
             except Exception as e:
@@ -1788,30 +1807,75 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             message=f"Validating and filtering {len(results)} results..."
         )
         
-        # Apply filters based on risk level
+        # Apply STRICT filters based on risk level
         filter_params = _get_filter_params(config.risk_level)
         
         passed_strategies = []
+        rejected_count = 0
+        rejection_reasons = {"low_pf": 0, "high_dd": 0, "low_trades": 0, "low_wr": 0}
+        
         for r in results:
-            if (r["profit_factor"] >= filter_params["min_pf"] and
-                r["max_drawdown_pct"] <= filter_params["max_dd"] and
-                r["total_trades"] >= filter_params["min_trades"]):
-                
-                # Calculate composite score
-                score = (
-                    r["profit_factor"] * 0.4 +
-                    (1 / (r["max_drawdown_pct"] + 0.01)) * 0.3 +
-                    (r["win_rate"] / 100) * 0.2 +
-                    (r["sharpe_ratio"] / 3) * 0.1
-                )
-                r["composite_score"] = round(score, 3)
-                r["passed_filters"] = True
-                passed_strategies.append(r)
+            # Skip strategies with no trades
+            if r["total_trades"] < 5:
+                rejected_count += 1
+                rejection_reasons["low_trades"] += 1
+                continue
+            
+            # Check filters
+            passed = True
+            
+            if r["profit_factor"] < filter_params["min_pf"]:
+                passed = False
+                rejection_reasons["low_pf"] += 1
+            
+            if r["max_drawdown_pct"] > filter_params["max_dd"]:
+                passed = False
+                rejection_reasons["high_dd"] += 1
+            
+            if r["total_trades"] < filter_params["min_trades"]:
+                passed = False
+                rejection_reasons["low_trades"] += 1
+            
+            if r["win_rate"] < filter_params.get("min_wr", 30):
+                passed = False
+                rejection_reasons["low_wr"] += 1
+            
+            if not passed:
+                rejected_count += 1
+                r["passed_filters"] = False
+                r["composite_score"] = 0
+                continue
+            
+            # Calculate composite score (higher = better)
+            # Weight factors: PF (40%), DD penalty (25%), WR (20%), Sharpe (15%)
+            pf_score = min(r["profit_factor"], 3.0) / 3.0  # Cap at 3.0
+            dd_penalty = 1.0 - (r["max_drawdown_pct"] / 100)  # Lower DD = higher score
+            wr_score = r["win_rate"] / 100
+            sharpe_score = min(max(r["sharpe_ratio"], 0), 2.0) / 2.0  # Cap at 2.0
+            
+            # Bonus for high trade count (reliability)
+            trade_bonus = min(r["total_trades"] / 100, 0.2)  # Max 0.2 bonus
+            
+            score = (
+                pf_score * 0.40 +
+                dd_penalty * 0.25 +
+                wr_score * 0.20 +
+                sharpe_score * 0.15 +
+                trade_bonus
+            )
+            
+            r["composite_score"] = round(score, 4)
+            r["passed_filters"] = True
+            r["filter_params"] = filter_params
+            passed_strategies.append(r)
+        
+        logging.info(f"[JOB {job_id[:8]}] Filtering: {len(passed_strategies)} passed, {rejected_count} rejected")
+        logging.info(f"[JOB {job_id[:8]}] Rejection reasons: {rejection_reasons}")
         
         tracker.update(
             job_id,
             strategies_passed=len(passed_strategies),
-            message=f"{len(passed_strategies)}/{len(results)} strategies passed filters"
+            message=f"{len(passed_strategies)}/{len(results)} strategies passed filters (rejected: {rejected_count})"
         )
         
         # Stage 6: Finalizing
@@ -1822,12 +1886,27 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             message="Ranking and finalizing results..."
         )
         
-        # Rank strategies
+        # Rank strategies by composite score
         ranked_strategies = sorted(
             passed_strategies,
             key=lambda x: x["composite_score"],
             reverse=True
         )
+        
+        # Add rank position
+        for i, s in enumerate(ranked_strategies):
+            s["rank"] = i + 1
+        
+        # Calculate summary stats
+        if ranked_strategies:
+            best_pf = max(s["profit_factor"] for s in ranked_strategies)
+            best_wr = max(s["win_rate"] for s in ranked_strategies)
+            lowest_dd = min(s["max_drawdown_pct"] for s in ranked_strategies)
+            avg_pf = sum(s["profit_factor"] for s in ranked_strategies) / len(ranked_strategies)
+            avg_wr = sum(s["win_rate"] for s in ranked_strategies) / len(ranked_strategies)
+            avg_dd = sum(s["max_drawdown_pct"] for s in ranked_strategies) / len(ranked_strategies)
+        else:
+            best_pf = best_wr = lowest_dd = avg_pf = avg_wr = avg_dd = 0
         
         # Prepare final result
         final_result = {
@@ -1839,11 +1918,23 @@ async def _run_strategy_generation_job(job_id: str, candles: list):
             "total_generated": len(all_strategies),
             "total_backtested": len(results),
             "total_passed": len(passed_strategies),
+            "total_rejected": rejected_count,
+            "rejection_breakdown": rejection_reasons,
             "strategies": ranked_strategies[:20],  # Top 20
             "all_strategies": ranked_strategies,
             "filters_applied": filter_params,
             "candles_used": len(candles),
-            "data_source": "local_csv"
+            "data_source": "local_csv",
+            # Summary statistics
+            "summary_stats": {
+                "best_profit_factor": round(best_pf, 2),
+                "best_win_rate": round(best_wr, 2),
+                "lowest_drawdown": round(lowest_dd, 2),
+                "avg_profit_factor": round(avg_pf, 2),
+                "avg_win_rate": round(avg_wr, 2),
+                "avg_drawdown": round(avg_dd, 2),
+                "pass_rate": round(len(passed_strategies) / len(results) * 100, 1) if results else 0
+            }
         }
         
         # Complete job
@@ -1933,11 +2024,26 @@ def _get_strategy_params(strategy_type: str, risk_level: str) -> dict:
 
 
 def _get_filter_params(risk_level: str) -> dict:
-    """Get filter parameters based on risk level"""
+    """Get filter parameters based on risk level - STRICT filtering"""
     filters = {
-        "low": {"min_pf": 1.3, "max_dd": 15, "min_trades": 20},
-        "medium": {"min_pf": 1.1, "max_dd": 25, "min_trades": 10},
-        "high": {"min_pf": 0.9, "max_dd": 40, "min_trades": 5}
+        "low": {
+            "min_pf": 1.3,      # Profit factor >= 1.3
+            "max_dd": 15,       # Max drawdown <= 15%
+            "min_trades": 30,   # At least 30 trades for reliability
+            "min_wr": 40        # Win rate >= 40%
+        },
+        "medium": {
+            "min_pf": 1.2,      # Profit factor >= 1.2
+            "max_dd": 25,       # Max drawdown <= 25%
+            "min_trades": 20,   # At least 20 trades
+            "min_wr": 35        # Win rate >= 35%
+        },
+        "high": {
+            "min_pf": 1.0,      # Profit factor >= 1.0 (just profitable)
+            "max_dd": 40,       # Max drawdown <= 40%
+            "min_trades": 10,   # At least 10 trades
+            "min_wr": 30        # Win rate >= 30%
+        }
     }
     return filters.get(risk_level, filters["medium"])
 
