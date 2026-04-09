@@ -302,6 +302,28 @@ export default function Dashboard() {
       toast.error('Please enter a trading strategy');
       return;
     }
+    
+    // Show warning for direct generation (not from validated strategy)
+    if (!selectedStrategy) {
+      const proceed = window.confirm(
+        '⚠️ RECOMMENDED: Generate from Validated Strategies\n\n' +
+        'Direct bot generation without strategy validation may produce:\n' +
+        '• Unvalidated trading logic\n' +
+        '• No walk-forward testing\n' +
+        '• Unknown risk metrics\n\n' +
+        'Consider using "🚀 Generate Strategies" first, then "Generate cBot" from the Top Strategies tab.\n\n' +
+        'Click OK to proceed with direct generation anyway, or Cancel to use the recommended flow.'
+      );
+      
+      if (!proceed) {
+        toast.info('💡 Tip: Use the "Generate Strategies" button to create validated strategies first.', {
+          duration: 5000
+        });
+        return;
+      }
+      
+      toast.warning('⚠️ Generating without validation. Results may vary.', { duration: 3000 });
+    }
 
     setIsGenerating(true);
     setCollaborationLogs([]);
@@ -742,26 +764,66 @@ export default function Dashboard() {
   const handleGenerateCBotFromStrategy = async (strategy) => {
     setSelectedStrategy(strategy);
     
-    // Create detailed strategy prompt
-    const detailedPrompt = `${strategy.name}
-
-${strategy.description}
-
-Trading Logic:
-${strategy.logic}
-
-Generate a complete cTrader cBot implementing this strategy.`;
+    // Use the new pipeline endpoint for proper strategy-to-bot conversion
+    toast.loading(`🚀 Generating cBot from validated strategy: ${strategy.name || strategy.template_id}`, {
+      id: 'cbot-generation'
+    });
     
-    setStrategyPrompt(detailedPrompt);
-    
-    // Auto-trigger bot generation
-    toast.info(`📝 Generating cBot for: ${strategy.name}`, { duration: 3000 });
-    
-    // Call handleGenerate
-    setTimeout(() => {
-      document.querySelector('[data-testid="generate-button"]')?.click();
-    }, 500);
+    try {
+      const response = await axios.post(`${API_URL}/api/bot/generate-from-strategy`, {
+        strategy_id: strategy.id || `strategy-${Date.now()}`,
+        strategy_data: strategy,
+        symbol: selectedPair || 'EURUSD',
+        timeframe: selectedTimeframe || '1h',
+        ai_model: selectedModel || 'openai',
+        prop_firm: 'ftmo',
+        run_full_pipeline: true
+      });
+      
+      if (response.data.success) {
+        const result = response.data;
+        
+        // Update generated code in state
+        setGeneratedCode(result.code);
+        
+        // Show success with pipeline results
+        const statusEmoji = {
+          'ready_for_deployment': '✅',
+          'robust': '💪',
+          'validated': '✓',
+          'draft': '📝'
+        };
+        
+        toast.success(
+          `${statusEmoji[result.bot_status] || '📝'} Bot Status: ${result.bot_status.toUpperCase()}\n` +
+          `Deployment Score: ${result.deployment_score}%\n` +
+          `Pipeline: Safety=${result.pipeline_results.safety_injected ? '✓' : '✗'} ` +
+          `Compile=${result.pipeline_results.compile_verified ? '✓' : '✗'} ` +
+          `Backtest=${result.pipeline_results.backtest_passed ? '✓' : '✗'} ` +
+          `MC=${result.pipeline_results.monte_carlo_passed ? '✓' : '✗'} ` +
+          `WF=${result.pipeline_results.walkforward_passed ? '✓' : '✗'}`,
+          { id: 'cbot-generation', duration: 8000 }
+        );
+        
+        // Store session for reference
+        setPipelineBotSession(result.session_id);
+        
+      } else {
+        toast.error(`Failed to generate cBot: ${response.data.detail || 'Unknown error'}`, {
+          id: 'cbot-generation'
+        });
+      }
+    } catch (error) {
+      console.error('cBot generation error:', error);
+      toast.error(
+        error.response?.data?.detail || `Error generating cBot: ${error.message}`,
+        { id: 'cbot-generation' }
+      );
+    }
   };
+  
+  // State for pipeline bot session
+  const [pipelineBotSession, setPipelineBotSession] = useState(null);
 
   const ModeButton = ({ mode }) => {
     const info = MODE_INFO[mode];
@@ -2750,20 +2812,48 @@ Generate a complete cTrader cBot implementing this strategy.`;
                       <Button
                         onClick={() => handleGenerateCBotFromStrategy(strategy)}
                         size="sm"
-                        className="flex-1 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 font-mono uppercase text-[10px] h-7"
+                        data-testid={`generate-cbot-btn-${idx}`}
+                        className="flex-1 bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/40 hover:to-blue-600/40 text-purple-300 border border-purple-500/40 font-mono uppercase text-[10px] h-8 shadow-lg shadow-purple-500/10"
                       >
                         <Play className="w-3 h-3 mr-1" /> Generate cBot
                       </Button>
                       <Button
                         size="sm"
-                        className="bg-[#18181B] hover:bg-[#1F1F23] text-zinc-400 border border-white/10 font-mono uppercase text-[10px] h-7"
+                        className="bg-[#18181B] hover:bg-[#1F1F23] text-zinc-400 border border-white/10 font-mono uppercase text-[10px] h-8"
                         onClick={() => {
-                          toast.info(strategy.logic || strategy.description, { duration: 10000 });
+                          toast.info(strategy.logic || strategy.description || `Template: ${strategy.template_id}, Fitness: ${strategy.fitness}`, { duration: 10000 });
                         }}
                       >
-                        <HelpCircle className="w-3 h-3 mr-1" /> View Logic
+                        <HelpCircle className="w-3 h-3 mr-1" /> Details
                       </Button>
                     </div>
+                    
+                    {/* Bot Status Badge (if bot was generated) */}
+                    {strategy.bot_status && (
+                      <div className={`mt-2 p-2 rounded border ${
+                        strategy.bot_status === 'ready_for_deployment' ? 'bg-emerald-950/30 border-emerald-500/40' :
+                        strategy.bot_status === 'robust' ? 'bg-blue-950/30 border-blue-500/40' :
+                        strategy.bot_status === 'validated' ? 'bg-amber-950/30 border-amber-500/40' :
+                        'bg-zinc-900/30 border-zinc-700/40'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500">
+                            Bot Status
+                          </span>
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                            strategy.bot_status === 'ready_for_deployment' ? 'bg-emerald-600/30 text-emerald-400' :
+                            strategy.bot_status === 'robust' ? 'bg-blue-600/30 text-blue-400' :
+                            strategy.bot_status === 'validated' ? 'bg-amber-600/30 text-amber-400' :
+                            'bg-zinc-600/30 text-zinc-400'
+                          }`}>
+                            {strategy.bot_status === 'ready_for_deployment' ? '✅ READY' :
+                             strategy.bot_status === 'robust' ? '💪 ROBUST' :
+                             strategy.bot_status === 'validated' ? '✓ VALIDATED' :
+                             '📝 DRAFT'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   );
                 })}

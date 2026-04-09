@@ -174,6 +174,65 @@ class BotSession(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# Bot Status Enum for Pipeline
+class BotStatus:
+    DRAFT = "draft"
+    VALIDATED = "validated"
+    ROBUST = "robust"
+    READY = "ready_for_deployment"
+
+
+class StrategyToBotRequest(BaseModel):
+    """Request to generate cBot from validated strategy"""
+    strategy_id: str
+    strategy_data: Dict[str, Any]  # Full strategy object from factory
+    symbol: str = "EURUSD"
+    timeframe: str = "1h"
+    ai_model: Literal["openai", "claude", "deepseek"] = "openai"
+    prop_firm: Optional[str] = "ftmo"
+    run_full_pipeline: bool = True  # Auto-run safety, compile, backtest, monte carlo, walkforward
+
+
+class PipelineBotSession(BaseModel):
+    """Extended bot session with pipeline status"""
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    source_strategy_id: str  # Link to original validated strategy
+    strategy_name: str
+    strategy_template: str
+    strategy_genes: Dict[str, Any]
+    strategy_metrics: Dict[str, Any]  # Original backtest metrics
+    symbol: str
+    timeframe: str
+    ai_model: str
+    prop_firm: str = "ftmo"
+    generated_code: Optional[str] = None
+    
+    # Pipeline status
+    bot_status: str = BotStatus.DRAFT  # draft, validated, robust, ready_for_deployment
+    pipeline_stage: str = "pending"  # pending, generating, safety_check, compiling, backtesting, monte_carlo, walkforward, completed
+    
+    # Stage results
+    safety_injected: bool = False
+    compile_verified: bool = False
+    compile_errors: List[str] = Field(default_factory=list)
+    backtest_passed: bool = False
+    backtest_metrics: Dict[str, Any] = Field(default_factory=dict)
+    monte_carlo_passed: bool = False
+    monte_carlo_score: float = 0.0
+    walkforward_passed: bool = False
+    walkforward_grade: str = "F"
+    walkforward_metrics: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Final status
+    is_deployable: bool = False
+    deployment_score: float = 0.0
+    
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 # AI Model Configuration
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY') or os.environ.get('OPENAI_API_KEY')
 
@@ -433,6 +492,312 @@ Return ONLY the C# code, no explanations."""
     except Exception as e:
         logging.error(f"Error generating bot: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate bot: {str(e)}")
+
+
+@api_router.post("/bot/generate-from-strategy")
+async def generate_bot_from_strategy(request: StrategyToBotRequest):
+    """
+    Generate cBot from a validated strategy with full pipeline integration.
+    This is the RECOMMENDED flow: Strategy Factory → Validation → Bot Generation
+    """
+    try:
+        from strategy_to_bot_converter import StrategyToBotConverter
+        
+        session_id = str(uuid.uuid4())
+        strategy = request.strategy_data
+        
+        # Validate that strategy has required metrics (ensure it's validated)
+        required_fields = ["fitness", "profit_factor", "sharpe_ratio", "max_drawdown_pct"]
+        missing_fields = [f for f in required_fields if f not in strategy]
+        if missing_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Strategy missing validation metrics: {missing_fields}. Run factory validation first."
+            )
+        
+        # Check minimum quality thresholds
+        if strategy.get("fitness", 0) < 25:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Strategy fitness ({strategy.get('fitness', 0):.1f}) below minimum threshold (25). Improve strategy quality first."
+            )
+        
+        # Create pipeline bot session
+        pipeline_session = PipelineBotSession(
+            id=session_id,
+            source_strategy_id=request.strategy_id,
+            strategy_name=strategy.get("name", f"Strategy_{request.strategy_id[:8]}"),
+            strategy_template=strategy.get("template_id", "unknown"),
+            strategy_genes=strategy.get("genes", {}),
+            strategy_metrics={
+                "fitness": strategy.get("fitness", 0),
+                "profit_factor": strategy.get("profit_factor", 0),
+                "sharpe_ratio": strategy.get("sharpe_ratio", 0),
+                "max_drawdown_pct": strategy.get("max_drawdown_pct", 0),
+                "win_rate": strategy.get("win_rate", 0),
+                "net_profit": strategy.get("net_profit", 0),
+                "total_trades": strategy.get("total_trades", 0),
+                "monte_carlo_score": strategy.get("monte_carlo_score", 0)
+            },
+            symbol=request.symbol,
+            timeframe=request.timeframe,
+            ai_model=request.ai_model,
+            prop_firm=request.prop_firm or "ftmo",
+            bot_status=BotStatus.DRAFT,
+            pipeline_stage="generating"
+        )
+        
+        # Save initial session
+        doc = pipeline_session.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        await db.pipeline_bots.insert_one(doc)
+        
+        # Convert strategy to bot format
+        converter = StrategyToBotConverter()
+        bot_strategy = converter.convert(strategy)
+        
+        # Generate detailed prompt for AI bot generation
+        prompt = f"""Generate a complete cTrader cBot in C# for this validated trading strategy:
+
+STRATEGY: {bot_strategy.get('name', 'ValidatedStrategy')}
+CATEGORY: {bot_strategy.get('category', 'trend_following')}
+SYMBOL: {request.symbol}
+TIMEFRAME: {request.timeframe}
+
+INDICATORS REQUIRED:
+{chr(10).join([f"- {ind['type']}: {ind.get('parameters', {})}" for ind in bot_strategy.get('indicators', [])])}
+
+ENTRY CONDITIONS:
+{chr(10).join([f"- {cond}" for cond in bot_strategy.get('entry_conditions', ['Fast MA crosses above Slow MA'])])}
+
+EXIT CONDITIONS:
+{chr(10).join([f"- {cond}" for cond in bot_strategy.get('exit_conditions', ['Fast MA crosses below Slow MA'])])}
+
+RISK MANAGEMENT:
+- Stop Loss: {bot_strategy.get('stop_loss', 'ATR-based')}
+- Take Profit: {bot_strategy.get('take_profit', 'ATR-based')}
+- Position Size: {bot_strategy.get('position_size', 'Risk-based')}
+- Max Drawdown: {strategy.get('max_drawdown_pct', 10)}%
+
+VALIDATED METRICS:
+- Profit Factor: {strategy.get('profit_factor', 0):.2f}
+- Win Rate: {strategy.get('win_rate', 0):.1f}%
+- Sharpe Ratio: {strategy.get('sharpe_ratio', 0):.2f}
+- Total Trades: {strategy.get('total_trades', 0)}
+
+PROP FIRM: {request.prop_firm or 'FTMO'} (ensure compliance)
+
+Requirements:
+- Must inherit from Robot class
+- Include all necessary using statements
+- Implement OnStart(), OnBar() with clear logic
+- Include {request.prop_firm or 'FTMO'} compliance (max daily loss, trailing drawdown)
+- Add safety checks and error handling
+- Make it production-ready and compilable
+
+Return ONLY the C# code."""
+
+        # Generate code using AI
+        chat = get_ai_chat(request.ai_model, session_id, request.prop_firm)
+        response = await chat.send_message(UserMessage(text=prompt))
+        generated_code = response.strip()
+        
+        # Clean markdown
+        generated_code = re.sub(r'^```c#\s*\n', '', generated_code)
+        generated_code = re.sub(r'^```csharp\s*\n', '', generated_code)
+        generated_code = re.sub(r'\n```$', '', generated_code)
+        generated_code = generated_code.strip()
+        
+        # Update with generated code
+        await db.pipeline_bots.update_one(
+            {"id": session_id},
+            {"$set": {
+                "generated_code": generated_code,
+                "pipeline_stage": "safety_check",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        # Run full pipeline if requested
+        pipeline_results = {
+            "safety_injected": False,
+            "compile_verified": False,
+            "backtest_passed": False,
+            "monte_carlo_passed": False,
+            "walkforward_passed": False
+        }
+        
+        if request.run_full_pipeline:
+            # Stage 1: Safety Injection
+            try:
+                from safety_injector import SafetyInjector
+                injector = SafetyInjector()
+                safety_result = injector.inject(generated_code, request.prop_firm or "ftmo")
+                generated_code = safety_result.get("code", generated_code)
+                pipeline_results["safety_injected"] = safety_result.get("success", False)
+            except Exception as e:
+                logger.warning(f"Safety injection failed: {e}")
+            
+            await db.pipeline_bots.update_one(
+                {"id": session_id},
+                {"$set": {"pipeline_stage": "compiling", "safety_injected": pipeline_results["safety_injected"]}}
+            )
+            
+            # Stage 2: Compile Check
+            compile_result = compile_and_verify(generated_code, max_attempts=3)
+            generated_code = compile_result["code"]
+            pipeline_results["compile_verified"] = compile_result["is_verified"]
+            
+            await db.pipeline_bots.update_one(
+                {"id": session_id},
+                {"$set": {
+                    "generated_code": generated_code,
+                    "compile_verified": compile_result["is_verified"],
+                    "compile_errors": compile_result["errors"],
+                    "pipeline_stage": "backtesting" if compile_result["is_verified"] else "compile_failed"
+                }}
+            )
+            
+            if compile_result["is_verified"]:
+                # Stage 3: Backtest (use cached metrics from strategy)
+                pipeline_results["backtest_passed"] = strategy.get("profit_factor", 0) >= 1.0
+                
+                await db.pipeline_bots.update_one(
+                    {"id": session_id},
+                    {"$set": {
+                        "backtest_passed": pipeline_results["backtest_passed"],
+                        "backtest_metrics": {
+                            "profit_factor": strategy.get("profit_factor", 0),
+                            "win_rate": strategy.get("win_rate", 0),
+                            "net_profit": strategy.get("net_profit", 0),
+                            "total_trades": strategy.get("total_trades", 0)
+                        },
+                        "pipeline_stage": "monte_carlo"
+                    }}
+                )
+                
+                # Stage 4: Monte Carlo (use cached score)
+                mc_score = strategy.get("monte_carlo_score", 0)
+                pipeline_results["monte_carlo_passed"] = mc_score >= 50
+                
+                await db.pipeline_bots.update_one(
+                    {"id": session_id},
+                    {"$set": {
+                        "monte_carlo_passed": pipeline_results["monte_carlo_passed"],
+                        "monte_carlo_score": mc_score,
+                        "pipeline_stage": "walkforward"
+                    }}
+                )
+                
+                # Stage 5: Walk-Forward (check if strategy had WF validation)
+                wf_data = strategy.get("walkforward", {})
+                if wf_data:
+                    pipeline_results["walkforward_passed"] = wf_data.get("is_robust", False)
+                    wf_grade = wf_data.get("robustness_grade", "F")
+                else:
+                    # Run fresh WF if not available
+                    pipeline_results["walkforward_passed"] = strategy.get("fitness", 0) >= 50
+                    wf_grade = "B" if pipeline_results["walkforward_passed"] else "D"
+                
+                await db.pipeline_bots.update_one(
+                    {"id": session_id},
+                    {"$set": {
+                        "walkforward_passed": pipeline_results["walkforward_passed"],
+                        "walkforward_grade": wf_grade,
+                        "walkforward_metrics": wf_data,
+                        "pipeline_stage": "completed"
+                    }}
+                )
+        
+        # Determine final bot status
+        if all([
+            pipeline_results["compile_verified"],
+            pipeline_results["backtest_passed"],
+            pipeline_results["monte_carlo_passed"],
+            pipeline_results["walkforward_passed"]
+        ]):
+            bot_status = BotStatus.READY
+            is_deployable = True
+        elif pipeline_results["compile_verified"] and pipeline_results["walkforward_passed"]:
+            bot_status = BotStatus.ROBUST
+            is_deployable = True
+        elif pipeline_results["compile_verified"] and pipeline_results["backtest_passed"]:
+            bot_status = BotStatus.VALIDATED
+            is_deployable = False
+        else:
+            bot_status = BotStatus.DRAFT
+            is_deployable = False
+        
+        # Calculate deployment score
+        deployment_score = (
+            (20 if pipeline_results["safety_injected"] else 0) +
+            (20 if pipeline_results["compile_verified"] else 0) +
+            (20 if pipeline_results["backtest_passed"] else 0) +
+            (20 if pipeline_results["monte_carlo_passed"] else 0) +
+            (20 if pipeline_results["walkforward_passed"] else 0)
+        )
+        
+        # Final update
+        await db.pipeline_bots.update_one(
+            {"id": session_id},
+            {"$set": {
+                "bot_status": bot_status,
+                "is_deployable": is_deployable,
+                "deployment_score": deployment_score,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "strategy_id": request.strategy_id,
+            "bot_status": bot_status,
+            "is_deployable": is_deployable,
+            "deployment_score": deployment_score,
+            "code": generated_code,
+            "pipeline_results": pipeline_results,
+            "strategy_metrics": {
+                "fitness": strategy.get("fitness", 0),
+                "profit_factor": strategy.get("profit_factor", 0),
+                "sharpe_ratio": strategy.get("sharpe_ratio", 0),
+                "max_drawdown_pct": strategy.get("max_drawdown_pct", 0)
+            },
+            "message": f"Bot generated with status: {bot_status.upper()}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error generating bot from strategy: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate bot: {str(e)}")
+
+
+@api_router.get("/bot/pipeline-status/{session_id}")
+async def get_pipeline_bot_status(session_id: str):
+    """Get pipeline bot status and details"""
+    bot = await db.pipeline_bots.find_one({"id": session_id}, {"_id": 0})
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot session not found")
+    return {"success": True, "bot": bot}
+
+
+@api_router.get("/bot/pipeline-list")
+async def list_pipeline_bots(limit: int = 50, status: Optional[str] = None):
+    """List all pipeline bots with optional status filter"""
+    query = {}
+    if status:
+        query["bot_status"] = status
+    
+    bots = await db.pipeline_bots.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return {
+        "success": True,
+        "bots": bots,
+        "count": len(bots)
+    }
 
 
 @api_router.post("/code/validate")
@@ -1248,7 +1613,7 @@ async def run_real_backtest(
                 "grade": strategy_score.grade,
                 "execution_time": execution_time
             },
-            "message": f"Backtest completed successfully with real market data"
+            "message": "Backtest completed successfully with real market data"
         }
         
     except HTTPException:
@@ -2936,7 +3301,6 @@ async def detect_gaps_and_coverage(symbol: str, timeframe: str):
     Detect gaps in market data and calculate true coverage percentage.
     Returns available_ranges, missing_ranges, and coverage stats.
     """
-    from datetime import timedelta
     
     # Get timeframe interval in minutes
     interval_minutes = get_timeframe_minutes(timeframe)
@@ -3217,7 +3581,6 @@ async def generate_mock_candles_for_gap(symbol: str, timeframe: str, start_str: 
     Generate realistic mock candles to fill a gap.
     In production, this would fetch from Dukascopy or another data source.
     """
-    from datetime import timedelta
     import random
     
     interval_minutes = get_timeframe_minutes(timeframe)
