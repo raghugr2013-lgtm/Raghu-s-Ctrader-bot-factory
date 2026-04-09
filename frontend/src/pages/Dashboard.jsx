@@ -20,7 +20,7 @@ import {
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
-  GripVertical, GripHorizontal, Upload
+  GripVertical, GripHorizontal, Upload, Calendar, Clock, Layers
 } from 'lucide-react';
 import { formatDate, formatDateRange } from '@/lib/dateUtils';
 import {
@@ -683,41 +683,59 @@ export default function Dashboard() {
       return;
     }
 
+    // Warning for moderate load (100-300)
+    if (numStrategies > 100 && numStrategies <= 300) {
+      toast.warning(`⚠️ Generating ${numStrategies} strategies. This may take a few minutes.`, {
+        duration: 5000
+      });
+    }
+    
+    // Confirmation required for large runs (>300)
+    if (numStrategies > 300) {
+      setShowWarningModal(true);
+      setPendingGeneration({ confirmed: false });
+      return;
+    }
+
+    await executeStrategyGeneration();
+  };
+
+  const executeStrategyGeneration = async () => {
     setIsAutoGenerating(true);
     setAutoGenProgress(0);
     setTopStrategies([]);
+    setJobProgress(null);
+    setShowWarningModal(false);
     
     try {
-      toast.info('🚀 Starting automated strategy generation...', { duration: 3000 });
-      setAutoGenProgress(10);
+      toast.info(`🚀 Starting ${numStrategies} ${strategyType} strategy generation...`, { duration: 3000 });
 
-      const response = await axios.post(`${API}/strategy/auto-generate`, {
+      // Use job-based endpoint for scalable processing
+      const response = await axios.post(`${API}/strategy/generate-job`, {
         symbol: selectedPair,
         timeframe: selectedTimeframe,
-        count: 20,
-        ai_model: singleModel
+        strategy_count: numStrategies,
+        strategy_type: strategyType,
+        risk_level: riskLevel,
+        execution_mode: genExecutionMode,
+        ai_model: singleModel,
+        backtest_start: backtestFrom || null,
+        backtest_end: backtestTo || null,
+        batch_size: genExecutionMode === 'fast' ? 50 : 25
       });
 
-      setAutoGenProgress(100);
-
-      if (response.data.success && response.data.strategies.length > 0) {
-        setTopStrategies(response.data.strategies);
-        toast.success(`✅ Generated ${response.data.total_generated} strategies, ${response.data.passed_filters} passed filters. Showing top ${response.data.strategies.length}.`, {
-          duration: 6000
-        });
+      if (response.data.success && response.data.job_id) {
+        setCurrentJobId(response.data.job_id);
+        toast.success(`Job started: ${response.data.total_batches} batches queued`, { duration: 4000 });
       } else {
-        toast.warning(response.data.message || 'No strategies passed filters. Try adjusting parameters.', {
-          duration: 6000
-        });
+        throw new Error(response.data.message || 'Failed to start job');
       }
     } catch (error) {
-      const detail = error.response?.data?.message || error.response?.data?.error || error.message;
+      setIsAutoGenerating(false);
+      const detail = error.response?.data?.message || error.response?.data?.detail || error.message;
       toast.error(`Strategy generation failed: ${detail}`, {
         duration: 8000
       });
-    } finally {
-      setIsAutoGenerating(false);
-      setAutoGenProgress(0);
     }
   };
 
@@ -793,45 +811,132 @@ Generate a complete cTrader cBot implementing this strategy.`;
   const [selectedPair, setSelectedPair] = useState('EURUSD');
   const [strategyMode, setStrategyMode] = useState('standard'); // 'standard' | 'pro'
   const [selectedTimeframe, setSelectedTimeframe] = useState('1h');
+  
+  // === NEW: Strategy Generation Configuration ===
+  const [numStrategies, setNumStrategies] = useState(100);
+  const [strategyType, setStrategyType] = useState('intraday'); // scalping, intraday, swing
+  const [riskLevel, setRiskLevel] = useState('medium'); // low, medium, high
+  const [genExecutionMode, setGenExecutionMode] = useState('fast'); // fast, quality
+  
+  // Backtest Period
+  const [backtestFrom, setBacktestFrom] = useState('');
+  const [backtestTo, setBacktestTo] = useState('');
+  
+  // Job-based generation state
+  const [currentJobId, setCurrentJobId] = useState(null);
+  const [jobProgress, setJobProgress] = useState(null);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [pendingGeneration, setPendingGeneration] = useState(null);
 
-  // Check data availability when pair or timeframe changes
+  // Check data availability when pair changes (check ANY available data)
   useEffect(() => {
     checkDataAvailability();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPair, selectedTimeframe]);
+  }, [selectedPair]);
+
+  // Poll job progress when a job is running
+  useEffect(() => {
+    if (!currentJobId) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const response = await axios.get(`${API}/strategy/job-status/${currentJobId}`);
+        if (response.data.success) {
+          setJobProgress(response.data);
+          
+          if (response.data.stage === 'completed') {
+            setIsAutoGenerating(false);
+            clearInterval(interval);
+            
+            // Fetch results
+            const resultResponse = await axios.get(`${API}/strategy/job-result/${currentJobId}`);
+            if (resultResponse.data.success) {
+              setTopStrategies(resultResponse.data.strategies || []);
+              toast.success(`✅ Generated ${resultResponse.data.total_passed} strategies (${resultResponse.data.total_generated} total)`, {
+                duration: 6000
+              });
+            }
+          } else if (response.data.stage === 'failed') {
+            setIsAutoGenerating(false);
+            clearInterval(interval);
+            toast.error(`Generation failed: ${response.data.message}`, { duration: 8000 });
+          }
+        }
+      } catch (error) {
+        console.error('Job status check error:', error);
+      }
+    }, 1500);
+    
+    return () => clearInterval(interval);
+  }, [currentJobId]);
 
   const checkDataAvailability = async () => {
     setIsCheckingData(true);
     try {
-      const response = await axios.get(`${API}/marketdata/check-availability/${selectedPair}/${selectedTimeframe}`);
+      // NEW: Check ANY available data for symbol, not fixed timeframe
+      const response = await axios.get(`${API}/marketdata/check-any-availability/${selectedPair}`);
       
       if (response.data.available) {
         setDataAvailability({
           available: true,
           symbol: response.data.symbol,
-          timeframe: response.data.timeframe,
+          timeframe: response.data.best_timeframe,
+          available_timeframes: response.data.available_timeframes || [],
           candle_count: response.data.candle_count,
-          date_range: response.data.date_range
+          date_range: response.data.date_range,
+          message: response.data.message
         });
       } else {
         setDataAvailability({
           available: false,
           symbol: selectedPair,
           timeframe: selectedTimeframe,
+          available_timeframes: [],
           message: response.data.message || 'No data available'
         });
       }
     } catch (error) {
       console.error('Data availability check error:', error);
-      setDataAvailability({
-        available: false,
-        symbol: selectedPair,
-        timeframe: selectedTimeframe,
-        error: error.response?.data?.detail || error.message
-      });
+      // Fallback to specific timeframe check
+      try {
+        const fallbackResponse = await axios.get(`${API}/marketdata/check-availability/${selectedPair}/${selectedTimeframe}`);
+        if (fallbackResponse.data.available) {
+          setDataAvailability({
+            available: true,
+            symbol: fallbackResponse.data.symbol,
+            timeframe: fallbackResponse.data.timeframe,
+            candle_count: fallbackResponse.data.candle_count,
+            date_range: fallbackResponse.data.date_range
+          });
+        } else {
+          setDataAvailability({
+            available: false,
+            symbol: selectedPair,
+            timeframe: selectedTimeframe,
+            error: fallbackResponse.data?.message || 'No data'
+          });
+        }
+      } catch (e) {
+        setDataAvailability({
+          available: false,
+          symbol: selectedPair,
+          timeframe: selectedTimeframe,
+          error: 'Failed to check'
+        });
+      }
     } finally {
       setIsCheckingData(false);
     }
+  };
+  
+  // Backtest Period Quick-Fill Functions
+  const fillBacktestPeriod = (days) => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - days);
+    
+    setBacktestFrom(startDate.toISOString().split('T')[0]);
+    setBacktestTo(today.toISOString().split('T')[0]);
   };
 
   // Pre-deployment checklist evaluation
@@ -1008,24 +1113,353 @@ Generate a complete cTrader cBot implementing this strategy.`;
                   </h2>
                 </div>
                 <div className="flex-1 p-2 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar text-xs">
-                  {/* Pair Selection */}
-                  <div>
-                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Trading Pair</label>
-                    <Select value={selectedPair} onValueChange={setSelectedPair}>
-                      <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="pair-select">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#0F0F10] border-white/10">
-                        <SelectItem value="EURUSD" className="text-xs">EUR/USD</SelectItem>
-                        <SelectItem value="XAUUSD" className="text-xs">XAU/USD (Gold)</SelectItem>
-                        <SelectItem value="GBPUSD" className="text-xs">GBP/USD</SelectItem>
-                        <SelectItem value="USDJPY" className="text-xs">USD/JPY</SelectItem>
-                        <SelectItem value="NAS100" className="text-xs">NAS100 (Nasdaq)</SelectItem>
-                        <SelectItem value="BTCUSD" className="text-xs">BTC/USD</SelectItem>
-                        <SelectItem value="ETHUSD" className="text-xs">ETH/USD</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {/* SECTION A: MARKET SELECTION */}
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-cyan-400 border-b border-cyan-500/20 pb-1">Market Selection</p>
+                    
+                    {/* Pair Selection */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Trading Pair</label>
+                      <Select value={selectedPair} onValueChange={setSelectedPair}>
+                        <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="pair-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#0F0F10] border-white/10">
+                          <SelectItem value="EURUSD" className="text-xs">EUR/USD</SelectItem>
+                          <SelectItem value="XAUUSD" className="text-xs">XAU/USD (Gold)</SelectItem>
+                          <SelectItem value="GBPUSD" className="text-xs">GBP/USD</SelectItem>
+                          <SelectItem value="USDJPY" className="text-xs">USD/JPY</SelectItem>
+                          <SelectItem value="NAS100" className="text-xs">NAS100 (Nasdaq)</SelectItem>
+                          <SelectItem value="BTCUSD" className="text-xs">BTC/USD</SelectItem>
+                          <SelectItem value="ETHUSD" className="text-xs">ETH/USD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Timeframe Selection */}
+                    <div>
+                      <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 mb-1 block">Timeframe</label>
+                      <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
+                        <SelectTrigger className="bg-[#18181B] border-white/10 text-xs text-zinc-300 h-7" data-testid="timeframe-select">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#0F0F10] border-white/10">
+                          <SelectItem value="1m" className="text-xs">1 Minute (M1)</SelectItem>
+                          <SelectItem value="5m" className="text-xs">5 Minutes (M5)</SelectItem>
+                          <SelectItem value="15m" className="text-xs">15 Minutes (M15)</SelectItem>
+                          <SelectItem value="30m" className="text-xs">30 Minutes (M30)</SelectItem>
+                          <SelectItem value="1h" className="text-xs">1 Hour (H1)</SelectItem>
+                          <SelectItem value="4h" className="text-xs">4 Hours (H4)</SelectItem>
+                          <SelectItem value="1d" className="text-xs">1 Day (D1)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
+
+                  {/* Quick Access: Market Data */}
+                  <Button
+                    onClick={() => navigate('/market-data')}
+                    className="w-full bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 font-mono uppercase text-[10px] h-8 flex items-center justify-center gap-2"
+                    data-testid="market-data-quick-access"
+                  >
+                    <Database className="w-3 h-3" />
+                    Load Market Data
+                  </Button>
+
+                  {/* Data Availability Status - IMPROVED */}
+                  <div className="bg-[#0F0F10] border border-white/5 p-2 rounded-sm">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Data Status</span>
+                      {isCheckingData && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
+                    </div>
+                    {dataAvailability ? (
+                      <>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono text-zinc-300">{dataAvailability.symbol}</span>
+                          {dataAvailability.available ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-auto" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-400 ml-auto" />
+                          )}
+                        </div>
+                        {dataAvailability.available ? (
+                          <>
+                            <div className="text-[10px] text-emerald-400 font-mono mb-0.5">
+                              ✓ {dataAvailability.candle_count?.toLocaleString()} candles ({dataAvailability.timeframe})
+                            </div>
+                            {dataAvailability.available_timeframes?.length > 1 && (
+                              <div className="text-[9px] text-zinc-500 font-mono mb-0.5">
+                                Available: {dataAvailability.available_timeframes.join(', ')}
+                              </div>
+                            )}
+                            {dataAvailability.date_range && (
+                              <div className="text-[9px] text-zinc-500 font-mono">
+                                {formatDateRange(dataAvailability.date_range.start, dataAvailability.date_range.end)}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-[10px] text-red-400 font-mono">
+                            ❌ No data available for {selectedPair}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-[10px] text-zinc-600 font-mono">
+                        Checking availability...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SECTION B: BACKTEST SETTINGS */}
+                  <div className="bg-blue-950/20 border border-blue-500/30 rounded-sm p-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3 h-3 text-blue-400" />
+                      <p className="text-[9px] font-mono uppercase tracking-widest text-blue-400 font-bold">Backtest Period</p>
+                    </div>
+                    
+                    {/* Quick Preset Buttons */}
+                    <div className="grid grid-cols-3 gap-1">
+                      {[
+                        { label: '7D', days: 7 },
+                        { label: '30D', days: 30 },
+                        { label: '90D', days: 90 },
+                        { label: '6M', days: 180 },
+                        { label: '1Y', days: 365 },
+                        { label: '2Y', days: 730 }
+                      ].map(({ label, days }) => (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => fillBacktestPeriod(days)}
+                          className="px-1 py-1 rounded text-[9px] font-mono bg-white/5 text-zinc-400 border border-white/10 hover:bg-blue-600 hover:text-white hover:border-blue-500 transition-all"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Date Inputs */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[9px] font-mono uppercase text-zinc-500 mb-0.5 block">From</label>
+                        <input
+                          type="date"
+                          value={backtestFrom}
+                          onChange={(e) => setBacktestFrom(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full bg-[#18181B] border-blue-500/30 text-[10px] text-white px-1.5 py-1 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          data-testid="backtest-from-input"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-mono uppercase text-zinc-500 mb-0.5 block">To</label>
+                        <input
+                          type="date"
+                          value={backtestTo}
+                          onChange={(e) => setBacktestTo(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full bg-[#18181B] border-blue-500/30 text-[10px] text-white px-1.5 py-1 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          data-testid="backtest-to-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION C: STRATEGY GENERATION CONTROLS */}
+                  <div className="bg-purple-950/20 border border-purple-500/30 rounded-sm p-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-3 h-3 text-purple-400" />
+                      <p className="text-[9px] font-mono uppercase tracking-widest text-purple-400 font-bold">Generation Settings</p>
+                    </div>
+                    
+                    {/* Strategy Count - Preset Buttons */}
+                    <div>
+                      <label className="text-[9px] font-mono uppercase text-zinc-500 mb-1 block">Strategy Count</label>
+                      <div className="grid grid-cols-4 gap-1 mb-1.5">
+                        {[10, 50, 100, 200, 300, 500, 1000].slice(0, 4).map(count => (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setNumStrategies(count)}
+                            className={`px-1 py-1 rounded text-[9px] font-mono transition-all ${
+                              numStrategies === count
+                                ? 'bg-purple-600 text-white border-purple-500'
+                                : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                            } border`}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 mb-1.5">
+                        {[200, 500, 1000].map(count => (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setNumStrategies(count)}
+                            className={`px-1 py-1 rounded text-[9px] font-mono transition-all ${
+                              numStrategies === count
+                                ? count > 300 ? 'bg-red-600 text-white border-red-500' : 'bg-purple-600 text-white border-purple-500'
+                                : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                            } border`}
+                          >
+                            {count}
+                            {count > 300 && <span className="text-[7px] ml-0.5">⚡</span>}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Custom Input */}
+                      <input
+                        type="number"
+                        value={numStrategies}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 100;
+                          setNumStrategies(Math.min(Math.max(val, 10), 1000));
+                        }}
+                        min="10"
+                        max="1000"
+                        className="w-full bg-[#18181B] border-purple-500/30 text-[10px] text-white px-2 py-1 font-mono rounded border focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        data-testid="num-strategies-input"
+                      />
+                      <p className="text-[8px] text-zinc-600 mt-0.5">Range: 10–1000 | {numStrategies > 300 ? '⚠️ Batch mode' : numStrategies > 100 ? '⚡ Moderate load' : '✓ Normal'}</p>
+                    </div>
+                    
+                    {/* Strategy Type */}
+                    <div>
+                      <label className="text-[9px] font-mono uppercase text-zinc-500 mb-1 block">Strategy Type</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {[
+                          { value: 'scalping', label: 'Scalping', desc: 'Fast' },
+                          { value: 'intraday', label: 'Intraday', desc: 'Day' },
+                          { value: 'swing', label: 'Swing', desc: 'Multi-day' }
+                        ].map(({ value, label, desc }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setStrategyType(value)}
+                            className={`px-1.5 py-1 rounded text-[9px] font-mono transition-all text-left ${
+                              strategyType === value
+                                ? 'bg-cyan-600/20 border-cyan-500/40 text-cyan-400'
+                                : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                            } border`}
+                          >
+                            <div className="font-bold">{label}</div>
+                            <div className="text-[7px] text-zinc-500">{desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Risk Level */}
+                    <div>
+                      <label className="text-[9px] font-mono uppercase text-zinc-500 mb-1 block">Risk Level</label>
+                      <div className="grid grid-cols-3 gap-1">
+                        {[
+                          { value: 'low', label: 'Low', color: 'emerald' },
+                          { value: 'medium', label: 'Medium', color: 'amber' },
+                          { value: 'high', label: 'High', color: 'red' }
+                        ].map(({ value, label, color }) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setRiskLevel(value)}
+                            className={`px-2 py-1.5 rounded text-[9px] font-mono font-bold transition-all ${
+                              riskLevel === value
+                                ? `bg-${color}-600/20 border-${color}-500/40 text-${color}-400`
+                                : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                            } border`}
+                            style={riskLevel === value ? {
+                              backgroundColor: color === 'emerald' ? 'rgba(5, 150, 105, 0.2)' : color === 'amber' ? 'rgba(217, 119, 6, 0.2)' : 'rgba(220, 38, 38, 0.2)',
+                              borderColor: color === 'emerald' ? 'rgba(5, 150, 105, 0.4)' : color === 'amber' ? 'rgba(217, 119, 6, 0.4)' : 'rgba(220, 38, 38, 0.4)',
+                              color: color === 'emerald' ? '#34d399' : color === 'amber' ? '#fbbf24' : '#f87171'
+                            } : {}}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Execution Mode */}
+                    <div>
+                      <label className="text-[9px] font-mono uppercase text-zinc-500 mb-1 block">Execution Mode</label>
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setGenExecutionMode('fast')}
+                          className={`px-2 py-1.5 rounded text-[9px] font-mono transition-all text-left ${
+                            genExecutionMode === 'fast'
+                              ? 'bg-green-600/20 border-green-500/40 text-green-400'
+                              : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                          } border`}
+                        >
+                          <div className="font-bold flex items-center gap-1"><Zap className="w-2.5 h-2.5" /> Fast</div>
+                          <div className="text-[7px] text-zinc-500">Parallel, lighter</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGenExecutionMode('quality')}
+                          className={`px-2 py-1.5 rounded text-[9px] font-mono transition-all text-left ${
+                            genExecutionMode === 'quality'
+                              ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400'
+                              : 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10'
+                          } border`}
+                        >
+                          <div className="font-bold flex items-center gap-1"><Shield className="w-2.5 h-2.5" /> Quality</div>
+                          <div className="text-[7px] text-zinc-500">Deeper validation</div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Job Progress Tracker */}
+                  {(isAutoGenerating || jobProgress) && jobProgress && (
+                    <div className="bg-[#0F0F10] border border-blue-500/30 rounded-sm p-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-blue-400">
+                          {jobProgress.stage.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-300">{Math.round(jobProgress.percent)}%</span>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                          style={{ width: `${jobProgress.percent}%` }}
+                        />
+                      </div>
+                      
+                      {/* Status Message */}
+                      <p className="text-[9px] text-zinc-400 font-mono">{jobProgress.message}</p>
+                      
+                      {/* Batch Progress */}
+                      {jobProgress.total_batches > 1 && (
+                        <div className="text-[8px] text-zinc-500 font-mono">
+                          Batch {jobProgress.current_batch}/{jobProgress.total_batches} | 
+                          Generated: {jobProgress.strategies_generated} | 
+                          Passed: {jobProgress.strategies_passed}
+                        </div>
+                      )}
+                      
+                      {/* Stage Indicator */}
+                      <div className="flex gap-1">
+                        {['fetching_data', 'preparing_data', 'generating_strategies', 'backtesting', 'validating_results', 'finalizing', 'completed'].map((stage, idx) => (
+                          <div
+                            key={stage}
+                            className={`flex-1 h-1 rounded-full ${
+                              jobProgress.stage === stage ? 'bg-blue-500' :
+                              ['completed', 'failed'].includes(jobProgress.stage) || 
+                              idx < ['fetching_data', 'preparing_data', 'generating_strategies', 'backtesting', 'validating_results', 'finalizing', 'completed'].indexOf(jobProgress.stage)
+                                ? 'bg-emerald-500' : 'bg-zinc-700'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Mode Selection - Standard / Pro */}
                   <div>
@@ -1056,57 +1490,6 @@ Generate a complete cTrader cBot implementing this strategy.`;
                         <p className="text-[9px] text-zinc-600">Advanced</p>
                       </button>
                     </div>
-                  </div>
-
-                  {/* Quick Access: Market Data */}
-                  <Button
-                    onClick={() => navigate('/market-data')}
-                    className="w-full bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 font-mono uppercase text-[10px] h-8 flex items-center justify-center gap-2"
-                    data-testid="market-data-quick-access"
-                  >
-                    <Database className="w-3 h-3" />
-                    Load Market Data
-                  </Button>
-
-                  {/* Data Availability Status */}
-                  <div className="bg-[#0F0F10] border border-white/5 p-2 rounded-sm">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Data Status</span>
-                      {isCheckingData && <Loader2 className="w-3 h-3 animate-spin text-blue-400" />}
-                    </div>
-                    {dataAvailability ? (
-                      <>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-mono text-zinc-300">{dataAvailability.symbol}</span>
-                          <span className="text-[10px] text-zinc-600">({dataAvailability.timeframe})</span>
-                          {dataAvailability.available ? (
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-auto" />
-                          ) : (
-                            <XCircle className="w-3 h-3 text-red-400 ml-auto" />
-                          )}
-                        </div>
-                        {dataAvailability.available ? (
-                          <>
-                            <div className="text-[10px] text-emerald-400 font-mono mb-0.5">
-                              ✓ {dataAvailability.candle_count?.toLocaleString()} candles
-                            </div>
-                            {dataAvailability.date_range && (
-                              <div className="text-[9px] text-zinc-500 font-mono">
-                                {formatDateRange(dataAvailability.date_range.start, dataAvailability.date_range.end)}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-[10px] text-red-400 font-mono">
-                            ❌ No data available
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-[10px] text-zinc-600 font-mono">
-                        Checking availability...
-                      </div>
-                    )}
                   </div>
 
                   {/* AI Mode Selector - Wrapped for overflow */}
@@ -1195,21 +1578,64 @@ Generate a complete cTrader cBot implementing this strategy.`;
                   <Button
                     onClick={handleAutoGenerateStrategies}
                     disabled={isAutoGenerating || !dataAvailability?.available}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-mono uppercase text-[10px] h-9 flex items-center justify-center gap-2 flex-shrink-0"
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-mono uppercase text-[10px] h-10 flex flex-col items-center justify-center gap-0.5 flex-shrink-0"
                     data-testid="auto-generate-button"
                   >
                     {isAutoGenerating ? (
                       <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        Generating... {autoGenProgress}%
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Processing...
+                        </span>
+                        <span className="text-[8px] opacity-75">
+                          {jobProgress ? `${Math.round(jobProgress.percent)}% - ${jobProgress.stage.replace(/_/g, ' ')}` : 'Starting...'}
+                        </span>
                       </>
                     ) : (
                       <>
-                        <Trophy className="w-3 h-3" />
-                        🚀 Generate Top Strategies
+                        <span className="flex items-center gap-2">
+                          <Trophy className="w-3 h-3" />
+                          🚀 Generate {numStrategies} Strategies
+                        </span>
+                        <span className="text-[8px] opacity-75">{strategyType} • {riskLevel} risk • {genExecutionMode}</span>
                       </>
                     )}
                   </Button>
+
+                  {/* Warning Modal for Large Runs */}
+                  {showWarningModal && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+                      <div className="bg-[#18181B] border border-red-500/30 rounded-lg p-4 max-w-md mx-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <AlertTriangle className="w-5 h-5 text-red-400" />
+                          <h3 className="text-sm font-bold text-red-400">Large Generation Warning</h3>
+                        </div>
+                        <p className="text-xs text-zinc-400 mb-3">
+                          You're about to generate <strong className="text-white">{numStrategies} strategies</strong>. 
+                          This will be processed in batches and may take several minutes.
+                        </p>
+                        <div className="bg-red-950/30 border border-red-500/20 rounded p-2 mb-3">
+                          <p className="text-[10px] text-red-300 font-mono">
+                            ⚠️ Estimated time: {Math.ceil(numStrategies / 50 * 2)} - {Math.ceil(numStrategies / 50 * 4)} minutes
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => setShowWarningModal(false)}
+                            className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white text-xs"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={executeStrategyGeneration}
+                            className="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs"
+                          >
+                            Proceed Anyway
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {sessionId && (
                     <div className="pt-2 border-t border-white/5 flex-shrink-0">

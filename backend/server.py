@@ -72,6 +72,14 @@ from execution.websocket_manager import router as websocket_router
 from execution.telegram_alerts import router as alerts_router
 from dukascopy_router import router as dukascopy_router, init_dukascopy_router
 from pipeline_master_router import router as pipeline_master_router
+from strategy_job_tracker import (
+    get_job_tracker,
+    StrategyJobRequest,
+    JobStage,
+    ExecutionMode,
+    StrategyType,
+    RiskLevel
+)
 
 
 ROOT_DIR = Path(__file__).parent
@@ -1516,6 +1524,502 @@ NO explanations, ONLY the JSON array."""
             "error": str(e),
             "message": f"Strategy generation failed: {str(e)}",
             "strategies": []
+        }
+
+
+# =====================================================
+# JOB-BASED STRATEGY GENERATION (Scalable Pipeline)
+# =====================================================
+
+@api_router.post("/strategy/generate-job")
+async def create_strategy_generation_job(request: StrategyJobRequest):
+    """
+    Create a new strategy generation job (async/batch processing).
+    
+    Supports 10-1000 strategies with batch processing for large runs.
+    Returns job_id for progress tracking.
+    
+    Use GET /strategy/job-status/{job_id} to poll progress.
+    """
+    try:
+        # Validate strategy count
+        if request.strategy_count < 10 or request.strategy_count > 1000:
+            raise HTTPException(status_code=400, detail="Strategy count must be between 10 and 1000")
+        
+        # Check data availability
+        tf = DataTimeframe(request.timeframe)
+        candles = await market_data_service.get_candles(
+            symbol=request.symbol.upper(),
+            timeframe=tf,
+            limit=10000
+        )
+        
+        if not candles or len(candles) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient data for {request.symbol} {request.timeframe}. Need 100+ candles, found {len(candles) if candles else 0}."
+            )
+        
+        # Create job
+        tracker = get_job_tracker()
+        job_id = tracker.create_job(request)
+        
+        # Determine batch size based on execution mode
+        batch_size = 50 if request.execution_mode == ExecutionMode.FAST.value else 25
+        
+        # Start background job
+        asyncio.create_task(_run_strategy_generation_job(job_id, candles))
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "status": "pending",
+            "total_strategies": request.strategy_count,
+            "total_batches": (request.strategy_count + batch_size - 1) // batch_size,
+            "message": f"Job created. Use GET /api/strategy/job-status/{job_id} to track progress."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Failed to create strategy job: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/strategy/job-status/{job_id}")
+async def get_strategy_job_status(job_id: str):
+    """
+    Get current status and progress of a strategy generation job.
+    
+    Stages:
+    1. initializing - Setting up
+    2. fetching_data - Loading market data
+    3. preparing_data - Preparing for generation
+    4. generating_strategies - AI strategy generation
+    5. backtesting - Running backtests
+    6. validating_results - Filtering and scoring
+    7. finalizing - Packaging results
+    8. completed - Job done
+    9. failed - Job failed
+    """
+    tracker = get_job_tracker()
+    progress = tracker.get_progress(job_id)
+    
+    if not progress:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return {
+        "success": True,
+        **progress
+    }
+
+
+@api_router.get("/strategy/job-result/{job_id}")
+async def get_strategy_job_result(job_id: str):
+    """
+    Get the final results of a completed strategy generation job.
+    Only available after job is completed.
+    """
+    tracker = get_job_tracker()
+    progress = tracker.get_progress(job_id)
+    
+    if not progress:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    if progress["stage"] != JobStage.COMPLETED.value:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job not completed. Current stage: {progress['stage']}"
+        )
+    
+    result = tracker.get_result(job_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Job result not found")
+    
+    return {
+        "success": True,
+        "job_id": job_id,
+        **result
+    }
+
+
+async def _run_strategy_generation_job(job_id: str, candles: list):
+    """
+    Background task that runs the strategy generation job.
+    Updates progress tracker at each stage.
+    """
+    tracker = get_job_tracker()
+    config = tracker.get_config(job_id)
+    
+    if not config:
+        tracker.fail(job_id, "Configuration not found")
+        return
+    
+    try:
+        # Stage 1: Fetching Data
+        tracker.update(
+            job_id,
+            stage=JobStage.FETCHING_DATA.value,
+            percent=5,
+            message=f"Loading {config.symbol} {config.timeframe} data..."
+        )
+        await asyncio.sleep(0.1)  # Allow UI update
+        
+        # Stage 2: Preparing Data
+        tracker.update(
+            job_id,
+            stage=JobStage.PREPARING_DATA.value,
+            percent=10,
+            message=f"Preparing {len(candles)} candles for analysis..."
+        )
+        
+        # Determine strategy parameters based on type and risk
+        strategy_params = _get_strategy_params(config.strategy_type, config.risk_level)
+        
+        # Stage 3: Generating Strategies
+        tracker.update(
+            job_id,
+            stage=JobStage.GENERATING_STRATEGIES.value,
+            percent=15,
+            message=f"Generating {config.strategy_count} {config.strategy_type} strategies..."
+        )
+        
+        # Calculate batch processing
+        batch_size = 50 if config.execution_mode == ExecutionMode.FAST.value else 25
+        total_batches = (config.strategy_count + batch_size - 1) // batch_size
+        
+        all_strategies = []
+        
+        for batch_num in range(total_batches):
+            batch_start = batch_num * batch_size
+            batch_end = min(batch_start + batch_size, config.strategy_count)
+            batch_count = batch_end - batch_start
+            
+            # Update progress for this batch
+            gen_progress = 15 + (batch_num / total_batches) * 35  # 15-50%
+            tracker.update(
+                job_id,
+                percent=gen_progress,
+                current_batch=batch_num + 1,
+                message=f"Batch {batch_num + 1}/{total_batches}: Generating {batch_count} strategies..."
+            )
+            
+            # Generate batch of strategies
+            batch_strategies = await _generate_strategy_batch(
+                config,
+                batch_count,
+                strategy_params
+            )
+            all_strategies.extend(batch_strategies)
+            
+            tracker.update(
+                job_id,
+                strategies_generated=len(all_strategies)
+            )
+            
+            await asyncio.sleep(0.1)  # Prevent blocking
+        
+        logging.info(f"[JOB {job_id[:8]}] Generated {len(all_strategies)} strategies")
+        
+        # Stage 4: Backtesting
+        tracker.update(
+            job_id,
+            stage=JobStage.BACKTESTING.value,
+            percent=50,
+            message=f"Backtesting {len(all_strategies)} strategies..."
+        )
+        
+        from backtest_real_engine import run_backtest_on_real_candles
+        
+        results = []
+        for idx, strategy in enumerate(all_strategies):
+            try:
+                # Update progress
+                if idx % 10 == 0:
+                    bt_progress = 50 + (idx / len(all_strategies)) * 25  # 50-75%
+                    tracker.update(
+                        job_id,
+                        percent=bt_progress,
+                        current_item=idx,
+                        total_items=len(all_strategies),
+                        message=f"Backtesting {idx + 1}/{len(all_strategies)}..."
+                    )
+                
+                # Run backtest
+                trades, equity_curve, bt_config = run_backtest_on_real_candles(
+                    candles=candles,
+                    bot_name=strategy.get("name", f"Strategy_{idx+1}"),
+                    symbol=config.symbol,
+                    timeframe=config.timeframe,
+                    duration_days=365,
+                    initial_balance=10000,
+                    strategy_type=config.strategy_type
+                )
+                
+                # Calculate metrics
+                metrics = performance_calculator.calculate_metrics(trades, equity_curve, bt_config)
+                
+                profit_factor = getattr(metrics, 'profit_factor', 0) or 0
+                win_rate = getattr(metrics, 'win_rate', 0) or 0
+                max_drawdown = abs(getattr(metrics, 'max_drawdown_percent', 100) or 100)
+                total_trades = getattr(metrics, 'total_trades', 0) or 0
+                net_profit = getattr(metrics, 'net_profit', 0) or 0
+                sharpe_ratio = getattr(metrics, 'sharpe_ratio', 0) or 0
+                
+                results.append({
+                    **strategy,
+                    "profit_factor": round(profit_factor, 2),
+                    "win_rate": round(win_rate, 2),
+                    "max_drawdown_pct": round(max_drawdown, 2),
+                    "total_trades": total_trades,
+                    "net_profit": round(net_profit, 2),
+                    "sharpe_ratio": round(sharpe_ratio, 2)
+                })
+                
+            except Exception as e:
+                tracker.update(job_id, error=f"Backtest error on strategy {idx}: {str(e)}")
+                continue
+        
+        # Stage 5: Validating Results
+        tracker.update(
+            job_id,
+            stage=JobStage.VALIDATING_RESULTS.value,
+            percent=75,
+            message=f"Validating and filtering {len(results)} results..."
+        )
+        
+        # Apply filters based on risk level
+        filter_params = _get_filter_params(config.risk_level)
+        
+        passed_strategies = []
+        for r in results:
+            if (r["profit_factor"] >= filter_params["min_pf"] and
+                r["max_drawdown_pct"] <= filter_params["max_dd"] and
+                r["total_trades"] >= filter_params["min_trades"]):
+                
+                # Calculate composite score
+                score = (
+                    r["profit_factor"] * 0.4 +
+                    (1 / (r["max_drawdown_pct"] + 0.01)) * 0.3 +
+                    (r["win_rate"] / 100) * 0.2 +
+                    (r["sharpe_ratio"] / 3) * 0.1
+                )
+                r["composite_score"] = round(score, 3)
+                r["passed_filters"] = True
+                passed_strategies.append(r)
+        
+        tracker.update(
+            job_id,
+            strategies_passed=len(passed_strategies),
+            message=f"{len(passed_strategies)}/{len(results)} strategies passed filters"
+        )
+        
+        # Stage 6: Finalizing
+        tracker.update(
+            job_id,
+            stage=JobStage.FINALIZING.value,
+            percent=90,
+            message="Ranking and finalizing results..."
+        )
+        
+        # Rank strategies
+        ranked_strategies = sorted(
+            passed_strategies,
+            key=lambda x: x["composite_score"],
+            reverse=True
+        )
+        
+        # Prepare final result
+        final_result = {
+            "symbol": config.symbol.upper(),
+            "timeframe": config.timeframe,
+            "strategy_type": config.strategy_type,
+            "risk_level": config.risk_level,
+            "execution_mode": config.execution_mode,
+            "total_generated": len(all_strategies),
+            "total_backtested": len(results),
+            "total_passed": len(passed_strategies),
+            "strategies": ranked_strategies[:20],  # Top 20
+            "all_strategies": ranked_strategies,
+            "filters_applied": filter_params,
+            "candles_used": len(candles),
+            "data_source": "local_csv"
+        }
+        
+        # Complete job
+        tracker.complete(job_id, final_result)
+        
+        logging.info(f"[JOB {job_id[:8]}] Completed: {len(passed_strategies)} passed / {len(all_strategies)} generated")
+        
+    except Exception as e:
+        logging.error(f"[JOB {job_id[:8]}] Failed: {str(e)}")
+        tracker.fail(job_id, str(e))
+
+
+async def _generate_strategy_batch(config: StrategyJobRequest, count: int, params: dict) -> list:
+    """Generate a batch of strategies using AI"""
+    
+    chat = get_ai_chat(config.ai_model, str(uuid.uuid4()), "none")
+    
+    type_desc = {
+        "scalping": "very short-term (1-30 minute holds), high frequency, small targets",
+        "intraday": "same-day positions (hours), medium frequency, moderate targets", 
+        "swing": "multi-day positions, low frequency, larger targets"
+    }
+    
+    risk_desc = {
+        "low": "conservative risk management with tight stops and smaller position sizes",
+        "medium": "balanced risk-reward with standard position sizing",
+        "high": "aggressive with wider stops and larger position sizes for maximum gains"
+    }
+    
+    prompt = f"""Generate {count} unique {config.strategy_type} trading strategies for {config.symbol} on {config.timeframe} timeframe.
+
+Strategy Type: {type_desc.get(config.strategy_type, 'intraday')}
+Risk Profile: {risk_desc.get(config.risk_level, 'medium')}
+
+Each strategy must include:
+- Clear unique name (max 30 chars)
+- Brief description (1-2 sentences)
+- Specific entry conditions with indicator values
+- Specific exit conditions
+- Stop Loss and Take Profit rules
+
+Constraints:
+- Use realistic logic (no future leak)
+- Vary the indicators: RSI, EMA, MACD, Bollinger Bands, ATR, Stochastic, ADX
+- Include both trend-following and mean-reversion approaches
+
+Return ONLY a JSON array:
+[
+  {{"name": "...", "description": "...", "logic": "Entry: ... Exit: ... SL/TP: ..."}}
+]
+
+NO explanations, ONLY valid JSON array."""
+
+    try:
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
+        
+        import json
+        import re
+        
+        json_match = re.search(r'\[.*\]', response, re.DOTALL)
+        if not json_match:
+            return []
+        
+        strategies = json.loads(json_match.group())
+        return strategies[:count]
+        
+    except Exception as e:
+        logging.error(f"Strategy batch generation error: {str(e)}")
+        return []
+
+
+def _get_strategy_params(strategy_type: str, risk_level: str) -> dict:
+    """Get strategy generation parameters based on type and risk"""
+    params = {
+        "scalping": {"target_trades": 100, "hold_time": "minutes", "indicators": ["RSI", "EMA", "Stochastic"]},
+        "intraday": {"target_trades": 50, "hold_time": "hours", "indicators": ["MACD", "EMA", "Bollinger"]},
+        "swing": {"target_trades": 20, "hold_time": "days", "indicators": ["ADX", "EMA", "ATR"]}
+    }
+    
+    risk_mult = {"low": 0.5, "medium": 1.0, "high": 1.5}
+    
+    base = params.get(strategy_type, params["intraday"])
+    base["risk_multiplier"] = risk_mult.get(risk_level, 1.0)
+    
+    return base
+
+
+def _get_filter_params(risk_level: str) -> dict:
+    """Get filter parameters based on risk level"""
+    filters = {
+        "low": {"min_pf": 1.3, "max_dd": 15, "min_trades": 20},
+        "medium": {"min_pf": 1.1, "max_dd": 25, "min_trades": 10},
+        "high": {"min_pf": 0.9, "max_dd": 40, "min_trades": 5}
+    }
+    return filters.get(risk_level, filters["medium"])
+
+
+@api_router.get("/marketdata/check-any-availability/{symbol}")
+async def check_any_data_availability(symbol: str):
+    """
+    Check if ANY data is available for a symbol across all timeframes.
+    Used for data status display - does NOT require specific timeframe.
+    """
+    try:
+        symbol_upper = symbol.upper()
+        
+        # Check all timeframes
+        timeframes = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
+        available_tfs = []
+        total_candles = 0
+        best_tf = None
+        best_count = 0
+        date_range = None
+        
+        for tf in timeframes:
+            try:
+                tf_enum = DataTimeframe(tf)
+                count = await db.market_candles.count_documents({
+                    "symbol": symbol_upper,
+                    "timeframe": tf
+                })
+                
+                if count > 0:
+                    available_tfs.append(tf)
+                    total_candles += count
+                    
+                    if count > best_count:
+                        best_count = count
+                        best_tf = tf
+                        
+                        # Get date range for best timeframe
+                        first = await db.market_candles.find_one(
+                            {"symbol": symbol_upper, "timeframe": tf},
+                            sort=[("timestamp", 1)]
+                        )
+                        last = await db.market_candles.find_one(
+                            {"symbol": symbol_upper, "timeframe": tf},
+                            sort=[("timestamp", -1)]
+                        )
+                        if first and last:
+                            date_range = {
+                                "start": first["timestamp"].isoformat() if hasattr(first["timestamp"], 'isoformat') else str(first["timestamp"]),
+                                "end": last["timestamp"].isoformat() if hasattr(last["timestamp"], 'isoformat') else str(last["timestamp"])
+                            }
+            except Exception:
+                continue
+        
+        if available_tfs:
+            return {
+                "success": True,
+                "available": True,
+                "symbol": symbol_upper,
+                "available_timeframes": available_tfs,
+                "best_timeframe": best_tf,
+                "total_candles": total_candles,
+                "candle_count": best_count,
+                "date_range": date_range,
+                "message": f"Data available in {len(available_tfs)} timeframe(s)"
+            }
+        else:
+            return {
+                "success": True,
+                "available": False,
+                "symbol": symbol_upper,
+                "available_timeframes": [],
+                "message": "No data available for this symbol"
+            }
+            
+    except Exception as e:
+        logging.error(f"Check any availability error: {str(e)}")
+        return {
+            "success": False,
+            "available": False,
+            "symbol": symbol,
+            "error": str(e)
         }
 
 
