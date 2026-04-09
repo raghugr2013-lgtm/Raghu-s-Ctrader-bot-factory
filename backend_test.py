@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 class MarketDataAPITester:
-    def __init__(self, base_url="https://algo-bot-validator.preview.emergentagent.com"):
+    def __init__(self, base_url="https://codebase-review-86.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.tests_run = 0

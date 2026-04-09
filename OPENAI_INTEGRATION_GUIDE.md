@@ -339,7 +339,7 @@ print(f'✓ Generated {len(strategies)} fallback strategies')
 
 ```bash
 # Via API
-curl -X POST "https://algo-bot-validator.preview.emergentagent.com/api/pipeline/master-run" \
+curl -X POST "https://codebase-review-86.preview.emergentagent.com/api/pipeline/master-run" \
   -H "Content-Type: application/json" \
   -d '{
     "generation_mode": "ai",

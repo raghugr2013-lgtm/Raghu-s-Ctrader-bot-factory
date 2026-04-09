@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://algo-bot-validator.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://codebase-review-86.preview.emergentagent.com').rstrip('/')
 
 # Sample trades for testing
 SAMPLE_TRADES = [
