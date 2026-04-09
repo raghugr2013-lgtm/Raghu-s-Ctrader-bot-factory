@@ -6,6 +6,7 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'reac
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -20,7 +21,7 @@ import {
   Zap, Users, Trophy, ChevronRight, Shield, BarChart3, Briefcase,
   FlaskConical, ShieldCheck, AlertTriangle, Lock, Gauge, TrendingDown,
   Activity, Target, HelpCircle, Settings, TrendingUp, Search, Globe, Database,
-  GripVertical, GripHorizontal, Upload, Calendar, Clock, Layers
+  GripVertical, GripHorizontal, Upload, Calendar, Clock, Layers, Rocket, Eye, Cpu, Circle
 } from 'lucide-react';
 import { formatDate, formatDateRange } from '@/lib/dateUtils';
 import {
@@ -33,6 +34,13 @@ import {
   getDecisionStatus
 } from '@/components/validation/PropScore';
 import { ValidationChartPanel } from '@/components/validation/ValidationCharts';
+import { 
+  PipelineTracker, 
+  BotPipelineStatus, 
+  StrategyFitnessCard, 
+  QuickStartFlow,
+  AdvancedModeToggle 
+} from '@/components/pipeline/PipelineTracker';
 // Temporarily commented out - components need to be created
 // import CSVUploader from '@/components/data/CSVUploader';
 // import BulkCSVUploader from '@/components/data/BulkCSVUploader';
@@ -274,6 +282,17 @@ export default function Dashboard() {
   const [topStrategies, setTopStrategies] = useState([]);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
   
+  // === NEW: Pipeline Flow State ===
+  const [currentPipelineStep, setCurrentPipelineStep] = useState('generate');
+  const [completedPipelineSteps, setCompletedPipelineSteps] = useState([]);
+  const [advancedMode, setAdvancedMode] = useState(false); // Debug/Advanced mode
+  const [pipelineResults, setPipelineResults] = useState(null);
+  const [botDeploymentScore, setBotDeploymentScore] = useState(0);
+  const [botStatus, setBotStatus] = useState(null);
+  const [quickStartProgress, setQuickStartProgress] = useState(0);
+  const [isQuickStarting, setIsQuickStarting] = useState(false);
+  const [pipelineLogs, setPipelineLogs] = useState([]);
+  
   const [chartData, setChartData] = useState({
     equityCurve: [],
     drawdownCurve: [],
@@ -303,26 +322,22 @@ export default function Dashboard() {
       return;
     }
     
-    // Show warning for direct generation (not from validated strategy)
-    if (!selectedStrategy) {
-      const proceed = window.confirm(
-        '⚠️ RECOMMENDED: Generate from Validated Strategies\n\n' +
-        'Direct bot generation without strategy validation may produce:\n' +
-        '• Unvalidated trading logic\n' +
-        '• No walk-forward testing\n' +
-        '• Unknown risk metrics\n\n' +
-        'Consider using "🚀 Generate Strategies" first, then "Generate cBot" from the Top Strategies tab.\n\n' +
-        'Click OK to proceed with direct generation anyway, or Cancel to use the recommended flow.'
+    // ENFORCE: Direct generation only available in Advanced Mode
+    if (!selectedStrategy && !advancedMode) {
+      toast.error(
+        '🚫 Direct bot generation is disabled.\n\n' +
+        'Please use the guided pipeline:\n' +
+        '1. Generate Strategies → 2. Select Strategy → 3. Generate cBot\n\n' +
+        'Enable "Advanced Mode" for debug access.',
+        { duration: 6000 }
       );
-      
-      if (!proceed) {
-        toast.info('💡 Tip: Use the "Generate Strategies" button to create validated strategies first.', {
-          duration: 5000
-        });
-        return;
-      }
-      
-      toast.warning('⚠️ Generating without validation. Results may vary.', { duration: 3000 });
+      return;
+    }
+    
+    // Show warning for direct generation in advanced mode
+    if (!selectedStrategy && advancedMode) {
+      toast.warning('⚠️ Advanced Mode: Generating without validation. Results may vary.', { duration: 3000 });
+      addPipelineLog('warning', 'Direct generation bypassing validation pipeline');
     }
 
     setIsGenerating(true);
@@ -764,10 +779,17 @@ export default function Dashboard() {
   const handleGenerateCBotFromStrategy = async (strategy) => {
     setSelectedStrategy(strategy);
     
+    // Update pipeline steps
+    setCompletedPipelineSteps(prev => [...new Set([...prev, 'generate', 'view', 'select'])]);
+    setCurrentPipelineStep('bot');
+    addPipelineLog('info', `Strategy selected: ${strategy.name || strategy.template_id} (Fitness: ${(strategy.fitness || 0).toFixed(1)})`);
+    
     // Use the new pipeline endpoint for proper strategy-to-bot conversion
     toast.loading(`🚀 Generating cBot from validated strategy: ${strategy.name || strategy.template_id}`, {
       id: 'cbot-generation'
     });
+    
+    addPipelineLog('info', 'Starting cBot generation pipeline...');
     
     try {
       const response = await axios.post(`${API_URL}/api/bot/generate-from-strategy`, {
@@ -786,6 +808,27 @@ export default function Dashboard() {
         // Update generated code in state
         setGeneratedCode(result.code);
         
+        // Update pipeline status
+        setPipelineResults(result.pipeline_results);
+        setBotDeploymentScore(result.deployment_score);
+        setBotStatus(result.bot_status);
+        setCompletedPipelineSteps(prev => [...new Set([...prev, 'bot', 'pipeline'])]);
+        setCurrentPipelineStep('complete');
+        
+        // Add pipeline logs
+        addPipelineLog('success', `cBot generated successfully`);
+        addPipelineLog(result.pipeline_results.safety_injected ? 'success' : 'warning', 
+          `Safety Injection: ${result.pipeline_results.safety_injected ? 'Passed' : 'Skipped'}`);
+        addPipelineLog(result.pipeline_results.compile_verified ? 'success' : 'error', 
+          `Compilation: ${result.pipeline_results.compile_verified ? 'Verified' : 'Failed'}`);
+        addPipelineLog(result.pipeline_results.backtest_passed ? 'success' : 'warning', 
+          `Backtest: ${result.pipeline_results.backtest_passed ? 'Passed' : 'Failed'}`);
+        addPipelineLog(result.pipeline_results.monte_carlo_passed ? 'success' : 'warning', 
+          `Monte Carlo: ${result.pipeline_results.monte_carlo_passed ? 'Passed' : 'Failed'}`);
+        addPipelineLog(result.pipeline_results.walkforward_passed ? 'success' : 'warning', 
+          `Walk-Forward: ${result.pipeline_results.walkforward_passed ? 'Passed' : 'Failed'}`);
+        addPipelineLog('info', `Final Status: ${result.bot_status.toUpperCase()} (Score: ${result.deployment_score}%)`);
+        
         // Show success with pipeline results
         const statusEmoji = {
           'ready_for_deployment': '✅',
@@ -796,12 +839,7 @@ export default function Dashboard() {
         
         toast.success(
           `${statusEmoji[result.bot_status] || '📝'} Bot Status: ${result.bot_status.toUpperCase()}\n` +
-          `Deployment Score: ${result.deployment_score}%\n` +
-          `Pipeline: Safety=${result.pipeline_results.safety_injected ? '✓' : '✗'} ` +
-          `Compile=${result.pipeline_results.compile_verified ? '✓' : '✗'} ` +
-          `Backtest=${result.pipeline_results.backtest_passed ? '✓' : '✗'} ` +
-          `MC=${result.pipeline_results.monte_carlo_passed ? '✓' : '✗'} ` +
-          `WF=${result.pipeline_results.walkforward_passed ? '✓' : '✗'}`,
+          `Deployment Score: ${result.deployment_score}%`,
           { id: 'cbot-generation', duration: 8000 }
         );
         
@@ -809,16 +847,95 @@ export default function Dashboard() {
         setPipelineBotSession(result.session_id);
         
       } else {
+        addPipelineLog('error', `Generation failed: ${response.data.detail || 'Unknown error'}`);
         toast.error(`Failed to generate cBot: ${response.data.detail || 'Unknown error'}`, {
           id: 'cbot-generation'
         });
       }
     } catch (error) {
       console.error('cBot generation error:', error);
+      addPipelineLog('error', `Error: ${error.response?.data?.detail || error.message}`);
       toast.error(
         error.response?.data?.detail || `Error generating cBot: ${error.message}`,
         { id: 'cbot-generation' }
       );
+    }
+  };
+  
+  // Helper function to add pipeline logs
+  const addPipelineLog = (type, message) => {
+    setPipelineLogs(prev => [...prev, {
+      id: Date.now(),
+      type, // 'info', 'success', 'warning', 'error'
+      message,
+      timestamp: new Date().toISOString()
+    }]);
+  };
+  
+  // Quick Start function - generates 10 strategies and shows top 3
+  const handleQuickStart = async () => {
+    setIsQuickStarting(true);
+    setQuickStartProgress(0);
+    setPipelineLogs([]);
+    addPipelineLog('info', 'Quick Start initiated - generating 10 strategies...');
+    
+    try {
+      // Step 1: Generate strategies using factory
+      setQuickStartProgress(10);
+      addPipelineLog('info', 'Creating strategy generation job...');
+      
+      const response = await axios.post(`${API}/factory/generate`, {
+        session_id: `quickstart-${Date.now()}`,
+        symbol: selectedPair || 'EURUSD',
+        timeframe: selectedTimeframe || '1h',
+        strategies_per_template: 2,
+        templates: ['ema_crossover', 'rsi_mean_reversion', 'macd_trend', 'bollinger_breakout', 'atr_volatility_breakout'],
+        duration_days: 365,
+        initial_balance: 10000,
+        challenge_firm: 'ftmo'
+      });
+      
+      setQuickStartProgress(40);
+      addPipelineLog('success', `Generated ${response.data.total_generated || 10} strategies`);
+      
+      if (response.data.run_id) {
+        // Get results
+        const resultResponse = await axios.get(`${API}/factory/result/${response.data.run_id}`);
+        setQuickStartProgress(70);
+        
+        if (resultResponse.data.result?.strategies) {
+          // Sort by fitness and take top 3
+          const sortedStrategies = resultResponse.data.result.strategies
+            .filter(s => s.fitness >= 25) // Apply minimum threshold
+            .sort((a, b) => b.fitness - a.fitness)
+            .slice(0, 3);
+          
+          setTopStrategies(sortedStrategies);
+          setQuickStartProgress(100);
+          
+          addPipelineLog('success', `Filtered to top ${sortedStrategies.length} strategies`);
+          
+          // Update pipeline state
+          setCompletedPipelineSteps(['generate', 'view']);
+          setCurrentPipelineStep('select');
+          
+          if (sortedStrategies.length > 0) {
+            toast.success(`✅ Quick Start complete! ${sortedStrategies.length} top strategies ready for selection.`, {
+              duration: 5000
+            });
+          } else {
+            toast.warning('No strategies met the minimum fitness threshold (25). Try adjusting parameters.', {
+              duration: 5000
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Quick start error:', error);
+      addPipelineLog('error', `Quick Start failed: ${error.message}`);
+      toast.error(`Quick Start failed: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setIsQuickStarting(false);
     }
   };
   
@@ -1911,7 +2028,7 @@ export default function Dashboard() {
             {/* Vertical Resize Handle */}
             <VerticalResizeHandle />
 
-            {/* Right Panel - Collaboration Logs */}
+            {/* Right Panel - Pipeline Tracker & Logs */}
             <Panel 
               defaultSize={20} 
               minSize={12}
@@ -1921,25 +2038,73 @@ export default function Dashboard() {
                   <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-200" style={{ fontFamily: 'Barlow Condensed, sans-serif' }}>
                     Pipeline Logs
                   </h2>
-                  {collaborationLogs.length > 0 && (
-                    <span className="text-[10px] font-mono text-zinc-500">{collaborationLogs.length} events</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {(pipelineLogs.length > 0 || collaborationLogs.length > 0) && (
+                      <span className="text-[10px] font-mono text-zinc-500">{pipelineLogs.length + collaborationLogs.length} events</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 p-2 overflow-y-auto custom-scrollbar" data-testid="collaboration-logs">
-                  {isGenerating && collaborationLogs.length === 0 ? (
-                    <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono p-2">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Running pipeline...
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  {/* Pipeline Status Section */}
+                  {(pipelineResults || selectedStrategy) && (
+                    <div className="p-2 border-b border-white/5">
+                      <BotPipelineStatus 
+                        pipelineResults={pipelineResults}
+                        deploymentScore={botDeploymentScore}
+                        botStatus={botStatus}
+                      />
                     </div>
-                  ) : collaborationLogs.length === 0 ? (
-                    <p className="text-xs text-zinc-500 font-mono p-2">Generate a bot to see pipeline logs.</p>
-                  ) : (
-                    <>
-                      {collaborationLogs.map((log, idx) => (
-                        <LogEntry key={idx} log={log} />
-                      ))}
-                      <div ref={logsEndRef} />
-                    </>
                   )}
+                  
+                  {/* Strategy Fitness Card */}
+                  {selectedStrategy && (
+                    <div className="p-2 border-b border-white/5">
+                      <StrategyFitnessCard strategy={selectedStrategy} />
+                    </div>
+                  )}
+                  
+                  {/* Pipeline Logs */}
+                  <div className="p-2" data-testid="pipeline-logs">
+                    {pipelineLogs.length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 mb-2">Pipeline Activity</div>
+                        {pipelineLogs.map((log) => (
+                          <div key={log.id} className={`flex items-start gap-2 text-xs font-mono py-1.5 border-b border-white/5 last:border-0 ${
+                            log.type === 'error' ? 'text-red-400' :
+                            log.type === 'success' ? 'text-emerald-400' :
+                            log.type === 'warning' ? 'text-amber-400' :
+                            'text-zinc-400'
+                          }`}>
+                            <span className="w-4 flex-shrink-0">
+                              {log.type === 'error' ? '✗' :
+                               log.type === 'success' ? '✓' :
+                               log.type === 'warning' ? '!' :
+                               '→'}
+                            </span>
+                            <span className="flex-1">{log.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Collaboration Logs (fallback) */}
+                    {isGenerating && collaborationLogs.length === 0 && pipelineLogs.length === 0 ? (
+                      <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono p-2">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Running pipeline...
+                      </div>
+                    ) : collaborationLogs.length === 0 && pipelineLogs.length === 0 ? (
+                      <p className="text-xs text-zinc-500 font-mono p-2">Generate strategies or a bot to see pipeline logs.</p>
+                    ) : collaborationLogs.length > 0 && (
+                      <>
+                        <div className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 mb-2">Generation Logs</div>
+                        {collaborationLogs.map((log, idx) => (
+                          <LogEntry key={idx} log={log} />
+                        ))}
+                        <div ref={logsEndRef} />
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </Panel>
@@ -2595,15 +2760,78 @@ export default function Dashboard() {
             */}
           </TabsContent>
 
-          {/* Auto-Generated Strategies Tab */}
+          {/* Auto-Generated Strategies Tab - GUIDED PIPELINE */}
           <TabsContent value="auto-strategies" className="flex-1 p-3 overflow-y-auto mt-0">
+            {/* Pipeline Step Indicator */}
+            <div className="mb-4 p-3 bg-[#0A0A0B] border border-white/5 rounded-lg">
+              <div className="flex items-center gap-4 overflow-x-auto pb-2">
+                {[
+                  { id: 'generate', label: 'Generate', icon: Rocket, number: 1 },
+                  { id: 'view', label: 'View', icon: Eye, number: 2 },
+                  { id: 'select', label: 'Select', icon: Target, number: 3 },
+                  { id: 'bot', label: 'cBot', icon: Cpu, number: 4 },
+                  { id: 'pipeline', label: 'Pipeline', icon: Activity, number: 5 },
+                ].map((step, idx) => {
+                  const isCompleted = completedPipelineSteps.includes(step.id);
+                  const isCurrent = currentPipelineStep === step.id;
+                  const Icon = step.icon;
+                  return (
+                    <div key={step.id} className="flex items-center gap-2">
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                        isCompleted ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-400' :
+                        isCurrent ? 'bg-blue-950/30 border-blue-500/40 text-blue-400' :
+                        'bg-zinc-900/50 border-white/5 text-zinc-500'
+                      }`}>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                          isCompleted ? 'bg-emerald-500/30' :
+                          isCurrent ? 'bg-blue-500/30' :
+                          'bg-zinc-800'
+                        }`}>
+                          {isCompleted ? '✓' : step.number}
+                        </div>
+                        <Icon className="w-3 h-3" />
+                        <span className="text-[10px] font-mono uppercase whitespace-nowrap">{step.label}</span>
+                      </div>
+                      {idx < 4 && <ChevronRight className="w-4 h-4 text-zinc-600" />}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
             {topStrategies.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Trophy className="w-12 h-12 text-purple-500 mb-4" />
-                <p className="text-sm text-zinc-300 font-mono mb-2">Auto Strategy Generation</p>
-                <p className="text-xs text-zinc-500 font-mono max-w-md">
-                  Click "🚀 Generate Strategies" to automatically create, backtest, and rank unique trading strategies
-                </p>
+              <div className="space-y-6">
+                {/* Quick Start Flow */}
+                <QuickStartFlow 
+                  onQuickStart={handleQuickStart}
+                  isLoading={isQuickStarting}
+                  progress={quickStartProgress}
+                />
+                
+                {/* Or Manual Generation */}
+                <div className="text-center">
+                  <p className="text-xs text-zinc-500 mb-3">— or generate manually —</p>
+                  <Button
+                    onClick={handleAutoGenerateStrategies}
+                    disabled={isAutoGenerating || !dataAvailability?.available}
+                    className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 font-mono uppercase text-xs"
+                    data-testid="manual-generate-btn"
+                  >
+                    {isAutoGenerating ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                    ) : (
+                      <><Rocket className="w-4 h-4 mr-2" /> Generate {numStrategies} Strategies</>
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Advanced Mode Toggle */}
+                <div className="flex justify-center pt-4 border-t border-white/5">
+                  <AdvancedModeToggle 
+                    enabled={advancedMode} 
+                    onToggle={() => setAdvancedMode(!advancedMode)} 
+                  />
+                </div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -2627,8 +2855,11 @@ export default function Dashboard() {
                   <div
                     key={idx}
                     className={`bg-[#0F0F10] border p-3 rounded-sm hover:border-purple-500/40 transition-colors ${
-                      idx === 0 ? 'border-yellow-500/40 bg-yellow-950/10' : 'border-purple-500/20'
-                    }`}
+                      idx === 0 ? 'border-yellow-500/40 bg-yellow-950/10' : 
+                      selectedStrategy?.id === strategy.id ? 'border-blue-500/40 bg-blue-950/10' :
+                      'border-purple-500/20'
+                    } ${selectedStrategy?.id === strategy.id ? 'ring-1 ring-blue-500/30' : ''}`}
+                    data-testid={`strategy-card-${idx}`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -2636,17 +2867,28 @@ export default function Dashboard() {
                           #{strategy.rank || idx + 1}
                         </span>
                         <div>
-                          <h4 className="text-xs font-bold text-zinc-200 font-mono">{strategy.name}</h4>
-                          <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{strategy.description}</p>
+                          <h4 className="text-xs font-bold text-zinc-200 font-mono">{strategy.name || strategy.template_id}</h4>
+                          <p className="text-[10px] text-zinc-500 mt-0.5 line-clamp-1">{strategy.description || `Template: ${strategy.template_id}`}</p>
                         </div>
                       </div>
-                      <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${
-                        (strategy.composite_score || 0) >= 0.7 ? 'border-emerald-500/40 text-emerald-400' :
-                        (strategy.composite_score || 0) >= 0.5 ? 'border-amber-500/40 text-amber-400' :
-                        'border-red-500/40 text-red-400'
-                      }`}>
-                        Score: {(strategy.composite_score || strategy.score || 0).toFixed(3)}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        {/* Fitness Score Badge - PROMINENT */}
+                        <Badge className={`text-[10px] px-2 py-0.5 font-bold ${
+                          (strategy.fitness || 0) >= 60 ? 'bg-emerald-600/30 text-emerald-400 border-emerald-500/40' :
+                          (strategy.fitness || 0) >= 40 ? 'bg-amber-600/30 text-amber-400 border-amber-500/40' :
+                          (strategy.fitness || 0) >= 25 ? 'bg-blue-600/30 text-blue-400 border-blue-500/40' :
+                          'bg-red-600/30 text-red-400 border-red-500/40'
+                        }`}>
+                          Fitness: {(strategy.fitness || 0).toFixed(1)}
+                        </Badge>
+                        <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${
+                          (strategy.composite_score || 0) >= 0.7 ? 'border-emerald-500/40 text-emerald-400' :
+                          (strategy.composite_score || 0) >= 0.5 ? 'border-amber-500/40 text-amber-400' :
+                          'border-red-500/40 text-red-400'
+                        }`}>
+                          Score: {(strategy.composite_score || strategy.score || 0).toFixed(3)}
+                        </Badge>
+                      </div>
                     </div>
 
                     {/* Enhanced metrics grid */}
