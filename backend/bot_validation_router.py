@@ -23,6 +23,14 @@ from bot_generation import (
     create_safety_injector
 )
 
+# Phase 2 Integration
+from phase2_integration import (
+    Phase2Validator,
+    Phase2Pipeline,
+    check_bot_generation_eligibility,
+    validate_and_format_response
+)
+
 logger = logging.getLogger(__name__)
 
 # Create router with /api prefix
@@ -347,3 +355,201 @@ async def list_session_validations(session_id: str):
     except Exception as e:
         logger.error(f"List validations error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list validations: {str(e)}")
+
+
+
+# ========== PHASE 2 QUALITY ENGINE ENDPOINTS (NEW) ==========
+
+class Phase2ValidationRequest(BaseModel):
+    """Request for Phase 2 strategy validation"""
+    strategy_name: str
+    profit_factor: float
+    max_drawdown_pct: float
+    sharpe_ratio: float
+    total_trades: int
+    stability_score: float = 0.0
+    win_rate: float = 0.0
+    net_profit: float = 0.0
+    composite_score: Optional[float] = None
+
+
+class Phase2ValidationResponse(BaseModel):
+    """Phase 2 validation response"""
+    success: bool
+    status: str  # "accepted" | "rejected"
+    grade: str  # A-F
+    grade_emoji: str
+    grade_description: str
+    composite_score: float
+    is_tradeable: bool
+    passes_all_filters: bool
+    rejection_reasons: List[str]
+    detailed_failures: List[Dict[str, Any]]
+    recommendation: str
+    quality: str
+    metrics: Dict[str, Any]
+
+
+class BotGenerationEligibilityRequest(BaseModel):
+    """Request to check bot generation eligibility"""
+    strategy_name: str
+    profit_factor: float
+    max_drawdown_pct: float
+    sharpe_ratio: float
+    total_trades: int
+    stability_score: float = 0.0
+    win_rate: float = 0.0
+
+
+class BotGenerationEligibilityResponse(BaseModel):
+    """Bot generation eligibility response"""
+    eligible: bool
+    message: str
+    grade: str
+    grade_emoji: str
+    validation: Dict[str, Any]
+
+
+@router.post("/phase2/validate", response_model=Phase2ValidationResponse)
+async def validate_strategy_phase2(request: Phase2ValidationRequest):
+    """
+    Phase 2: Validate strategy against strict quality standards.
+    
+    Returns comprehensive validation with:
+    - A-F letter grade
+    - Composite score
+    - Pass/fail status
+    - Detailed rejection reasons (if rejected)
+    - Trading recommendation
+    
+    New in Phase 2:
+    - Profit Factor ≥ 1.5 (was 1.2)
+    - Max Drawdown ≤ 15% (was 20%)
+    - Sharpe Ratio ≥ 1.0 (new)
+    - Minimum Trades ≥ 100 (was 50)
+    - Stability ≥ 70% (was 60%)
+    """
+    try:
+        # Convert request to strategy dict
+        strategy = {
+            'strategy_name': request.strategy_name,
+            'profit_factor': request.profit_factor,
+            'max_drawdown_pct': request.max_drawdown_pct,
+            'sharpe_ratio': request.sharpe_ratio,
+            'total_trades': request.total_trades,
+            'stability_score': request.stability_score,
+            'win_rate': request.win_rate,
+            'net_profit': request.net_profit,
+            'composite_score': request.composite_score or 0
+        }
+        
+        # Run Phase 2 validation
+        is_valid, validation = Phase2Validator.validate_strategy(strategy)
+        
+        logger.info(
+            f"Phase 2 validation - {request.strategy_name}: "
+            f"Grade {validation['grade']}, Score {validation['composite_score']:.1f}, "
+            f"Status: {validation['status']}"
+        )
+        
+        return Phase2ValidationResponse(
+            success=True,
+            status=validation['status'],
+            grade=validation['grade'],
+            grade_emoji=validation['grade_emoji'],
+            grade_description=validation['grade_description'],
+            composite_score=validation['composite_score'],
+            is_tradeable=validation['is_tradeable'],
+            passes_all_filters=validation['passes_all_filters'],
+            rejection_reasons=validation['rejection_reasons'],
+            detailed_failures=validation['detailed_failures'],
+            recommendation=validation['recommendation'],
+            quality=validation['quality'],
+            metrics=validation['metrics']
+        )
+        
+    except Exception as e:
+        logger.error(f"Phase 2 validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+
+
+@router.post("/phase2/check-eligibility", response_model=BotGenerationEligibilityResponse)
+async def check_bot_generation_eligibility_endpoint(request: BotGenerationEligibilityRequest):
+    """
+    Phase 2: Check if strategy is eligible for bot generation.
+    
+    CRITICAL GATE: Only grades A, B, C are allowed.
+    Grades D and F are BLOCKED from bot generation.
+    
+    Returns:
+    - eligible: True/False
+    - message: Human-readable reason
+    - grade: Strategy grade
+    - validation: Full validation details
+    """
+    try:
+        # Convert request to strategy dict
+        strategy = {
+            'strategy_name': request.strategy_name,
+            'profit_factor': request.profit_factor,
+            'max_drawdown_pct': request.max_drawdown_pct,
+            'sharpe_ratio': request.sharpe_ratio,
+            'total_trades': request.total_trades,
+            'stability_score': request.stability_score,
+            'win_rate': request.win_rate
+        }
+        
+        # Check eligibility
+        result = check_bot_generation_eligibility(strategy)
+        
+        logger.info(
+            f"Bot generation eligibility - {request.strategy_name}: "
+            f"{'APPROVED' if result['eligible'] else 'BLOCKED'} "
+            f"(Grade {result['grade']})"
+        )
+        
+        return BotGenerationEligibilityResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Eligibility check error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Check failed: {str(e)}")
+
+
+@router.get("/phase2/config")
+async def get_phase2_config():
+    """
+    Get Phase 2 configuration and filter rules.
+    
+    Returns current filter thresholds and grading criteria.
+    """
+    try:
+        from scoring_engine import QualityFilters
+        
+        filters = QualityFilters._get_config()
+        
+        return {
+            "success": True,
+            "version": "2.0.0",
+            "filters": {
+                "min_profit_factor": filters.min_profit_factor,
+                "max_drawdown_pct": filters.max_drawdown_pct,
+                "min_sharpe_ratio": filters.min_sharpe_ratio,
+                "min_trades": filters.min_trades,
+                "min_stability_pct": filters.min_stability_pct,
+                "min_win_rate": filters.min_win_rate
+            },
+            "grading": {
+                "A": "90-100 (Excellent - Production ready)",
+                "B": "80-89 (Good - Solid performance)",
+                "C": "70-79 (Acceptable - Minimum requirements)",
+                "D": "60-69 (Weak - Paper trade only)",
+                "F": "<60 (Fail - Do not trade)"
+            },
+            "tradeable_grades": ["A", "B", "C"],
+            "blocked_grades": ["D", "F"],
+            "message": "Phase 2 enforces strict quality standards. Only 30-45% of strategies are expected to pass."
+        }
+        
+    except Exception as e:
+        logger.error(f"Config error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
