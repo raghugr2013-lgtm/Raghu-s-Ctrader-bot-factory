@@ -27,6 +27,116 @@ class Grade(str, Enum):
     F = "F"  # Fail (<60)
 
 
+class StrategyGrader:
+    """
+    Phase 2: Strategy Grading System
+    Assigns letter grades (A-F) based on composite score and quality metrics.
+    """
+    
+    @staticmethod
+    def calculate_grade(composite_score: float, strategy: dict) -> tuple[Grade, str, dict]:
+        """
+        Calculate strategy grade based on composite score and quality filters.
+        
+        Returns:
+            (grade, description, details)
+        """
+        # Check if passes minimum filters
+        passes, fail_reasons = QualityFilters.passes_all(strategy)
+        
+        if not passes:
+            return (
+                Grade.F,
+                f"REJECTED - Failed quality filters: {', '.join(fail_reasons)}",
+                {
+                    "score": composite_score,
+                    "fail_reasons": fail_reasons,
+                    "recommendation": "Do not trade - does not meet minimum requirements"
+                }
+            )
+        
+        # Grade based on composite score
+        if composite_score >= 90.0:
+            return (
+                Grade.A,
+                "Excellent - Production ready, high confidence",
+                {
+                    "score": composite_score,
+                    "quality": "exceptional",
+                    "recommendation": "Deploy with full capital allocation"
+                }
+            )
+        elif composite_score >= 80.0:
+            return (
+                Grade.B,
+                "Good - Solid performance, ready for live trading",
+                {
+                    "score": composite_score,
+                    "quality": "strong",
+                    "recommendation": "Deploy with standard capital allocation"
+                }
+            )
+        elif composite_score >= 70.0:
+            return (
+                Grade.C,
+                "Acceptable - Passes minimum requirements",
+                {
+                    "score": composite_score,
+                    "quality": "adequate",
+                    "recommendation": "Deploy with reduced capital allocation, monitor closely"
+                }
+            )
+        elif composite_score >= 60.0:
+            return (
+                Grade.D,
+                "Weak - Marginal performance, high risk",
+                {
+                    "score": composite_score,
+                    "quality": "poor",
+                    "recommendation": "Paper trade only, not recommended for live deployment"
+                }
+            )
+        else:
+            return (
+                Grade.F,
+                "Fail - Insufficient performance",
+                {
+                    "score": composite_score,
+                    "quality": "unacceptable",
+                    "recommendation": "Do not trade - performance too weak"
+                }
+            )
+    
+    @staticmethod
+    def get_grade_emoji(grade: Grade) -> str:
+        """Get emoji for grade"""
+        emoji_map = {
+            Grade.A: "🟢",
+            Grade.B: "🔵",
+            Grade.C: "🟡",
+            Grade.D: "🟠",
+            Grade.F: "🔴"
+        }
+        return emoji_map.get(grade, "⚪")
+    
+    @staticmethod
+    def get_grade_color(grade: Grade) -> str:
+        """Get color for grade (for UI)"""
+        color_map = {
+            Grade.A: "emerald",
+            Grade.B: "blue",
+            Grade.C: "yellow",
+            Grade.D: "orange",
+            Grade.F: "red"
+        }
+        return color_map.get(grade, "gray")
+    
+    @staticmethod
+    def is_tradeable(grade: Grade) -> bool:
+        """Check if strategy is tradeable based on grade"""
+        return grade in [Grade.A, Grade.B, Grade.C]
+
+
 class CompositeScoreWeights:
     """Weights for composite score calculation - loads from config"""
     
@@ -70,19 +180,19 @@ class QualityFilters:
         """Get filter config with fallback"""
         if config_manager:
             return config_manager.filters
-        # Fallback to strict defaults
+        # Fallback to strict defaults (Phase 2)
         class DefaultFilters:
-            min_profit_factor = 1.2
-            max_drawdown_pct = 20.0
-            min_stability_pct = 60.0
-            min_trades = 50
-            min_sharpe_ratio = 0.0
-            min_win_rate = 30.0
-            strong_pf = 1.5
-            strong_dd = 15.0
-            strong_sharpe = 1.0
-            moderate_pf = 1.2
-            moderate_dd = 20.0
+            min_profit_factor = 1.5
+            max_drawdown_pct = 15.0
+            min_stability_pct = 70.0
+            min_trades = 100
+            min_sharpe_ratio = 1.0
+            min_win_rate = 35.0
+            strong_pf = 2.0
+            strong_dd = 10.0
+            strong_sharpe = 1.5
+            moderate_pf = 1.5
+            moderate_dd = 15.0
         return DefaultFilters()
     
     @classmethod
@@ -158,6 +268,106 @@ class QualityFilters:
         if not passes:
             return (False, f"Strategy does not meet quality filters: {', '.join(reasons)}")
         return (True, "Strategy validated for cBot generation")
+    
+    @classmethod
+    def get_detailed_rejection_report(cls, strategy: dict) -> dict:
+        """
+        Phase 2: Get detailed rejection report with specific failure reasons.
+        
+        Returns comprehensive rejection details for debugging and improvement.
+        """
+        f = cls._get_config()
+        passes, reasons = cls.passes_all(strategy)
+        
+        if passes:
+            return {
+                "status": "accepted",
+                "passes_all_filters": True,
+                "rejection_reasons": [],
+                "metrics": {
+                    "profit_factor": strategy.get('profit_factor', 0),
+                    "max_drawdown_pct": abs(strategy.get('max_drawdown_pct', 0)),
+                    "sharpe_ratio": strategy.get('sharpe_ratio', 0),
+                    "total_trades": strategy.get('total_trades', 0),
+                    "stability_score": strategy.get('stability_score', 0)
+                },
+                "message": "Strategy passes all quality filters"
+            }
+        
+        # Build detailed rejection report
+        rejection_details = []
+        
+        pf = strategy.get('profit_factor', 0)
+        if pf < f.min_profit_factor:
+            rejection_details.append({
+                "filter": "Profit Factor",
+                "value": round(pf, 2),
+                "threshold": f.min_profit_factor,
+                "reason": f"Profit Factor too low ({pf:.2f} < {f.min_profit_factor})",
+                "improvement_needed": f"{((f.min_profit_factor - pf) / pf * 100):.1f}%",
+                "recommendation": "Strategy needs higher win rate or better risk/reward ratio"
+            })
+        
+        dd = abs(strategy.get('max_drawdown_pct', 100))
+        if dd > f.max_drawdown_pct:
+            rejection_details.append({
+                "filter": "Max Drawdown",
+                "value": round(dd, 1),
+                "threshold": f.max_drawdown_pct,
+                "reason": f"Max Drawdown too high ({dd:.1f}% > {f.max_drawdown_pct}%)",
+                "improvement_needed": f"{dd - f.max_drawdown_pct:.1f}% reduction required",
+                "recommendation": "Implement tighter risk management, reduce position sizes, or add trailing stops"
+            })
+        
+        sharpe = strategy.get('sharpe_ratio', -999)
+        if sharpe < f.min_sharpe_ratio:
+            rejection_details.append({
+                "filter": "Sharpe Ratio",
+                "value": round(sharpe, 2),
+                "threshold": f.min_sharpe_ratio,
+                "reason": f"Sharpe Ratio too low ({sharpe:.2f} < {f.min_sharpe_ratio})",
+                "improvement_needed": f"{f.min_sharpe_ratio - sharpe:.2f} increase required",
+                "recommendation": "Improve risk-adjusted returns by reducing volatility or increasing consistency"
+            })
+        
+        trades = strategy.get('total_trades', 0)
+        if trades < f.min_trades:
+            rejection_details.append({
+                "filter": "Total Trades",
+                "value": trades,
+                "threshold": f.min_trades,
+                "reason": f"Insufficient trades ({trades} < {f.min_trades})",
+                "improvement_needed": f"{f.min_trades - trades} more trades required",
+                "recommendation": "Test with longer historical period or adjust entry conditions for more signals"
+            })
+        
+        stability = strategy.get('stability_score', 0)
+        if stability < f.min_stability_pct:
+            rejection_details.append({
+                "filter": "Stability Score",
+                "value": round(stability, 1),
+                "threshold": f.min_stability_pct,
+                "reason": f"Stability too low ({stability:.1f}% < {f.min_stability_pct}%)",
+                "improvement_needed": f"{f.min_stability_pct - stability:.1f}% increase required",
+                "recommendation": "Strategy shows inconsistent performance across different market conditions or time periods"
+            })
+        
+        return {
+            "status": "rejected",
+            "passes_all_filters": False,
+            "rejection_reasons": reasons,
+            "detailed_failures": rejection_details,
+            "failed_filter_count": len(rejection_details),
+            "metrics": {
+                "profit_factor": pf,
+                "max_drawdown_pct": dd,
+                "sharpe_ratio": sharpe,
+                "total_trades": trades,
+                "stability_score": stability
+            },
+            "message": f"Strategy REJECTED - Failed {len(rejection_details)} quality filter(s)",
+            "recommendation": "Review rejection details and improve strategy before resubmitting"
+        }
 
 
 class MetricNormalizer:
@@ -287,17 +497,20 @@ class CompositeScorer:
     
     def __init__(
         self,
-        sharpe_weight: float = CompositeScoreWeights.SHARPE_RATIO,
-        drawdown_weight: float = CompositeScoreWeights.MAX_DRAWDOWN,
-        monte_carlo_weight: float = CompositeScoreWeights.MONTE_CARLO,
-        walk_forward_weight: float = CompositeScoreWeights.WALK_FORWARD,
-        profit_factor_weight: float = CompositeScoreWeights.PROFIT_FACTOR,
+        sharpe_weight: float = None,
+        drawdown_weight: float = None,
+        monte_carlo_weight: float = None,
+        walk_forward_weight: float = None,
+        profit_factor_weight: float = None,
     ):
-        self.sharpe_weight = sharpe_weight
-        self.drawdown_weight = drawdown_weight
-        self.monte_carlo_weight = monte_carlo_weight
-        self.walk_forward_weight = walk_forward_weight
-        self.profit_factor_weight = profit_factor_weight
+        # Get weights from config or use provided
+        weights = CompositeScoreWeights.get_weights()
+        
+        self.sharpe_weight = sharpe_weight if sharpe_weight is not None else weights['sharpe_ratio']
+        self.drawdown_weight = drawdown_weight if drawdown_weight is not None else weights['max_drawdown']
+        self.monte_carlo_weight = monte_carlo_weight if monte_carlo_weight is not None else weights['monte_carlo']
+        self.walk_forward_weight = walk_forward_weight if walk_forward_weight is not None else weights['walk_forward']
+        self.profit_factor_weight = profit_factor_weight if profit_factor_weight is not None else weights['profit_factor']
         
         # Validate weights sum to 1.0
         total = sum([

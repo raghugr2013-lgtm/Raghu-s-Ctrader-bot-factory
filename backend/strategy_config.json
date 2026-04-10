@@ -1,16 +1,16 @@
 {
   "filters": {
-    "min_profit_factor": 1.2,
-    "max_drawdown_pct": 20.0,
-    "min_stability_pct": 60.0,
-    "min_trades": 50,
-    "min_sharpe_ratio": 0.0,
-    "min_win_rate": 30.0,
-    "strong_pf": 1.5,
-    "strong_dd": 15.0,
-    "strong_sharpe": 1.0,
-    "moderate_pf": 1.2,
-    "moderate_dd": 20.0
+    "min_profit_factor": 1.5,
+    "max_drawdown_pct": 15.0,
+    "min_stability_pct": 70.0,
+    "min_trades": 100,
+    "min_sharpe_ratio": 1.0,
+    "min_win_rate": 35.0,
+    "strong_pf": 2.0,
+    "strong_dd": 10.0,
+    "strong_sharpe": 1.5,
+    "moderate_pf": 1.5,
+    "moderate_dd": 15.0
   },
   "generation": {
     "default_strategy_count": 50,
@@ -36,7 +36,7 @@
     "require_take_profit": true,
     "max_position_size_pct": 2.0
   },
-  "version": "1.0.0",
-  "last_updated": "2026-04-09T18:00:00Z",
-  "updated_by": "system"
+  "version": "2.0.0",
+  "last_updated": "2026-04-10T09:30:00Z",
+  "updated_by": "phase2_quality_engine"
 }

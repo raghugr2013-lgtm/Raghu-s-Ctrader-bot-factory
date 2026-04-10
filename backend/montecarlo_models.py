@@ -22,7 +22,7 @@ class ResamplingMethod(str, Enum):
 class MonteCarloConfig(BaseModel):
     """Monte Carlo simulation configuration"""
     
-    # Number of simulations
+    # Number of simulations (Phase 2: increased to 1000)
     num_simulations: int = 1000
     
     # Resampling method
@@ -37,6 +37,10 @@ class MonteCarloConfig(BaseModel):
     
     # Risk thresholds
     ruin_threshold_percent: float = 50.0  # Consider ruined if balance drops 50%
+    
+    # Phase 2: Stability thresholds
+    high_variance_threshold: float = 0.30  # Reject if variance/mean > 30%
+    min_profitable_simulations_pct: float = 70.0  # At least 70% sims must be profitable
 
 
 class SimulationRun(BaseModel):
@@ -108,6 +112,10 @@ class MonteCarloScore(BaseModel):
     profit_stability_score: float  # Higher profit prob = higher score
     ruin_resistance_score: float  # Lower ruin prob = higher score
     
+    # Phase 2: Additional stability metrics
+    variance_stability_score: float = 0.0  # Coefficient of variation score
+    downside_protection_score: float = 0.0  # Score based on worst-case scenarios
+    
     # Overall robustness score (0-100)
     total_score: float
     
@@ -117,6 +125,9 @@ class MonteCarloScore(BaseModel):
     # Risk assessment
     risk_level: str  # "Low", "Medium", "High", "Very High"
     is_robust: bool  # True if score >= 70
+    
+    # Phase 2: High variance flag
+    is_high_variance: bool = False  # True if variance/mean > threshold
     
     # Insights
     strengths: List[str]
