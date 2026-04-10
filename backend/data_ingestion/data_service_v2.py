@@ -214,6 +214,19 @@ class DataServiceV2:
         
         return stored
     
+    async def store_m1_candles(self, candles: List[M1Candle]) -> int:
+        """
+        Public method to store M1 candles.
+        Used by Dukascopy downloader background task.
+        
+        Args:
+            candles: List of M1Candle objects
+        
+        Returns:
+            Number of candles stored
+        """
+        return await self._store_candles(candles)
+    
     # ========== RETRIEVAL METHODS ==========
     
     async def get_candles(

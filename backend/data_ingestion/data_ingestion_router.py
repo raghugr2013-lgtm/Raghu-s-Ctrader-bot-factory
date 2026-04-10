@@ -1,10 +1,13 @@
 """
-Data Ingestion Router V2 - Enhanced with Bulk Upload and Export
+Data Ingestion Router V2 - Enhanced with Bulk Upload, Export, and Dukascopy Download
 
 Endpoints:
 - POST /api/v2/data/upload/csv - Upload M1 CSV
 - POST /api/v2/data/upload/bi5 - Upload single BI5 file
 - POST /api/v2/data/upload/bi5-zip - Upload ZIP of BI5 files (BULK)
+- POST /api/v2/data/download/dukascopy - Download from Dukascopy (NEW)
+- GET  /api/v2/data/download/status/{job_id} - Check download progress (NEW)
+- GET  /api/v2/data/download/estimate - Estimate download size (NEW)
 - GET  /api/v2/data/export/m1/{symbol} - Export M1 data as CSV
 - GET  /api/v2/data/export/{timeframe}/{symbol} - Export aggregated data
 - GET  /api/v2/data/candles/{symbol}/{timeframe} - Get candles
@@ -23,7 +26,7 @@ import os
 import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Body
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Body, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import asyncio
@@ -34,6 +37,9 @@ router = APIRouter(prefix="/api/v2/data", tags=["Data Ingestion V2"])
 
 # Will be set by init function
 data_service = None
+
+# In-memory progress tracking for download jobs
+download_jobs = {}
 
 
 # ========== REQUEST/RESPONSE MODELS ==========
@@ -124,6 +130,56 @@ class GapDetectionResponse(BaseModel):
     total_missing_minutes: int
 
 
+class DukascopyDownloadRequest(BaseModel):
+    """Request model for Dukascopy download"""
+    symbol: str = Field(..., description="Trading symbol (e.g., EURUSD)")
+    start_date: str = Field(..., description="Start date ISO format (e.g., 2024-01-01T00:00:00)")
+    end_date: str = Field(..., description="End date ISO format")
+
+
+class DukascopyDownloadResponse(BaseModel):
+    """Response for Dukascopy download"""
+    success: bool
+    job_id: str
+    symbol: str
+    start_date: str
+    end_date: str
+    estimated_hours: int
+    estimated_size_mb: float
+    message: str
+    status: str = "queued"
+
+
+class DownloadProgressResponse(BaseModel):
+    """Progress response for download job"""
+    job_id: str
+    symbol: str
+    status: str
+    progress_percent: float
+    current_hour: str
+    hours_completed: int
+    hours_total: int
+    hours_successful: int
+    hours_failed: int
+    candles_stored: int
+    current_status: str
+    errors: List[str]
+    completed: bool
+
+
+class DownloadEstimateResponse(BaseModel):
+    """Estimate response"""
+    symbol: str
+    start_date: str
+    end_date: str
+    total_hours: int
+    total_days: float
+    estimated_size_mb: float
+    estimated_time_minutes: float
+    estimated_m1_candles: int
+    warnings: List[str]
+
+
 # ========== INITIALIZATION ==========
 
 def init_data_ingestion_router(service):
@@ -131,6 +187,308 @@ def init_data_ingestion_router(service):
     global data_service
     data_service = service
     logger.info("Data Ingestion Router V2 initialized with full features")
+
+
+# ========== DUKASCOPY DOWNLOAD (NEW) ==========
+
+@router.post("/download/dukascopy", response_model=DukascopyDownloadResponse)
+async def download_dukascopy(
+    request: DukascopyDownloadRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Download tick data from Dukascopy and convert to M1.
+    
+    This endpoint:
+    1. Creates a background download job
+    2. Returns job_id immediately
+    3. Downloads BI5 files for each hour in date range
+    4. Converts tick data to M1 candles
+    5. Stores in database with HIGH confidence
+    
+    Use /download/status/{job_id} to track progress.
+    """
+    if data_service is None:
+        raise HTTPException(status_code=500, detail="Data service not initialized")
+    
+    try:
+        # Parse dates
+        start_date = datetime.fromisoformat(request.start_date.replace("Z", "+00:00"))
+        end_date = datetime.fromisoformat(request.end_date.replace("Z", "+00:00"))
+        
+        # Ensure UTC
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
+        
+        # Validate date range
+        if start_date >= end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="start_date must be before end_date"
+            )
+        
+        # Check range isn't too large (max 1 year)
+        days_diff = (end_date - start_date).days
+        if days_diff > 365:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Date range too large: {days_diff} days. Maximum 365 days (1 year)."
+            )
+        
+        # Calculate hours
+        hours = []
+        current = start_date.replace(minute=0, second=0, microsecond=0)
+        while current <= end_date:
+            hours.append(current)
+            current += timedelta(hours=1)
+        
+        total_hours = len(hours)
+        estimated_size_mb = (total_hours * 100) / 1024  # Assume 100KB avg per hour
+        
+        # Create job ID
+        job_id = str(uuid.uuid4())
+        
+        # Initialize progress tracking
+        download_jobs[job_id] = {
+            "job_id": job_id,
+            "symbol": request.symbol.upper(),
+            "start_date": start_date,
+            "end_date": end_date,
+            "status": "queued",
+            "progress_percent": 0.0,
+            "current_hour": start_date,
+            "hours_completed": 0,
+            "hours_total": total_hours,
+            "hours_successful": 0,
+            "hours_failed": 0,
+            "candles_stored": 0,
+            "current_status": "Queued",
+            "errors": [],
+            "completed": False
+        }
+        
+        # Start background download
+        background_tasks.add_task(
+            execute_dukascopy_download,
+            job_id=job_id,
+            symbol=request.symbol.upper(),
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        logger.info(
+            f"Dukascopy download job created: {job_id} - {request.symbol} "
+            f"{start_date.date()} to {end_date.date()} ({total_hours} hours)"
+        )
+        
+        return DukascopyDownloadResponse(
+            success=True,
+            job_id=job_id,
+            symbol=request.symbol.upper(),
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat(),
+            estimated_hours=total_hours,
+            estimated_size_mb=round(estimated_size_mb, 2),
+            message=f"Download job started. Track progress at /download/status/{job_id}",
+            status="queued"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Dukascopy download error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def execute_dukascopy_download(
+    job_id: str,
+    symbol: str,
+    start_date: datetime,
+    end_date: datetime
+):
+    """
+    Background task to execute Dukascopy download.
+    
+    This function:
+    1. Downloads BI5 files hour-by-hour
+    2. Converts to M1 using existing bi5_processor
+    3. Stores in database
+    4. Updates progress in download_jobs dict
+    """
+    try:
+        from .dukascopy_downloader import DukascopyDownloader
+        from .bi5_processor import BI5Processor
+        
+        # Initialize downloader
+        downloader = DukascopyDownloader(
+            timeout_seconds=30,
+            max_retries=3,
+            retry_delay_seconds=2.0
+        )
+        
+        # Initialize processor
+        try:
+            from bi5_decoder import BI5Decoder
+            processor = BI5Processor(bi5_decoder=BI5Decoder())
+        except ImportError:
+            logger.error("BI5Decoder not available")
+            download_jobs[job_id]["status"] = "failed"
+            download_jobs[job_id]["errors"].append("BI5Decoder library not available")
+            download_jobs[job_id]["completed"] = True
+            return
+        
+        # Update status
+        download_jobs[job_id]["status"] = "running"
+        download_jobs[job_id]["current_status"] = "Starting download..."
+        
+        # Generate hour list
+        hours = []
+        current = start_date.replace(minute=0, second=0, microsecond=0)
+        while current <= end_date:
+            hours.append(current)
+            current += timedelta(hours=1)
+        
+        total_hours = len(hours)
+        upload_batch_id = str(uuid.uuid4())
+        
+        logger.info(f"Job {job_id}: Starting download of {total_hours} hours")
+        
+        # Download and process each hour
+        for i, hour in enumerate(hours):
+            try:
+                # Update progress
+                download_jobs[job_id]["current_hour"] = hour
+                download_jobs[job_id]["hours_completed"] = i
+                download_jobs[job_id]["progress_percent"] = (i / total_hours) * 100
+                download_jobs[job_id]["current_status"] = f"Downloading {hour.date()} {hour.hour:02d}:00"
+                
+                # Download BI5 file
+                bi5_data = await downloader.download_hour(symbol, hour)
+                
+                if bi5_data:
+                    # Process tick data to M1
+                    result = await processor.process_upload(
+                        file_bytes=bi5_data,
+                        symbol=symbol,
+                        base_datetime=hour,
+                        upload_batch_id=upload_batch_id
+                    )
+                    
+                    if result.success and result.candles:
+                        # Store in database
+                        await data_service.store_m1_candles(result.candles)
+                        
+                        download_jobs[job_id]["hours_successful"] += 1
+                        download_jobs[job_id]["candles_stored"] += len(result.candles)
+                        
+                        logger.info(
+                            f"Job {job_id}: Processed {hour} - {len(result.candles)} M1 candles"
+                        )
+                    else:
+                        download_jobs[job_id]["hours_failed"] += 1
+                        if result.errors:
+                            download_jobs[job_id]["errors"].append(
+                                f"{hour}: {result.errors[0]}"
+                            )
+                else:
+                    # No data available (weekend, holiday)
+                    download_jobs[job_id]["hours_failed"] += 1
+                    logger.debug(f"Job {job_id}: No data for {hour} (expected for weekends/holidays)")
+            
+            except Exception as hour_error:
+                download_jobs[job_id]["hours_failed"] += 1
+                error_msg = f"{hour}: {str(hour_error)}"
+                download_jobs[job_id]["errors"].append(error_msg)
+                logger.error(f"Job {job_id}: Hour processing error - {error_msg}")
+        
+        # Final update
+        download_jobs[job_id]["hours_completed"] = total_hours
+        download_jobs[job_id]["progress_percent"] = 100.0
+        download_jobs[job_id]["status"] = "completed"
+        download_jobs[job_id]["completed"] = True
+        download_jobs[job_id]["current_status"] = (
+            f"Complete: {download_jobs[job_id]['hours_successful']}/{total_hours} hours, "
+            f"{download_jobs[job_id]['candles_stored']} M1 candles"
+        )
+        
+        logger.info(
+            f"Job {job_id}: Download complete - "
+            f"{download_jobs[job_id]['hours_successful']} successful, "
+            f"{download_jobs[job_id]['hours_failed']} failed, "
+            f"{download_jobs[job_id]['candles_stored']} M1 candles stored"
+        )
+        
+    except Exception as e:
+        logger.error(f"Job {job_id}: Fatal error - {str(e)}", exc_info=True)
+        download_jobs[job_id]["status"] = "failed"
+        download_jobs[job_id]["completed"] = True
+        download_jobs[job_id]["errors"].append(f"Fatal error: {str(e)}")
+
+
+@router.get("/download/status/{job_id}", response_model=DownloadProgressResponse)
+async def get_download_status(job_id: str):
+    """
+    Get progress status for Dukascopy download job.
+    
+    Poll this endpoint to track download progress.
+    """
+    if job_id not in download_jobs:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    
+    job = download_jobs[job_id]
+    
+    return DownloadProgressResponse(
+        job_id=job["job_id"],
+        symbol=job["symbol"],
+        status=job["status"],
+        progress_percent=job["progress_percent"],
+        current_hour=job["current_hour"].isoformat() if isinstance(job["current_hour"], datetime) else job["current_hour"],
+        hours_completed=job["hours_completed"],
+        hours_total=job["hours_total"],
+        hours_successful=job["hours_successful"],
+        hours_failed=job["hours_failed"],
+        candles_stored=job["candles_stored"],
+        current_status=job["current_status"],
+        errors=job["errors"][:10],  # Limit to 10 most recent errors
+        completed=job["completed"]
+    )
+
+
+@router.get("/download/estimate", response_model=DownloadEstimateResponse)
+async def estimate_download(
+    symbol: str = Query(..., description="Trading symbol"),
+    start_date: str = Query(..., description="Start date ISO format"),
+    end_date: str = Query(..., description="End date ISO format")
+):
+    """
+    Estimate download size and time before starting download.
+    
+    Helps users understand the scope of their download request.
+    """
+    try:
+        from .dukascopy_downloader import DukascopyDownloader
+        
+        # Parse dates
+        start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        
+        # Ensure UTC
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        
+        # Get estimate
+        downloader = DukascopyDownloader()
+        estimate = await downloader.estimate_data_size(symbol, start, end)
+        
+        return DownloadEstimateResponse(**estimate)
+        
+    except Exception as e:
+        logger.error(f"Estimate error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ========== CSV UPLOAD (FIXED) ==========
@@ -1004,6 +1362,7 @@ async def health_check():
             "CSV upload (M1 only)",
             "BI5 single file upload",
             "BI5 ZIP bulk upload",
+            "Dukascopy auto-download (NEW)",
             "M1 export download",
             "Aggregated TF export",
             "On-demand timeframe aggregation",
@@ -1015,6 +1374,7 @@ async def health_check():
             "NO interpolation or synthetic data",
             "Higher TF CSV REJECTED by default",
             "All timeframes derived from M1",
-            "Exports always from M1 source"
+            "Exports always from M1 source",
+            "Dukascopy downloads tick data → M1 conversion"
         ]
     }

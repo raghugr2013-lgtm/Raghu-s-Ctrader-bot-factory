@@ -180,7 +180,7 @@ class BI5Processor:
                 result.errors.append("BI5 decoder not available")
                 return result
             
-            ticks = self.decoder.decode(file_bytes)
+            ticks = self.decoder.decode_bi5(file_bytes)
             
             if not ticks:
                 result.warnings.append(f"No ticks found in BI5 file for {base_datetime}")

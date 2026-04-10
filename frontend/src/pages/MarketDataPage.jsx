@@ -80,12 +80,46 @@ export default function MarketDataPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDeleteSymbol, setPendingDeleteSymbol] = useState(null);
   const [deletingSymbol, setDeletingSymbol] = useState(null);
+  
+  // Dukascopy Download States
+  const [dukascopySymbol, setDukascopySymbol] = useState('EURUSD');
+  const [dukascopyStartDate, setDukascopyStartDate] = useState('');
+  const [dukascopyEndDate, setDukascopyEndDate] = useState('');
+  const [downloadJobId, setDownloadJobId] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(null);
+  const [downloadingDukascopy, setDownloadingDukascopy] = useState(false);
+  const [showDownloadEstimate, setShowDownloadEstimate] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'coverage') {
       loadCoverage();
     }
   }, [activeTab, selectedCoverageSymbol]);
+  
+  // Poll download progress
+  useEffect(() => {
+    if (downloadJobId && !downloadProgress?.completed) {
+      const interval = setInterval(async () => {
+        try {
+          const response = await axios.get(`${API_V2}/download/status/${downloadJobId}`);
+          setDownloadProgress(response.data);
+          
+          if (response.data.completed) {
+            setDownloadingDukascopy(false);
+            if (response.data.status === 'completed') {
+              toast.success(`Download complete: ${response.data.candles_stored} M1 candles stored`);
+            } else {
+              toast.error('Download failed');
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch download progress:', error);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [downloadJobId, downloadProgress?.completed]);
 
   // Load coverage
   const loadCoverage = async () => {
@@ -408,6 +442,56 @@ export default function MarketDataPage() {
       setPendingDeleteSymbol(null);
     }
   };
+  
+  // Dukascopy Download Functions
+  const estimateDukascopyDownload = async () => {
+    if (!dukascopyStartDate || !dukascopyEndDate) {
+      toast.error('Please select start and end dates');
+      return;
+    }
+    
+    try {
+      const response = await axios.get(`${API_V2}/download/estimate`, {
+        params: {
+          symbol: dukascopySymbol,
+          start_date: new Date(dukascopyStartDate).toISOString(),
+          end_date: new Date(dukascopyEndDate).toISOString()
+        }
+      });
+      setShowDownloadEstimate(response.data);
+      toast.success('Estimate calculated');
+    } catch (error) {
+      toast.error(`Estimate failed: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+  
+  const startDukascopyDownload = async () => {
+    if (!dukascopyStartDate || !dukascopyEndDate) {
+      toast.error('Please select start and end dates');
+      return;
+    }
+    
+    setDownloadingDukascopy(true);
+    setDownloadProgress(null);
+    setDownloadJobId(null);
+    
+    try {
+      const response = await axios.post(`${API_V2}/download/dukascopy`, {
+        symbol: dukascopySymbol,
+        start_date: new Date(dukascopyStartDate).toISOString(),
+        end_date: new Date(dukascopyEndDate).toISOString()
+      });
+      
+      if (response.data.success) {
+        setDownloadJobId(response.data.job_id);
+        toast.success(`Download started: ${response.data.estimated_hours} hours to process`);
+        setShowDownloadEstimate(null);
+      }
+    } catch (error) {
+      toast.error(`Download failed: ${error.response?.data?.detail || error.message}`);
+      setDownloadingDukascopy(false);
+    }
+  };
 
   const ConfidenceBadge = ({ level }) => {
     const config = CONFIDENCE_COLORS[level] || CONFIDENCE_COLORS.low;
@@ -512,6 +596,9 @@ export default function MarketDataPage() {
           <TabsList className="bg-[#0F0F10] border border-white/10 p-1">
             <TabsTrigger value="upload" className="data-[state=active]:bg-blue-600">
               <Upload className="w-4 h-4 mr-2" />Upload
+            </TabsTrigger>
+            <TabsTrigger value="download" className="data-[state=active]:bg-blue-600">
+              <Database className="w-4 h-4 mr-2" />Dukascopy
             </TabsTrigger>
             <TabsTrigger value="coverage" className="data-[state=active]:bg-blue-600">
               <Layers className="w-4 h-4 mr-2" />Coverage
@@ -745,6 +832,243 @@ export default function MarketDataPage() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          {/* Dukascopy Download Tab */}
+          <TabsContent value="download">
+            <Card className="bg-[#0F0F10] border-white/10 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-bold flex items-center gap-2">
+                    <Database className="w-5 h-5 text-blue-400" />
+                    Download from Dukascopy
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Download historical tick data and convert to M1 (SSOT compliant)
+                  </p>
+                </div>
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/20">
+                  <ShieldCheck className="w-3 h-3 mr-1" />
+                  HIGH CONFIDENCE
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Download Form */}
+                <div className="space-y-4">
+                  {/* Symbol Selection */}
+                  <div>
+                    <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">
+                      Symbol
+                    </label>
+                    <Select value={dukascopySymbol} onValueChange={setDukascopySymbol}>
+                      <SelectTrigger className="bg-[#18181B] border-white/10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SYMBOLS.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={dukascopyStartDate}
+                        onChange={(e) => setDukascopyStartDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#18181B] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-400 uppercase tracking-wider mb-2 block">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={dukascopyEndDate}
+                        onChange={(e) => setDukascopyEndDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#18181B] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Estimate Button */}
+                  <Button
+                    onClick={estimateDukascopyDownload}
+                    className="w-full bg-zinc-700 hover:bg-zinc-600"
+                    disabled={!dukascopyStartDate || !dukascopyEndDate}
+                  >
+                    <Info className="w-4 h-4 mr-2" />
+                    Estimate Download
+                  </Button>
+
+                  {/* Estimate Display */}
+                  {showDownloadEstimate && (
+                    <div className="bg-[#18181B] border border-blue-500/30 rounded-lg p-4 space-y-2">
+                      <h3 className="text-sm font-bold text-blue-400 flex items-center gap-2">
+                        <Info className="w-4 h-4" />
+                        Download Estimate
+                      </h3>
+                      <div className="space-y-1 text-xs text-zinc-400">
+                        <div className="flex justify-between">
+                          <span>Total Hours:</span>
+                          <span className="text-white font-medium">{showDownloadEstimate.total_hours}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Days:</span>
+                          <span className="text-white font-medium">{showDownloadEstimate.total_days.toFixed(1)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Estimated Size:</span>
+                          <span className="text-white font-medium">{showDownloadEstimate.estimated_size_mb} MB</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Est. Time:</span>
+                          <span className="text-white font-medium">{showDownloadEstimate.estimated_time_minutes.toFixed(1)} min</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Est. M1 Candles:</span>
+                          <span className="text-white font-medium">{showDownloadEstimate.estimated_m1_candles.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Download Button */}
+                  <Button
+                    onClick={startDukascopyDownload}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={downloadingDukascopy || !dukascopyStartDate || !dukascopyEndDate}
+                  >
+                    {downloadingDukascopy ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Start Download
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {/* Progress Display */}
+                <div className="space-y-4">
+                  {downloadProgress && (
+                    <>
+                      {/* Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-zinc-400">Progress</span>
+                          <span className="text-white font-medium">
+                            {downloadProgress.progress_percent.toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress value={downloadProgress.progress_percent} className="h-2" />
+                      </div>
+
+                      {/* Status Card */}
+                      <div className="bg-[#18181B] border border-white/10 rounded-lg p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          {downloadProgress.completed ? (
+                            downloadProgress.status === 'completed' ? (
+                              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-red-400" />
+                            )
+                          ) : (
+                            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {downloadProgress.current_status}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="bg-[#0F0F10] p-2 rounded">
+                            <div className="text-zinc-500">Completed</div>
+                            <div className="text-white font-medium mt-1">
+                              {downloadProgress.hours_completed} / {downloadProgress.hours_total}
+                            </div>
+                          </div>
+                          <div className="bg-[#0F0F10] p-2 rounded">
+                            <div className="text-zinc-500">Successful</div>
+                            <div className="text-emerald-400 font-medium mt-1">
+                              {downloadProgress.hours_successful}
+                            </div>
+                          </div>
+                          <div className="bg-[#0F0F10] p-2 rounded">
+                            <div className="text-zinc-500">Failed/Skipped</div>
+                            <div className="text-yellow-400 font-medium mt-1">
+                              {downloadProgress.hours_failed}
+                            </div>
+                          </div>
+                          <div className="bg-[#0F0F10] p-2 rounded">
+                            <div className="text-zinc-500">M1 Candles</div>
+                            <div className="text-blue-400 font-medium mt-1">
+                              {downloadProgress.candles_stored.toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Errors */}
+                        {downloadProgress.errors.length > 0 && (
+                          <div className="bg-red-500/10 border border-red-500/30 rounded p-3">
+                            <div className="flex items-center gap-2 text-red-400 text-xs font-medium mb-2">
+                              <AlertTriangle className="w-4 h-4" />
+                              Errors ({downloadProgress.errors.length})
+                            </div>
+                            <div className="space-y-1 text-xs text-red-300/70 max-h-20 overflow-y-auto">
+                              {downloadProgress.errors.slice(0, 5).map((err, i) => (
+                                <div key={i}>{err}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {!downloadProgress && (
+                    <div className="bg-[#18181B] border border-white/10 rounded-lg p-6 text-center text-zinc-500 text-sm">
+                      <Database className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p>No active download</p>
+                      <p className="text-xs mt-1">Configure and start download to see progress</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Info Box */}
+              <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-zinc-400 space-y-1">
+                    <p>
+                      <span className="text-white font-medium">Source:</span> Dukascopy historical tick data (BI5 format)
+                    </p>
+                    <p>
+                      <span className="text-white font-medium">Process:</span> Downloads hourly tick files → Converts to M1 → Stores in database
+                    </p>
+                    <p>
+                      <span className="text-white font-medium">Confidence:</span> HIGH (direct tick data, no interpolation)
+                    </p>
+                    <p>
+                      <span className="text-white font-medium">Note:</span> Weekends and holidays will have no data (expected behavior)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
           </TabsContent>
 
           {/* Coverage Tab */}
