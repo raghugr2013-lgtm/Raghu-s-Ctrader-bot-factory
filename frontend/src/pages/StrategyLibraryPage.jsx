@@ -65,6 +65,12 @@ function StrategyCard({ strategy, onView, onCopy }) {
   const score = strategy.score || {};
   const source = strategy.source || {};
   const metadata = strategy.metadata || {};
+  const phase2 = strategy.phase2 || {}; // Phase 2 data
+  
+  // Determine grade from phase2 or fallback to score
+  const displayGrade = phase2.grade || score.grade || 'C';
+  const isTradeable = phase2.is_tradeable !== undefined ? phase2.is_tradeable : true;
+  const isRejected = phase2.status === 'rejected';
   
   return (
     <div className="group relative bg-[#111827] border border-[#1F2937] rounded-2xl p-5 transition-all duration-300 hover:border-cyan-500/40 hover:-translate-y-1 hover:shadow-xl hover:shadow-cyan-500/5">
@@ -90,39 +96,105 @@ function StrategyCard({ strategy, onView, onCopy }) {
               )}
             </div>
           </div>
-          <GradeBadge grade={score.grade} />
+          <GradeBadge grade={displayGrade} />
         </div>
+        
+        {/* Phase 2 Validation Badge */}
+        {phase2.grade && (
+          <div className="mb-3">
+            <Badge variant="outline" className={`text-[10px] ${
+              phase2.grade === 'A' ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/10' :
+              phase2.grade === 'B' ? 'border-blue-500/40 text-blue-400 bg-blue-500/10' :
+              phase2.grade === 'C' ? 'border-yellow-500/40 text-yellow-400 bg-yellow-500/10' :
+              phase2.grade === 'D' ? 'border-orange-500/40 text-orange-400 bg-orange-500/10' :
+              'border-red-500/40 text-red-400 bg-red-500/10'
+            }`}>
+              Phase 2 Validated • Grade {phase2.grade_emoji || ''} {phase2.grade}
+              {!isTradeable && ' • Not Tradeable'}
+            </Badge>
+          </div>
+        )}
+        
+        {/* Rejection Reasons */}
+        {isRejected && phase2.rejection_reasons && phase2.rejection_reasons.length > 0 && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-red-400 text-xs font-medium mb-2">
+              <AlertTriangle className="w-4 h-4" />
+              Strategy Rejected
+            </div>
+            <div className="space-y-1 text-xs text-red-300/70">
+              {phase2.rejection_reasons.slice(0, 2).map((reason, i) => (
+                <div key={i}>• {reason}</div>
+              ))}
+              {phase2.rejection_reasons.length > 2 && (
+                <div className="text-red-400/50 italic">+{phase2.rejection_reasons.length - 2} more...</div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Score highlight */}
         <div className="mb-4 pb-4 border-b border-[#1F2937]">
           <div className="flex items-baseline gap-2">
             <span className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
-              {score.total_score?.toFixed(1) || 'N/A'}
+              {phase2.composite_score?.toFixed(1) || score.total_score?.toFixed(1) || 'N/A'}
             </span>
             <span className="text-sm text-zinc-500">/100</span>
           </div>
-          <p className="text-xs text-zinc-500 mt-1">Total Score</p>
+          <p className="text-xs text-zinc-500 mt-1">
+            {phase2.composite_score ? 'Phase 2 Score' : 'Total Score'}
+          </p>
         </div>
         
-        {/* Metrics */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <MetricPill 
-            value={score.max_drawdown} 
-            suffix="%" 
-            label="Max DD"
-            good={score.max_drawdown < 6}
-          />
-          <MetricPill 
-            value={score.risk_of_ruin} 
-            suffix="%" 
-            label="RoR"
-            good={score.risk_of_ruin < 5}
-          />
-          <MetricPill 
-            value={score.prop_score?.toFixed(0)} 
-            label="Prop"
-          />
-        </div>
+        {/* Phase 2 Metrics (if available) */}
+        {phase2.metrics && (
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            <MetricPill 
+              value={phase2.metrics.profit_factor?.toFixed(2)} 
+              label="Profit Factor"
+              good={phase2.metrics.profit_factor >= 1.5}
+            />
+            <MetricPill 
+              value={phase2.metrics.max_drawdown_pct?.toFixed(1)} 
+              suffix="%" 
+              label="Max DD"
+              good={phase2.metrics.max_drawdown_pct <= 15}
+            />
+            <MetricPill 
+              value={phase2.metrics.sharpe_ratio?.toFixed(2)} 
+              label="Sharpe"
+              good={phase2.metrics.sharpe_ratio >= 1.0}
+            />
+            <MetricPill 
+              value={phase2.metrics.stability_score?.toFixed(0)} 
+              suffix="%" 
+              label="Stability"
+              good={phase2.metrics.stability_score >= 70}
+            />
+          </div>
+        )}
+        
+        {/* Original Metrics (fallback if no Phase 2 data) */}
+        {!phase2.metrics && (
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <MetricPill 
+              value={score.max_drawdown} 
+              suffix="%" 
+              label="Max DD"
+              good={score.max_drawdown < 6}
+            />
+            <MetricPill 
+              value={score.risk_of_ruin} 
+              suffix="%" 
+              label="RoR"
+              good={score.risk_of_ruin < 5}
+            />
+            <MetricPill 
+              value={score.prop_score?.toFixed(0)} 
+              label="Prop"
+            />
+          </div>
+        )}
         
         {/* Actions */}
         <div className="flex gap-2">
@@ -139,12 +211,26 @@ function StrategyCard({ strategy, onView, onCopy }) {
             variant="ghost"
             size="sm"
             onClick={() => onCopy(strategy._id)}
-            className="flex-1 h-9 bg-[#0B0F14] hover:bg-violet-500/10 text-zinc-300 hover:text-violet-400 border border-[#1F2937] hover:border-violet-500/30 transition-all"
+            disabled={!isTradeable}
+            title={!isTradeable ? 'Strategy does not meet quality requirements' : 'Copy bot code'}
+            className={`flex-1 h-9 bg-[#0B0F14] border border-[#1F2937] transition-all ${
+              isTradeable 
+                ? 'hover:bg-violet-500/10 text-zinc-300 hover:text-violet-400 hover:border-violet-500/30'
+                : 'opacity-50 cursor-not-allowed text-zinc-600'
+            }`}
           >
             <Code2 className="w-4 h-4 mr-2" />
-            Copy Bot
+            {isTradeable ? 'Copy Bot' : 'Blocked'}
           </Button>
         </div>
+        
+        {/* Not Tradeable Warning */}
+        {!isTradeable && (
+          <div className="mt-3 text-xs text-orange-400/70 flex items-center gap-1">
+            <Shield className="w-3 h-3" />
+            Grade {displayGrade} strategies cannot generate bots
+          </div>
+        )}
       </div>
     </div>
   );
@@ -410,6 +496,9 @@ export default function StrategyLibraryPage() {
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('desc');
   const [limit, setLimit] = useState(20);
+  
+  // Phase 2 Filters
+  const [gradeFilter, setGradeFilter] = useState('all'); // 'all', 'tradeable', 'A', 'B', 'C', 'D', 'F'
 
   const fetchStrategies = useCallback(async () => {
     setIsLoading(true);
@@ -440,13 +529,30 @@ export default function StrategyLibraryPage() {
         return sortOrder === 'desc' ? bVal - aVal : aVal - bVal;
       });
       
+      // Apply Phase 2 grade filter
+      if (gradeFilter !== 'all') {
+        if (gradeFilter === 'tradeable') {
+          // Filter for tradeable grades only (A, B, C)
+          data = data.filter(s => {
+            const grade = s.phase2?.grade || s.grade || 'F';
+            return ['A', 'B', 'C'].includes(grade);
+          });
+        } else {
+          // Filter for specific grade
+          data = data.filter(s => {
+            const grade = s.phase2?.grade || s.grade || 'F';
+            return grade === gradeFilter;
+          });
+        }
+      }
+      
       setStrategies(data);
     } catch (error) {
       toast.error('Failed to load strategies');
     } finally {
       setIsLoading(false);
     }
-  }, [categoryFilter, sortBy, sortOrder, limit]);
+  }, [categoryFilter, sortBy, sortOrder, limit, gradeFilter]);
 
   const fetchStatistics = async () => {
     try {
@@ -586,6 +692,22 @@ export default function StrategyLibraryPage() {
                 <SelectItem value="mean_reversion">Mean Reversion</SelectItem>
                 <SelectItem value="breakout">Breakout</SelectItem>
                 <SelectItem value="scalping">Scalping</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {/* Phase 2 Grade Filter */}
+            <Select value={gradeFilter} onValueChange={setGradeFilter}>
+              <SelectTrigger className="w-48 bg-[#0B0F14] border-[#1F2937] text-white">
+                <SelectValue placeholder="Grade Filter" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#111827] border-[#1F2937]">
+                <SelectItem value="all">All Grades</SelectItem>
+                <SelectItem value="tradeable">✅ Tradeable Only (A,B,C)</SelectItem>
+                <SelectItem value="A">🟢 Grade A (Excellent)</SelectItem>
+                <SelectItem value="B">🔵 Grade B (Good)</SelectItem>
+                <SelectItem value="C">🟡 Grade C (Acceptable)</SelectItem>
+                <SelectItem value="D">🟠 Grade D (Weak)</SelectItem>
+                <SelectItem value="F">🔴 Grade F (Fail)</SelectItem>
               </SelectContent>
             </Select>
             
