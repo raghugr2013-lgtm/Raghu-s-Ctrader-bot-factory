@@ -148,6 +148,9 @@ class IngestionResult(BaseModel):
     upload_batch_id: str
     symbol: str
     
+    # The actual M1 candles (for passing to storage)
+    candles: List[Any] = Field(default_factory=list)
+    
     # Counts
     candles_processed: int = 0
     candles_stored: int = 0

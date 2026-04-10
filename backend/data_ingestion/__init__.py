@@ -36,6 +36,7 @@ from .timeframe_aggregator import TimeframeAggregator, AggregatedCandlesResult
 from .data_service_v2 import DataServiceV2
 from .data_ingestion_router import router as data_ingestion_router, init_data_ingestion_router
 from .backtest_data_adapter import BacktestDataAdapter, DataQualityError, get_candles_for_backtest
+from .legacy_adapter import LegacyDataAdapter, create_legacy_adapter
 
 __all__ = [
     # Confidence System
@@ -83,6 +84,10 @@ __all__ = [
     "BacktestDataAdapter",
     "DataQualityError",
     "get_candles_for_backtest",
+    
+    # Legacy Compatibility
+    "LegacyDataAdapter",
+    "create_legacy_adapter",
 ]
 
 # Module version
