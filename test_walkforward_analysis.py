@@ -7,7 +7,7 @@ Since the filtering is too strict for the limited data, let's verify the walk-fo
 import requests
 import json
 
-BACKEND_URL = "https://codebase-review-86.preview.emergentagent.com/api"
+BACKEND_URL = "https://ai-bot-factory-audit.preview.emergentagent.com/api"
 
 def test_walkforward_implementation():
     """

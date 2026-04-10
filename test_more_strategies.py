@@ -7,7 +7,7 @@ import requests
 import json
 import time
 
-BACKEND_URL = "https://codebase-review-86.preview.emergentagent.com/api"
+BACKEND_URL = "https://ai-bot-factory-audit.preview.emergentagent.com/api"
 
 def test_with_more_strategies():
     session = requests.Session()

@@ -5943,7 +5943,7 @@ index 0000000000000000000000000000000000000000..59256cc8d985d28ebb4f3a6fae460a0f
 +### Preview URL (detected from project defaults)
 +- **Frontend/UI:** `http://localhost:3000` (local preview via `npm start` in `frontend/`)
 +- **Backend/API:** `http://localhost:8001`
-+- **Known hosted preview reference in tests:** `https://codebase-review-86.preview.emergentagent.com`
++- **Known hosted preview reference in tests:** `https://ai-bot-factory-audit.preview.emergentagent.com`
 +
 +### Deployed URL
 +- No fixed production URL is configured in this repository.
@@ -6124,7 +6124,7 @@ index 0000000000000000000000000000000000000000..bf3d72fe55af23429cabd66e34ca0438
 +#!/usr/bin/env bash
 +set -euo pipefail
 +
-+PREVIEW_URL="${1:-https://codebase-review-86.preview.emergentagent.com}"
++PREVIEW_URL="${1:-https://ai-bot-factory-audit.preview.emergentagent.com}"
 +EXPECTED="v2.2-pipeline"
 +
 +echo "==> Building frontend"
@@ -6165,7 +6165,7 @@ index 0000000000000000000000000000000000000000..631a9baa3d0173166cdfc37b3c5983f9
 +#!/usr/bin/env bash
 +set -euo pipefail
 +
-+BASE_URL="${1:-https://codebase-review-86.preview.emergentagent.com}"
++BASE_URL="${1:-https://ai-bot-factory-audit.preview.emergentagent.com}"
 +BUILD_ID="v2.2-pipeline-20260403-r2"
 +
 +echo "=== Frontend Preview Verification ==="

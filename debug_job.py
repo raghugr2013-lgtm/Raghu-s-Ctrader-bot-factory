@@ -6,7 +6,7 @@ Debug script to examine job results
 import requests
 import json
 
-BACKEND_URL = "https://codebase-review-86.preview.emergentagent.com/api"
+BACKEND_URL = "https://ai-bot-factory-audit.preview.emergentagent.com/api"
 
 def debug_job_result():
     # Use the job ID from the previous test
