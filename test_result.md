@@ -265,6 +265,90 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: Walk-Forward Validation System fully implemented and working correctly. All required components verified: walkforward_validator.py, walkforward_models.py, walkforward_engine.py. Integration in server.py lines 1886-1978 is correct. All required fields implemented: training/validation metrics, stability_score, pf_stability, is_overfit, overfit_severity, robustness_grade, is_robust. System includes proper 70/30 data split, overfitting detection, and rejection tracking. Testing limited by available market data (only 27 days), but implementation is complete and correct."
 
+  - task: "M1 SSOT Data Ingestion V2 API - Health Check"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/v2/data/health endpoint working correctly. Returns status 'healthy' with complete service information including features and rules."
+
+  - task: "M1 SSOT Data Ingestion V2 API - CSV Upload (M1)"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: POST /api/v2/data/upload/csv endpoint working correctly. Successfully uploaded 5 M1 candles for GBPUSD with high confidence. Proper response format with success=true and candles_stored > 0."
+
+  - task: "M1 SSOT Data Ingestion V2 API - CSV Upload Rejection (H1)"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: POST /api/v2/data/upload/csv endpoint correctly rejects H1 data. Returns success=false, detected_timeframe=H1 with proper error message explaining M1 SSOT architecture requirements."
+
+  - task: "M1 SSOT Data Ingestion V2 API - Coverage Check"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/v2/data/coverage/GBPUSD endpoint working correctly. Returns total_m1_candles=5, high_confidence_count=5, proper timestamp range and source breakdown."
+
+  - task: "M1 SSOT Data Ingestion V2 API - Export M1"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/v2/data/export/m1/GBPUSD endpoint working correctly. Returns proper CSV format with 5 data rows, correct headers, and appropriate content-type."
+
+  - task: "M1 SSOT Data Ingestion V2 API - Gap Detection"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: GET /api/v2/data/gaps/GBPUSD/detect endpoint working correctly. Returns gaps array (0 gaps for continuous 5-minute test data) with proper response structure."
+
+  - task: "M1 SSOT Data Ingestion V2 API - Delete Data"
+    implemented: true
+    working: true
+    file: "backend/data_ingestion/data_ingestion_router.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: DELETE /api/v2/data/delete/GBPUSD endpoint working correctly. Successfully deleted 5 candles with confirm=true parameter. Returns success=true and deleted_count=5."
+
 frontend:
   - task: "Strategy Count Selection UI"
     implemented: true
@@ -403,7 +487,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Walk-Forward Validation System"
+    - "M1 SSOT Data Ingestion V2 API Testing Complete"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -514,3 +598,35 @@ agent_communication:
       - Implementation matches all test requirements exactly
       - System would function properly with sufficient market data
       - All components verified through code analysis and integration testing
+  - agent: "testing"
+    message: |
+      ✅ M1 SSOT DATA INGESTION V2 API TESTING COMPLETE - ALL ENDPOINTS WORKING PERFECTLY
+      
+      COMPREHENSIVE API TESTING RESULTS:
+      
+      🎯 ALL 7 ENDPOINTS TESTED AND PASSING:
+      1. ✅ Health Check (GET /api/v2/data/health) - Returns "healthy" status
+      2. ✅ CSV Upload M1 (POST /api/v2/data/upload/csv) - Successfully uploaded 5 M1 candles
+      3. ✅ CSV Upload H1 Rejection (POST /api/v2/data/upload/csv) - Correctly rejected H1 data
+      4. ✅ Coverage Check (GET /api/v2/data/coverage/GBPUSD) - Shows 5 M1 candles, 5 high confidence
+      5. ✅ Export M1 (GET /api/v2/data/export/m1/GBPUSD) - Successfully exported CSV with 5 rows
+      6. ✅ Gap Detection (GET /api/v2/data/gaps/GBPUSD/detect) - Successfully detected 0 gaps
+      7. ✅ Delete Test (DELETE /api/v2/data/delete/GBPUSD) - Successfully deleted 5 candles
+      
+      🔧 M1 SSOT ARCHITECTURE VALIDATION:
+      - ✅ M1 data accepted with HIGH confidence
+      - ✅ H1 data properly REJECTED with clear error message
+      - ✅ Timeframe detection working correctly (M1 vs H1)
+      - ✅ Data export maintains CSV format integrity
+      - ✅ Coverage reporting accurate (5 candles, 100% high confidence)
+      - ✅ Gap detection functional (0 gaps for continuous data)
+      - ✅ Data deletion with confirmation working
+      
+      📊 API RESPONSE VALIDATION:
+      - All endpoints return proper HTTP 200 status codes
+      - JSON responses follow expected schema
+      - CSV export returns proper content-type headers
+      - Error messages are descriptive and helpful
+      - Success/failure flags are accurate
+      
+      🎉 CONCLUSION: M1 SSOT Data Ingestion V2 API is fully functional and ready for production use.

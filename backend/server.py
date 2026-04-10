@@ -49,6 +49,12 @@ from market_data_models import (
 )
 from market_data_provider import csv_provider, provider_factory
 from market_data_service import init_market_data_service
+# M1 SSOT Data Architecture (V2)
+from data_ingestion import (
+    DataServiceV2,
+    data_ingestion_router,
+    init_data_ingestion_router
+)
 from strategy_interface import SimpleMACrossStrategy
 from strategy_simulator import create_strategy_simulator
 from walkforward_models import WalkForwardRequest, WalkForwardConfig
@@ -112,6 +118,10 @@ db = client[os.environ['DB_NAME']]
 
 # Initialize Market Data Service
 market_data_service = init_market_data_service(db)
+
+# Initialize M1 SSOT Data Service (V2)
+data_service_v2 = DataServiceV2(db)
+init_data_ingestion_router(data_service_v2)
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -4478,6 +4488,9 @@ app.include_router(dukascopy_router, prefix="/api")
 
 # Master Pipeline Router (Orchestrates Full Trading Strategy Pipeline)
 app.include_router(pipeline_master_router)
+
+# M1 SSOT Data Ingestion Router (V2 API)
+app.include_router(data_ingestion_router)
 
 app.add_middleware(
     CORSMiddleware,
