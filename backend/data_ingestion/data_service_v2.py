@@ -368,10 +368,10 @@ class DataServiceV2:
         source_counts = await self.collection.aggregate(pipeline).to_list(length=None)
         source_breakdown = {item["_id"]: item["count"] for item in source_counts}
         
-        # Calculate expected and coverage
+        # Calculate expected and coverage (excluding weekends)
         first_ts = first["timestamp"]
         last_ts = last["timestamp"]
-        expected = int((last_ts - first_ts).total_seconds() / 60)
+        expected = self._calculate_expected_trading_minutes(first_ts, last_ts)
         coverage = total / expected if expected > 0 else 0
         
         return CoverageReport(
@@ -508,13 +508,82 @@ class DataServiceV2:
         return gaps
     
     def _is_weekend_period(self, start: datetime, end: datetime) -> bool:
-        """Check if gap spans forex weekend closure"""
-        # Forex closes Friday ~21:00 UTC, opens Sunday ~21:00 UTC
-        if start.weekday() == 4 and end.weekday() in [0, 6]:  # Friday to Sunday/Monday
-            return True
+        """
+        Check if gap spans forex weekend closure.
+        
+        Forex market hours: Monday 00:00 UTC → Friday 23:59 UTC
+        Weekend: Saturday (weekday=5) and Sunday (weekday=6)
+        """
+        # Check if gap starts or ends on weekend
         if start.weekday() == 5 or start.weekday() == 6:  # Saturday or Sunday
             return True
+        if end.weekday() == 5 or end.weekday() == 6:  # Saturday or Sunday
+            return True
+        
+        # Check if gap spans from Friday to Monday (crossing weekend)
+        if start.weekday() == 4 and end.weekday() == 0:  # Friday to Monday
+            return True
+        
+        # Check if gap is long enough to span a weekend (> 2 days)
+        # This catches cases like Thursday night to Monday morning
+        gap_hours = (end - start).total_seconds() / 3600
+        if gap_hours > 48:  # More than 2 days likely includes weekend
+            # Check if the gap spans through Saturday or Sunday
+            current = start
+            while current <= end:
+                if current.weekday() in [5, 6]:  # Saturday or Sunday
+                    return True
+                current += timedelta(days=1)
+        
         return False
+    
+    def _calculate_expected_trading_minutes(self, start: datetime, end: datetime) -> int:
+        """
+        Calculate expected trading minutes excluding weekends.
+        
+        Forex trading hours: Monday 00:00 UTC → Friday 23:59 UTC
+        Excludes: Saturday (weekday=5) and Sunday (weekday=6)
+        
+        Args:
+            start: Start datetime
+            end: End datetime
+        
+        Returns:
+            Expected number of M1 candles during valid trading hours
+        """
+        # Calculate total days in range
+        total_seconds = (end - start).total_seconds()
+        total_days = total_seconds / 86400  # 86400 seconds in a day
+        
+        # Calculate full weeks and remaining days
+        full_weeks = int(total_days // 7)
+        remaining_days = total_days % 7
+        
+        # Each full week has 5 trading days (Mon-Fri)
+        trading_minutes_from_full_weeks = full_weeks * 5 * 24 * 60
+        
+        # Calculate trading days in remaining partial week
+        trading_minutes_from_remaining = 0
+        current = start + timedelta(weeks=full_weeks)
+        
+        while current < end:
+            # Count minutes only on trading days (Mon-Fri)
+            if current.weekday() < 5:
+                # Calculate minutes for this day
+                day_start = current.replace(hour=0, minute=0, second=0, microsecond=0)
+                day_end = min(current.replace(hour=23, minute=59, second=0, microsecond=0), end)
+                
+                if day_start < start:
+                    day_start = start
+                
+                day_minutes = int((day_end - day_start).total_seconds() / 60) + 1
+                trading_minutes_from_remaining += day_minutes
+            
+            # Move to next day
+            current += timedelta(days=1)
+            current = current.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        return int(trading_minutes_from_full_weeks + trading_minutes_from_remaining)
     
     async def fix_gaps(
         self,
