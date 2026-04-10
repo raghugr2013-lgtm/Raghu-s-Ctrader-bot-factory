@@ -124,7 +124,11 @@ data_service_v2 = DataServiceV2(db)
 init_data_ingestion_router(data_service_v2)
 
 # Create the main app without a prefix
-app = FastAPI()
+# Increase max upload size to 1GB for large BI5 ZIP files
+app = FastAPI(
+    title="cTrader Bot Factory API",
+    description="AI-Powered Forex Strategy Platform with M1 SSOT Data Architecture"
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
