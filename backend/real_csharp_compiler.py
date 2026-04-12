@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Path to template project with cTrader.Automate NuGet package
 TEMPLATE_PROJECT_PATH = "/app/backend/ctrader_compiler/template"
-DOTNET_PATH = "/usr/share/dotnet/dotnet"  # Full absolute path
+DOTNET_PATH = "/usr/local/dotnet/dotnet"  # Full absolute path to installed .NET SDK
 
 
 @dataclass

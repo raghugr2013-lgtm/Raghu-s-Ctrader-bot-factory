@@ -484,11 +484,58 @@ class CSharpCompilationGate:
 compile_gate = CSharpCompilationGate()
 
 
-def compile_and_verify(code: str, max_attempts: int = 3) -> Dict:
+def compile_and_verify(code: str, max_attempts: int = 3, use_real_compiler: bool = True) -> Dict:
     """
     Main entry point: Compile, auto-fix if needed, verify.
     Returns full compilation result with status.
+    
+    Args:
+        code: C# source code to compile
+        max_attempts: Maximum auto-fix attempts
+        use_real_compiler: Use real .NET SDK compiler (default True)
     """
+    # Try real compiler first if available
+    if use_real_compiler:
+        try:
+            from real_csharp_compiler import RealCSharpCompiler
+            logger.info("🔨 Using REAL .NET SDK Compiler")
+            
+            real_compiler = RealCSharpCompiler()
+            result = real_compiler.compile(code, "GeneratedBot")
+            
+            if result.success:
+                logger.info(f"✅ Real compilation successful ({result.compilation_time_ms}ms)")
+                return {
+                    "status": "VERIFIED",
+                    "is_verified": True,
+                    "code": code,
+                    "errors": [],
+                    "warnings": [{"code": w.code, "message": w.message, "line": w.line} for w in result.warnings],
+                    "fix_attempts": 1,
+                    "fixes_applied": [],
+                    "message": f"✅ REAL COMPILATION VERIFIED - Compiled with .NET SDK in {result.compilation_time_ms}ms",
+                    "compiler": "dotnet-6.0",
+                    "compilation_time_ms": result.compilation_time_ms
+                }
+            else:
+                logger.warning(f"⚠️  Real compilation failed with {result.error_count} errors")
+                # Return real compiler errors
+                return {
+                    "status": "FAILED",
+                    "is_verified": False,
+                    "code": code,
+                    "errors": [{"code": e.code, "message": e.message, "line": e.line, "column": e.column} for e in result.errors],
+                    "warnings": [{"code": w.code, "message": w.message} for w in result.warnings],
+                    "fix_attempts": 1,
+                    "fixes_applied": [],
+                    "message": f"❌ REAL COMPILATION FAILED - {result.error_count} error(s) from .NET SDK",
+                    "compiler": "dotnet-6.0"
+                }
+        except Exception as e:
+            logger.warning(f"Real compiler unavailable: {e}")
+            logger.info("Falling back to syntax validator")
+    
+    # Fallback: Use syntax validator
     current_code = code
     all_fixes = []
     
@@ -505,7 +552,8 @@ def compile_and_verify(code: str, max_attempts: int = 3) -> Dict:
                 "warnings": [w.model_dump() for w in result.warnings],
                 "fix_attempts": attempt,
                 "fixes_applied": all_fixes,
-                "message": "✅ COMPILE VERIFIED - Code is ready for deployment"
+                "message": "✅ SYNTAX VALIDATED - Note: Real compilation recommended before deployment",
+                "compiler": "syntax-validator"
             }
         
         if attempt < max_attempts - 1:
@@ -529,7 +577,8 @@ def compile_and_verify(code: str, max_attempts: int = 3) -> Dict:
         "warnings": [w.model_dump() for w in result.warnings],
         "fix_attempts": max_attempts,
         "fixes_applied": all_fixes,
-        "message": f"❌ COMPILATION FAILED - {len(result.errors)} error(s) remain after {max_attempts} fix attempts"
+        "message": f"❌ COMPILATION FAILED - {len(result.errors)} error(s) remain after {max_attempts} fix attempts",
+        "compiler": "syntax-validator"
     }
 
 
