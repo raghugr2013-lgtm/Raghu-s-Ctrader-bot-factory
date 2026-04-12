@@ -1820,32 +1820,18 @@ export default function Dashboard() {
                     )}
                   </Button>
 
-                  {/* Auto-Generate Strategies Button */}
+                  {/* Auto-Generate Strategies Button - DISABLED (Legacy Endpoint) */}
                   <Button
-                    onClick={handleAutoGenerateStrategies}
-                    disabled={isAutoGenerating || !dataAvailability?.available}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-mono uppercase text-[10px] h-10 flex flex-col items-center justify-center gap-0.5 flex-shrink-0"
+                    onClick={() => toast.error('⛔ This feature uses legacy endpoints. Please use Pipeline page instead.')}
+                    disabled={true}
+                    className="w-full bg-zinc-800 text-zinc-500 font-mono uppercase text-[10px] h-10 flex flex-col items-center justify-center gap-0.5 flex-shrink-0 cursor-not-allowed"
                     data-testid="auto-generate-button"
                   >
-                    {isAutoGenerating ? (
-                      <>
-                        <span className="flex items-center gap-2">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          Processing...
-                        </span>
-                        <span className="text-[8px] opacity-75">
-                          {jobProgress ? `${Math.round(jobProgress.percent)}% - ${jobProgress.stage.replace(/_/g, ' ')}` : 'Starting...'}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="flex items-center gap-2">
-                          <Trophy className="w-3 h-3" />
-                          🚀 Generate {numStrategies} Strategies
-                        </span>
-                        <span className="text-[8px] opacity-75">{strategyType} • {riskLevel} risk • {genExecutionMode}</span>
-                      </>
-                    )}
+                    <span className="flex items-center gap-2">
+                      <Trophy className="w-3 h-3" />
+                      ⛔ DEPRECATED
+                    </span>
+                    <span className="text-[8px] opacity-75">Use Pipeline page instead</span>
                   </Button>
 
                   {/* Warning Modal for Large Runs */}
@@ -2868,27 +2854,33 @@ export default function Dashboard() {
             
             {topStrategies.length === 0 ? (
               <div className="space-y-6">
-                {/* Quick Start Flow */}
-                <QuickStartFlow 
-                  onQuickStart={handleQuickStart}
-                  isLoading={isQuickStarting}
-                  progress={quickStartProgress}
-                />
+                {/* Quick Start Flow - DISABLED (Uses Legacy Endpoints) */}
+                <div className="bg-zinc-900/50 border border-zinc-700 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-sm font-bold text-amber-400 font-mono">QUICK START DEPRECATED</h3>
+                  </div>
+                  <p className="text-xs text-zinc-400 mb-3">
+                    Quick Start uses legacy endpoints that have been disabled. Please use the <strong className="text-white">Pipeline page</strong> for standardized strategy generation with real M1 data processing.
+                  </p>
+                  <Button
+                    onClick={() => window.location.href = '/pipeline'}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs"
+                  >
+                    Go to Pipeline →
+                  </Button>
+                </div>
                 
                 {/* Or Manual Generation */}
                 <div className="text-center">
                   <p className="text-xs text-zinc-500 mb-3">— or generate manually —</p>
                   <Button
-                    onClick={handleAutoGenerateStrategies}
-                    disabled={isAutoGenerating || !dataAvailability?.available}
-                    className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 border border-purple-500/30 font-mono uppercase text-xs"
+                    onClick={() => toast.error('⛔ Manual generation uses legacy endpoints. Use Pipeline page instead.')}
+                    disabled={true}
+                    className="bg-zinc-800 text-zinc-500 border border-zinc-700 font-mono uppercase text-xs cursor-not-allowed"
                     data-testid="manual-generate-btn"
                   >
-                    {isAutoGenerating ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
-                    ) : (
-                      <><Rocket className="w-4 h-4 mr-2" /> Generate {numStrategies} Strategies</>
-                    )}
+                    ⛔ DEPRECATED - Use Pipeline Page
                   </Button>
                 </div>
                 

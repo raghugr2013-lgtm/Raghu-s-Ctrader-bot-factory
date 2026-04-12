@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api/pipeline`;
+const API = `${BACKEND_URL}/api/pipeline-v2`;  // ✅ Fixed: Using standardized pipeline endpoint
 
 const STAGE_ICONS = {
   initialization: Clock,
@@ -68,23 +68,46 @@ export default function PipelinePage() {
     setPipelineResult(null);
 
     try {
-      toast.info('Starting Pipeline...');
+      console.log('🚀 Starting Real Pipeline Execution...');
+      console.log('Endpoint:', `${API}/run`);
+      console.log('Config:', config);
       
-      const response = await axios.post(`${API}/master-run`, config);
+      toast.info('Starting Real Pipeline (this will take 30-60s)...');
+      
+      // ✅ Fixed: Call standardized pipeline endpoint
+      // Maps frontend config to backend PipelineRequest format
+      const pipelineRequest = {
+        num_strategies: config.strategies_per_template || 5,
+        symbol: config.symbol || 'EURUSD',
+        timeframe: 'M1',  // Fixed: M1 SSOT only
+        initial_balance: config.initial_balance || 10000,
+        backtest_days: config.duration_days || 365,
+        portfolio_size: config.portfolio_size || 5
+      };
+      
+      console.log('Pipeline Request:', pipelineRequest);
+      
+      const response = await axios.post(`${API}/run`, pipelineRequest);
       const data = response.data;
+      
+      console.log('✅ Pipeline Response:', data);
+      console.log('Total Execution Time:', data.total_execution_time, 's');
+      console.log('Stage Results:', data.stage_results);
 
       setPipelineResult(data);
 
       if (data.success) {
-        toast.success(`Pipeline complete! ${data.deployable_count} strategies ready.`);
+        toast.success(`Pipeline complete! ${data.cbot_count} cBots compiled in ${data.total_execution_time.toFixed(1)}s`);
       } else {
         toast.error(`Pipeline failed: ${data.error_message || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Pipeline error:', error);
+      console.error('❌ Pipeline error:', error);
+      console.error('Error response:', error.response?.data);
+      
       const errorDetail = error.response?.data?.detail;
       const errorMessage = typeof errorDetail === 'object' 
-        ? errorDetail.message || JSON.stringify(errorDetail)
+        ? errorDetail.error || errorDetail.message || JSON.stringify(errorDetail)
         : errorDetail || error.message;
       
       toast.error(`Pipeline failed: ${errorMessage}`);
