@@ -1786,18 +1786,53 @@ async def auto_generate_strategies(request: AutoGenerateRequest):
     """
     try:
         # Step 0: Validate local CSV data availability
-        tf = DataTimeframe(request.timeframe)
-        local_candles = await market_data_service.get_candles(
-            symbol=request.symbol.upper(),
-            timeframe=tf,
-            limit=10000
+        # CRITICAL FIX: Always load M1 data (SSOT), aggregate to requested timeframe
+        
+        # Normalize symbol (EUR/USD → EURUSD)
+        normalized_symbol = request.symbol.replace("/", "").upper()
+        logger.info(f"[DATA LOAD] Symbol normalized: {request.symbol} → {normalized_symbol}")
+        
+        # Calculate date range (last 2 years of data for sufficient backtesting)
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=730)  # 2 years
+        
+        logger.info(f"[DATA LOAD] Loading M1 candles for {normalized_symbol}")
+        logger.info(f"[DATA LOAD] Date range: {start_date.date()} to {end_date.date()}")
+        logger.info(f"[DATA LOAD] Requested timeframe: {request.timeframe}")
+        
+        # Get candles (M1 SSOT, aggregated to requested timeframe)
+        candles_result = await market_data_service.get_candles(
+            symbol=normalized_symbol,
+            timeframe=request.timeframe,  # Will aggregate from M1 if needed
+            start_date=start_date,
+            end_date=end_date,
+            min_confidence="medium",
+            use_case="strategy_generation"
         )
         
+        local_candles = candles_result.candles if candles_result else []
+        
+        logger.info(f"[DATA LOAD] Retrieved {len(local_candles)} {request.timeframe} candles")
+        logger.info(f"[DATA LOAD] Quality score: {candles_result.quality_score if candles_result else 0:.2%}")
+        logger.info(f"[DATA LOAD] Gaps detected: {candles_result.gaps_detected if candles_result else 0}")
+        
         if not local_candles or len(local_candles) < 100:
+            logger.error(f"[DATA LOAD] FAILED: Only {len(local_candles)} candles found")
+            logger.error(f"[DATA LOAD] Query details:")
+            logger.error(f"  - Symbol: {normalized_symbol}")
+            logger.error(f"  - Timeframe: {request.timeframe}")
+            logger.error(f"  - Date range: {start_date} to {end_date}")
+            
             return {
                 "success": False,
                 "error": "INSUFFICIENT_LOCAL_DATA",
-                "message": f"Need at least 100 candles for strategy generation. Found: {len(local_candles) if local_candles else 0}",
+                "message": f"Need at least 100 candles for strategy generation. Found: {len(local_candles)}. Check M1 database for {normalized_symbol}.",
+                "debug_info": {
+                    "symbol_queried": normalized_symbol,
+                    "timeframe": request.timeframe,
+                    "date_range": f"{start_date.date()} to {end_date.date()}",
+                    "candles_found": len(local_candles)
+                },
                 "strategies": []
             }
         
@@ -1965,18 +2000,39 @@ async def create_strategy_generation_job(request: StrategyJobRequest):
         if request.strategy_count < 10 or request.strategy_count > 1000:
             raise HTTPException(status_code=400, detail="Strategy count must be between 10 and 1000")
         
-        # Check data availability
-        tf = DataTimeframe(request.timeframe)
-        candles = await market_data_service.get_candles(
-            symbol=request.symbol.upper(),
-            timeframe=tf,
-            limit=10000
+        # CRITICAL FIX: Always load M1 data (SSOT), aggregate to requested timeframe
+        # Normalize symbol (EUR/USD → EURUSD)
+        normalized_symbol = request.symbol.replace("/", "").upper()
+        logger.info(f"[JOB DATA LOAD] Symbol normalized: {request.symbol} → {normalized_symbol}")
+        
+        # Calculate date range (last 2 years)
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=730)
+        
+        logger.info(f"[JOB DATA LOAD] Loading M1 candles for {normalized_symbol}")
+        logger.info(f"[JOB DATA LOAD] Date range: {start_date.date()} to {end_date.date()}")
+        logger.info(f"[JOB DATA LOAD] Requested timeframe: {request.timeframe}")
+        
+        # Get candles (M1 SSOT, aggregated to requested timeframe)
+        candles_result = await market_data_service.get_candles(
+            symbol=normalized_symbol,
+            timeframe=request.timeframe,
+            start_date=start_date,
+            end_date=end_date,
+            min_confidence="medium",
+            use_case="strategy_generation"
         )
         
+        candles = candles_result.candles if candles_result else []
+        
+        logger.info(f"[JOB DATA LOAD] Retrieved {len(candles)} {request.timeframe} candles")
+        logger.info(f"[JOB DATA LOAD] Quality: {candles_result.quality_score if candles_result else 0:.2%}")
+        
         if not candles or len(candles) < 100:
+            logger.error(f"[JOB DATA LOAD] FAILED: Only {len(candles)} candles")
             raise HTTPException(
                 status_code=400,
-                detail=f"Insufficient data for {request.symbol} {request.timeframe}. Need 100+ candles, found {len(candles) if candles else 0}."
+                detail=f"Insufficient data for {normalized_symbol} {request.timeframe}. Need 100+ candles, found {len(candles)}. Verify M1 database contains data for this symbol."
             )
         
         # Create job
