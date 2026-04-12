@@ -4496,6 +4496,11 @@ app.include_router(pipeline_master_router)
 # M1 SSOT Data Ingestion Router (V2 API)
 app.include_router(data_ingestion_router)
 
+# Fixed Pipeline Router (V2 - Corrected Order)
+from fixed_pipeline_router import router as fixed_pipeline_router, init_fixed_pipeline_router
+init_fixed_pipeline_router(db)
+app.include_router(fixed_pipeline_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
