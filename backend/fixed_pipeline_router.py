@@ -132,7 +132,7 @@ async def run_fixed_pipeline(request: PipelineRequest):
                 }
                 for r in run.stage_results
             ],
-            selected_strategies=run.selected_strategies,
+            selected_strategies=run.final_cbots,  # Return strategies with cBot code attached
             deployment_package=run.deployment_package,
             total_execution_time=run.total_execution_time_seconds,
             error_message=run.error_message

@@ -1802,17 +1802,41 @@ class StrategyResult(BaseModel):
 @api_router.post("/strategy/auto-generate")
 async def auto_generate_strategies(request: AutoGenerateRequest):
     """
-    Automated Strategy Generation System
+    ⛔ DEPRECATED ENDPOINT - DO NOT USE
     
-    Pipeline:
-    1. Generate 20-100 unique strategies using AI
-    2. Backtest each strategy on local CSV data
-    3. Filter bad strategies (PF < 1.2, DD > 25%, trades < 20)
-    4. Rank strategies by composite score
-    5. Return top 3-5 strategies
+    This endpoint bypasses the standardized pipeline and is no longer supported.
     
-    Uses ONLY local CSV data - no external APIs.
+    Use instead: POST /api/pipeline-v2/run
+    
+    Reason for deprecation:
+    - Bypasses validation and quality gates
+    - Does not use fixed pipeline controller
+    - Breaks workflow integrity
+    
+    Migration: Use /api/pipeline-v2/run with PipelineRequest
     """
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "Endpoint deprecated and disabled",
+            "reason": "This endpoint bypasses the standardized pipeline validation",
+            "use_instead": "/api/pipeline-v2/run",
+            "migration_guide": {
+                "old_endpoint": "/api/strategy/auto-generate",
+                "new_endpoint": "/api/pipeline-v2/run",
+                "new_request_format": {
+                    "num_strategies": 5,
+                    "symbol": "EURUSD",
+                    "timeframe": "M1",
+                    "initial_balance": 10000.0,
+                    "backtest_days": 365,
+                    "portfolio_size": 5
+                }
+            }
+        }
+    )
+    
+    # Legacy code disabled
     try:
         # Step 0: Validate local CSV data availability
         # CRITICAL FIX: Use data_service_v2 (M1 SSOT) instead of legacy market_data_service
@@ -2020,13 +2044,42 @@ NO explanations, ONLY the JSON array."""
 @api_router.post("/strategy/generate-job")
 async def create_strategy_generation_job(request: StrategyJobRequest):
     """
-    Create a new strategy generation job (async/batch processing).
+    ⛔ DEPRECATED ENDPOINT - DO NOT USE
     
-    Supports 10-1000 strategies with batch processing for large runs.
-    Returns job_id for progress tracking.
+    This endpoint bypasses the standardized pipeline and is no longer supported.
     
-    Use GET /strategy/job-status/{job_id} to poll progress.
+    Use instead: POST /api/pipeline-v2/run
+    
+    Reason for deprecation:
+    - Bypasses validation and quality gates
+    - Does not use fixed pipeline controller
+    - Breaks workflow integrity
+    - Job tracking not compatible with fixed pipeline
+    
+    Migration: Use /api/pipeline-v2/run with PipelineRequest
     """
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "Endpoint deprecated and disabled",
+            "reason": "This endpoint bypasses the standardized pipeline validation",
+            "use_instead": "/api/pipeline-v2/run",
+            "migration_guide": {
+                "old_endpoint": "/api/strategy/generate-job",
+                "new_endpoint": "/api/pipeline-v2/run",
+                "new_request_format": {
+                    "num_strategies": 5,
+                    "symbol": "EURUSD",
+                    "timeframe": "M1",
+                    "initial_balance": 10000.0,
+                    "backtest_days": 365,
+                    "portfolio_size": 5
+                }
+            }
+        }
+    )
+    
+    # Legacy code disabled
     try:
         # Validate strategy count
         if request.strategy_count < 10 or request.strategy_count > 1000:
