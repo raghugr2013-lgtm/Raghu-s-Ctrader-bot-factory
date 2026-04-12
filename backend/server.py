@@ -108,6 +108,35 @@ from walkforward_validator import (
 )
 
 
+# ==================== UTILITY FUNCTIONS ====================
+
+def normalize_timeframe(tf: str) -> str:
+    """
+    Normalize timeframe from UI format to backend format.
+    
+    UI sends: 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w
+    Backend expects: M1, M5, M15, M30, H1, H4, D1, W1
+    
+    Args:
+        tf: Timeframe in UI format (e.g., "1h")
+        
+    Returns:
+        Normalized timeframe (e.g., "H1")
+    """
+    mapping = {
+        "1m": "M1",
+        "5m": "M5",
+        "15m": "M15",
+        "30m": "M30",
+        "1h": "H1",
+        "4h": "H4",
+        "1d": "D1",
+        "1w": "W1"
+    }
+    normalized = mapping.get(tf.lower(), tf.upper())
+    return normalized
+
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -1792,18 +1821,21 @@ async def auto_generate_strategies(request: AutoGenerateRequest):
         normalized_symbol = request.symbol.replace("/", "").upper()
         logger.info(f"[DATA LOAD] Symbol normalized: {request.symbol} → {normalized_symbol}")
         
+        # Normalize timeframe (1h → H1)
+        normalized_tf = normalize_timeframe(request.timeframe)
+        logger.info(f"[DATA LOAD] Timeframe normalized: {request.timeframe} → {normalized_tf}")
+        
         # Calculate date range (last 2 years of data for sufficient backtesting)
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=730)  # 2 years
         
         logger.info(f"[DATA LOAD] Loading M1 candles for {normalized_symbol}")
         logger.info(f"[DATA LOAD] Date range: {start_date.date()} to {end_date.date()}")
-        logger.info(f"[DATA LOAD] Requested timeframe: {request.timeframe}")
         
         # Get candles using V2 service (M1 SSOT with aggregation)
         candles_result = await data_service_v2.get_candles(
             symbol=normalized_symbol,
-            timeframe=request.timeframe,
+            timeframe=normalized_tf,  # Use normalized timeframe
             start_date=start_date,
             end_date=end_date,
             min_confidence="medium",
@@ -1812,7 +1844,7 @@ async def auto_generate_strategies(request: AutoGenerateRequest):
         
         local_candles = candles_result.candles if candles_result else []
         
-        logger.info(f"[DATA LOAD] Retrieved {len(local_candles)} {request.timeframe} candles")
+        logger.info(f"[DATA LOAD] Retrieved {len(local_candles)} {normalized_tf} candles")
         logger.info(f"[DATA LOAD] Quality score: {candles_result.quality_score if candles_result else 0:.2%}")
         logger.info(f"[DATA LOAD] Gaps detected: {candles_result.gaps_detected if candles_result else 0}")
         
@@ -1820,7 +1852,7 @@ async def auto_generate_strategies(request: AutoGenerateRequest):
             logger.error(f"[DATA LOAD] FAILED: Only {len(local_candles)} candles found")
             logger.error(f"[DATA LOAD] Query details:")
             logger.error(f"  - Symbol: {normalized_symbol}")
-            logger.error(f"  - Timeframe: {request.timeframe}")
+            logger.error(f"  - Timeframe: {request.timeframe} → {normalized_tf}")
             logger.error(f"  - Date range: {start_date} to {end_date}")
             
             return {
@@ -2005,18 +2037,21 @@ async def create_strategy_generation_job(request: StrategyJobRequest):
         normalized_symbol = request.symbol.replace("/", "").upper()
         logger.info(f"[JOB DATA LOAD] Symbol normalized: {request.symbol} → {normalized_symbol}")
         
+        # Normalize timeframe (1h → H1)
+        normalized_tf = normalize_timeframe(request.timeframe)
+        logger.info(f"[JOB DATA LOAD] Timeframe normalized: {request.timeframe} → {normalized_tf}")
+        
         # Calculate date range (last 2 years)
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=730)
         
         logger.info(f"[JOB DATA LOAD] Loading M1 candles for {normalized_symbol}")
         logger.info(f"[JOB DATA LOAD] Date range: {start_date.date()} to {end_date.date()}")
-        logger.info(f"[JOB DATA LOAD] Requested timeframe: {request.timeframe}")
         
         # Get candles using V2 service (M1 SSOT with aggregation)
         candles_result = await data_service_v2.get_candles(
             symbol=normalized_symbol,
-            timeframe=request.timeframe,
+            timeframe=normalized_tf,  # Use normalized timeframe
             start_date=start_date,
             end_date=end_date,
             min_confidence="medium",
@@ -2025,7 +2060,7 @@ async def create_strategy_generation_job(request: StrategyJobRequest):
         
         candles = candles_result.candles if candles_result else []
         
-        logger.info(f"[JOB DATA LOAD] Retrieved {len(candles)} {request.timeframe} candles")
+        logger.info(f"[JOB DATA LOAD] Retrieved {len(candles)} {normalized_tf} candles")
         logger.info(f"[JOB DATA LOAD] Quality: {candles_result.quality_score if candles_result else 0:.2%}")
         
         if not candles or len(candles) < 100:
