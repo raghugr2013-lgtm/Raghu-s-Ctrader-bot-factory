@@ -301,92 +301,88 @@ class FixedPipelineController:
         logger.info("📈 Stage 4: Backtesting (RealBacktester + M1 SSOT)")
         
         try:
-            from real_backtester import RealBacktester
-            from data_ingestion.data_service_v2 import DataServiceV2
+            from real_backtester_wrapper import RealBacktesterWrapper
             
-            # Initialize backtester and data service
-            backtester = RealBacktester()
-            data_service = DataServiceV2(self.db) if self.db is not None else None
+            # Initialize backtester (wrapper provides run_backtest method)
+            backtester = RealBacktesterWrapper()
             
             # Get M1 data for backtesting
-            # Note: Our SSOT data is from 2020-2026, so use that range instead of current date
-            # For production, we'd query current data, but for testing we use available historical data
+            # Use available historical data range
             end_date = datetime(2026, 3, 31, tzinfo=timezone.utc)
             start_date = datetime(2025, 4, 1, tzinfo=timezone.utc)  # 365 days of data
             
             logger.info(f"   📅 Requesting data: {start_date.date()} to {end_date.date()}")
             
-            # Fetch M1 candles
+            # Fetch M1 candles - DIRECT QUERY (bypass aggregator)
             candles = []
-            if data_service is not None:
+            if self.db is not None:
                 try:
-                    result = await data_service.get_candles(
-                        symbol=run.config.symbol,
-                        timeframe="M1",
-                        start_date=start_date,
-                        end_date=end_date,
-                        min_confidence="high",
-                        use_case="production_backtest"
-                    )
-                    candles = result.candles if hasattr(result, 'candles') else []
-                    logger.info(f"   📊 Loaded {len(candles)} M1 candles from SSOT")
-                    
-                    if len(candles) == 0:
-                        logger.warning("   ⚠️  No candles returned - checking database directly")
-                        # Try direct query to understand why
-                        count = await self.db.market_candles_m1.count_documents({
+                    # Direct MongoDB query to get raw M1 candles
+                    cursor = self.db.market_candles_m1.find(
+                        {
                             "symbol": run.config.symbol,
                             "timestamp": {"$gte": start_date, "$lte": end_date}
+                        },
+                        {"_id": 0}  # Exclude MongoDB _id field
+                    ).sort("timestamp", 1)
+                    
+                    # Convert cursor to list
+                    candles = await cursor.to_list(length=None)
+                    
+                    logger.info(f"   📊 Loaded {len(candles):,} M1 candles from SSOT (direct query)")
+                    
+                    if len(candles) == 0:
+                        # Check if data exists for this symbol
+                        total_count = await self.db.market_candles_m1.count_documents({
+                            "symbol": run.config.symbol
                         })
-                        logger.warning(f"   ⚠️  Database has {count} candles in range")
-                        
-                        if count > 0:
-                            # Use get_m1_direct as fallback
-                            candles = await data_service.get_m1_direct(
-                                symbol=run.config.symbol,
-                                start_date=start_date,
-                                end_date=end_date,
-                                min_confidence="high"
-                            )
-                            logger.info(f"   📊 Loaded {len(candles)} candles via direct query")
-                
+                        logger.error(f"   ❌ No candles in date range. Total for {run.config.symbol}: {total_count:,}")
+                        raise Exception(f"No M1 data available for {run.config.symbol} in specified date range")
+                    
                 except Exception as e:
                     logger.error(f"   ❌ Failed to load data: {e}")
-                    candles = []
+                    raise Exception(f"Data loading failed: {e}")
             else:
-                logger.warning("   ⚠️  No database connection - using simulated data")
-                candles = []
+                logger.error("   ❌ No database connection available")
+                raise Exception("No database connection - cannot load M1 data")
             
-            # Backtest each strategy
+            # Validate candles before backtesting
+            if len(candles) < 1000:
+                raise Exception(f"Insufficient data: only {len(candles)} candles (need at least 1000)")
+            
+            logger.info(f"   ✅ Data validation passed: {len(candles):,} candles ready for backtest")
+            
+            # Backtest each strategy - NO FALLBACK, MUST USE REAL DATA
             backtested_strategies = []
             for i, strategy in enumerate(run.compiled_strategies):
+                strategy_start = datetime.now(timezone.utc)
+                
                 try:
-                    if candles:
-                        # Real backtest with M1 data
-                        backtest_result = backtester.run_backtest(
-                            strategy=strategy,
-                            candles=candles,
-                            initial_balance=run.config.initial_balance
-                        )
-                        
-                        strategy['backtest'] = backtest_result
-                    else:
-                        # Fallback: use generated metrics
-                        strategy['backtest'] = {
-                            'profit_factor': strategy.get('profit_factor', 1.5),
-                            'max_drawdown_pct': strategy.get('max_drawdown_pct', 12.0),
-                            'sharpe_ratio': strategy.get('sharpe_ratio', 1.2),
-                            'total_trades': strategy.get('total_trades', 150),
-                            'win_rate': strategy.get('win_rate', 55.0),
-                            'net_profit': strategy.get('net_profit', 5000.0),
-                            'stability_score': strategy.get('stability_score', 75.0),
-                        }
+                    logger.info(f"   🔄 Backtesting strategy {i+1}/{len(run.compiled_strategies)}...")
                     
+                    # REAL BACKTEST - NO SHORTCUTS
+                    backtest_result = backtester.run_backtest(
+                        strategy=strategy,
+                        candles=candles,
+                        initial_balance=run.config.initial_balance
+                    )
+                    
+                    strategy_time = (datetime.now(timezone.utc) - strategy_start).total_seconds()
+                    
+                    logger.info(f"   ✅ Strategy {i+1} completed in {strategy_time:.2f}s")
+                    logger.info(f"      → Trades: {backtest_result.get('total_trades', 0)}")
+                    logger.info(f"      → PF: {backtest_result.get('profit_factor', 0):.2f}")
+                    logger.info(f"      → DD: {backtest_result.get('max_drawdown_pct', 0):.1f}%")
+                    
+                    strategy['backtest'] = backtest_result
+                    strategy['backtest_execution_time'] = strategy_time
                     backtested_strategies.append(strategy)
                     
                 except Exception as e:
-                    logger.warning(f"   ⚠️  Strategy {i+1} backtest failed: {e}")
-                    continue
+                    logger.error(f"   ❌ Strategy {i+1} backtest failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise Exception(f"Backtest failed for strategy {i+1}: {e}")
             
             run.backtested_strategies = backtested_strategies
             
