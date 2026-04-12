@@ -276,9 +276,23 @@ class RealBacktester:
         candles: List[Candle],
         initial_balance: float = 10000.0,
     ) -> Tuple[List[TradeRecord], List[EquityPoint], dict]:
+        
+        # HARD LOGGING - START
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("="*80)
+        logger.info("🚀 REALBACKTESTER.RUN() STARTED")
+        logger.info(f"   Template: {template_id}")
+        logger.info(f"   Candles received: {len(candles)}")
+        logger.info(f"   Initial balance: ${initial_balance}")
+        logger.info("="*80)
 
         if len(candles) < 60:
+            logger.error(f"❌ INSUFFICIENT CANDLES: {len(candles)} (need at least 60)")
             return [], [], {"initial_balance": initial_balance}
+        
+        logger.info(f"✅ Candle validation passed")
+        logger.info(f"🔄 Converting to numpy arrays...")
 
         # Convert to numpy
         opens = np.array([c.open for c in candles])
@@ -287,6 +301,9 @@ class RealBacktester:
         closes = np.array([c.close for c in candles])
         timestamps = [c.timestamp for c in candles]
         n = len(closes)
+        
+        logger.info(f"✅ Numpy conversion complete: {n} candles")
+        logger.info(f"🔄 Generating signals for template: {template_id}...")
 
         # Route to template-specific signal generator
         dispatch = {
@@ -305,10 +322,14 @@ class RealBacktester:
         signals, sl_distances, tp_distances = signal_fn(
             genes, opens, highs, lows, closes, n
         )
+        
+        logger.info(f"✅ Signals generated")
 
         # Determine pip size for this symbol
         symbol = candles[0].symbol if candles else "EURUSD"
         pip_sz = get_pip_size(symbol)
+        
+        logger.info(f"🔄 Starting trade simulation loop ({n} candles)...")
 
         # Simulate trades
         risk_pct = genes.get("risk_per_trade_pct", 1.0) / 100.0
@@ -316,6 +337,10 @@ class RealBacktester:
         sim.record_equity(timestamps[0])
 
         for i in range(n):
+            # Progress logging every 50k candles
+            if i > 0 and i % 50000 == 0:
+                logger.info(f"   📊 Progress: {i:,}/{n:,} candles ({(i/n)*100:.1f}%)")
+            
             # Update open positions first
             sim.update(highs[i], lows[i], closes[i], timestamps[i])
 
@@ -344,9 +369,17 @@ class RealBacktester:
             if i % 5 == 0 or i == n - 1:
                 sim.record_equity(timestamps[i])
 
+        logger.info(f"✅ Trade simulation complete")
+        logger.info(f"   Total trades: {len(sim.trades)}")
+        
         # Force close remaining
         sim.force_close(closes[-1], timestamps[-1])
         sim.record_equity(timestamps[-1])
+        
+        logger.info(f"✅ Final trades: {len(sim.trades)}")
+        logger.info("="*80)
+        logger.info("✅ REALBACKTESTER.RUN() COMPLETED")
+        logger.info("="*80)
 
         config = type("Config", (), {
             "initial_balance": initial_balance,

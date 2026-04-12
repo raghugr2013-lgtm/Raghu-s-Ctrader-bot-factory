@@ -116,16 +116,16 @@ class RealBacktesterWrapper:
             }
         
         # Calculate statistics
-        winning_trades = [t for t in trades if t.profit > 0]
-        losing_trades = [t for t in trades if t.profit <= 0]
+        winning_trades = [t for t in trades if t.profit_loss and t.profit_loss > 0]
+        losing_trades = [t for t in trades if t.profit_loss and t.profit_loss <= 0]
         
-        total_profit = sum(t.profit for t in winning_trades)
-        total_loss = abs(sum(t.profit for t in losing_trades))
+        total_profit = sum(t.profit_loss for t in winning_trades if t.profit_loss)
+        total_loss = abs(sum(t.profit_loss for t in losing_trades if t.profit_loss))
         
         profit_factor = total_profit / total_loss if total_loss > 0 else (total_profit if total_profit > 0 else 0)
         win_rate = (len(winning_trades) / len(trades)) * 100 if trades else 0
         
-        net_profit = sum(t.profit for t in trades)
+        net_profit = sum(t.profit_loss for t in trades if t.profit_loss)
         final_balance = initial_balance + net_profit
         roi_pct = (net_profit / initial_balance) * 100
         
@@ -139,13 +139,14 @@ class RealBacktesterWrapper:
                 if point.drawdown_percent > max_dd_pct:
                     max_dd_pct = point.drawdown_percent
         
-        # Simplified Sharpe calculation (would need returns for proper calculation)
+        # Simplified Sharpe calculation
         sharpe_ratio = 0.0
         if trades and len(trades) > 1:
-            returns = [t.profit / initial_balance for t in trades]
-            import numpy as np
-            if np.std(returns) > 0:
-                sharpe_ratio = (np.mean(returns) / np.std(returns)) * np.sqrt(252)  # Annualized
+            returns = [t.profit_loss / initial_balance for t in trades if t.profit_loss]
+            if returns:
+                import numpy as np
+                if np.std(returns) > 0:
+                    sharpe_ratio = (np.mean(returns) / np.std(returns)) * np.sqrt(252)
         
         result = {
             'total_trades': len(trades),
