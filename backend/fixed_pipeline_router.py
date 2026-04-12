@@ -103,8 +103,12 @@ async def run_fixed_pipeline(request: PipelineRequest):
             portfolio_size=request.portfolio_size
         )
         
-        # Run pipeline
+        logger.info(f"📋 Pipeline Config: {config}")
+        
+        # Run pipeline with comprehensive error catching
         run = await controller.run_pipeline(config)
+        
+        logger.info(f"✅ Pipeline execution complete: {run.status}")
         
         # Build response
         response = PipelineResponse(
@@ -143,8 +147,29 @@ async def run_fixed_pipeline(request: PipelineRequest):
         return response
         
     except Exception as e:
-        logger.error(f"❌ Pipeline execution failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Pipeline failed: {str(e)}")
+        # Comprehensive error logging
+        import traceback
+        error_trace = traceback.format_exc()
+        
+        logger.error("="*80)
+        logger.error(f"❌ PIPELINE EXECUTION FAILED")
+        logger.error(f"Error Type: {type(e).__name__}")
+        logger.error(f"Error Message: {str(e)}")
+        logger.error("="*80)
+        logger.error("Full Stack Trace:")
+        logger.error(error_trace)
+        logger.error("="*80)
+        
+        # Return detailed error to client
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "error": "Pipeline execution failed",
+                "error_type": type(e).__name__,
+                "message": str(e),
+                "trace": error_trace if logger.level <= 10 else None  # Only in debug mode
+            }
+        )
 
 
 @router.get("/status/{run_id}")
