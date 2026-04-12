@@ -47,6 +47,7 @@ class StrategyDefinition:
     max_spread_pips: float = 2.0
     trading_start_hour: int = 7
     trading_end_hour: int = 20
+    max_positions: int = 1
     enable_spread_filter: bool = True
     enable_time_filter: bool = False
     
@@ -169,6 +170,13 @@ class StrategyToCodeMapper:
         ))
         
         # Execution Validation Parameters (NEW)
+        params.append(self.snippets.parameter_int(
+            "Max Positions",
+            strategy.max_positions,
+            min_val=1,
+            max_val=10
+        ))
+        
         params.append(self.snippets.parameter_double(
             "Max Spread (pips)",
             strategy.max_spread_pips,
@@ -227,9 +235,7 @@ class StrategyToCodeMapper:
     
     def _generate_state_variables(self, strategy: StrategyDefinition) -> str:
         """Generate state tracking variables"""
-        return """private double dailyStartBalance;
-        private double peakBalance;
-        private DateTime lastResetDate;"""
+        return self.snippets.state_variables_with_dynamic_label()
     
     def _generate_indicator_initializations(self, strategy: StrategyDefinition) -> str:
         """Generate indicator initialization code"""
@@ -258,7 +264,9 @@ class StrategyToCodeMapper:
         """Generate state initialization code"""
         return """            dailyStartBalance = Account.Balance;
             peakBalance = Account.Balance;
-            lastResetDate = Server.Time.Date;"""
+            lastResetDate = Server.Time.Date;
+            
+            """ + self.snippets.initialize_dynamic_label()
     
     def _generate_onstart_custom(self, strategy: StrategyDefinition) -> str:
         """Generate custom OnStart logic"""
@@ -266,9 +274,9 @@ class StrategyToCodeMapper:
         lines.append(f'            Print("Risk per trade: {{RiskPerTrade}}%");')
         lines.append(f'            Print("SL: {{StopLossPips}} pips, TP: {{TakeProfitPips}} pips");')
         lines.append(f'            Print("Execution Validation:");')
+        lines.append(f'            Print("  - Position Control: Max {{MaxPositions}} position(s)");')
         lines.append(f'            Print("  - Spread Filter: {{EnableSpreadFilter}} (Max: {{MaxSpread}} pips)");')
         lines.append(f'            Print("  - Time Filter: {{EnableTimeFilter}} ({{StartHour}}:00 - {{EndHour}}:00)");')
-        lines.append(f'            Print("  - Position Control: Enabled (Label: {strategy.position_label})");')
         return "\n".join(lines)
     
     def _generate_strategy_logic(self, strategy: StrategyDefinition) -> str:
@@ -281,31 +289,53 @@ class StrategyToCodeMapper:
         # EXECUTION VALIDATION LAYER (NEW)
         logic_parts.append("\n            // === EXECUTION VALIDATION LAYER ===")
         
-        # Position control (always enabled - no parameter control)
-        logic_parts.append(self.snippets.position_control_check(strategy.position_label))
+        # Position control (always enabled - uses dynamic label and MaxPositions)
+        logic_parts.append(self.snippets.position_control_check_dynamic())
         
         # Spread filter (controlled by EnableSpreadFilter parameter)
         logic_parts.append("""            
-            // Spread Filter
+            // Spread Filter with Spike Protection
             if (EnableSpreadFilter)
             {
                 var currentSpreadPips = (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
-                if (currentSpreadPips > MaxSpreadpips)
+                
+                // Check max spread threshold
+                if (currentSpreadPips > MaxSpread)
                 {
-                    Print($"Spread too wide: {currentSpreadPips:F2} pips > {MaxSpreadpips:F2} pips - Trade rejected");
+                    Print($"Spread too wide: {currentSpreadPips:F2} pips > {MaxSpread:F2} pips - Trade rejected");
+                    return;
+                }
+                
+                // Spread spike protection (3x typical)
+                double typicalSpread = 1.5;
+                if (currentSpreadPips > typicalSpread * 3.0)
+                {
+                    Print($"Spread spike: {currentSpreadPips:F2} pips - Trade rejected");
                     return;
                 }
             }""")
         
-        # Time filter (controlled by EnableTimeFilter parameter)
+        # Time filter (improved midnight handling)
         logic_parts.append("""            
-            // Trading Hours Filter
+            // Trading Hours Filter (handles midnight crossing)
             if (EnableTimeFilter)
             {
                 int currentHour = Server.Time.Hour;
-                if (currentHour < StartHour || currentHour > EndHour)
+                bool withinTradingHours;
+                
+                if (StartHour <= EndHour)
                 {
-                    // Outside trading hours
+                    // Normal hours (e.g., 7:00 - 20:00)
+                    withinTradingHours = currentHour >= StartHour && currentHour <= EndHour;
+                }
+                else
+                {
+                    // Crosses midnight (e.g., 22:00 - 02:00)
+                    withinTradingHours = currentHour >= StartHour || currentHour <= EndHour;
+                }
+                
+                if (!withinTradingHours)
+                {
                     return;
                 }
             }""")
@@ -363,16 +393,16 @@ class StrategyToCodeMapper:
                 condition_var = "true"  # Default
         
         # Entry execution (no position check needed - handled by validation layer)
+        # Use enhanced order execution with dynamic label
         logic.append(f"""            
-            // Execute entry if condition met (position control already validated)
+            // Execute entry if condition met (validation already passed)
             if ({condition_var})
             {{
                 {self.snippets.calculate_position_size_fixed_risk("RiskPerTrade", "StopLossPips")}
                 
-                {self.snippets.execute_market_order(
+                {self.snippets.execute_market_order_enhanced(
                     trade_type,
                     "volumeInUnits",
-                    strategy.position_label,
                     "StopLossPips",
                     "TakeProfitPips"
                 )}
@@ -386,14 +416,16 @@ class StrategyToCodeMapper:
     
     def _generate_cleanup_logic(self, strategy: StrategyDefinition) -> str:
         """Generate cleanup logic for OnStop"""
-        return """            // Close all open positions
+        return """            // Close all positions with this bot's label
             foreach (var position in Positions)
             {
-                if (position.SymbolName == SymbolName)
+                if (position.Label == dynamicLabel && position.SymbolName == SymbolName)
                 {
                     ClosePosition(position);
                 }
-            }"""
+            }
+            
+            Print($"Closed all positions for {dynamicLabel}");"""
 
 
 # Example usage and verification

@@ -21,8 +21,12 @@ class CTraderAPISnippets:
     @staticmethod
     def parameter_double(name: str, default_value: float, min_val: float = 0.1, max_val: float = 100.0) -> str:
         """Double parameter with validation"""
-        # Clean property name: remove spaces, special characters
-        prop_name = name.replace(" ", "").replace("(", "").replace(")", "").replace("%", "").replace("-", "")
+        # Clean property name: remove spaces, special characters, parentheses content
+        import re
+        # Remove content in parentheses first
+        prop_name = re.sub(r'\([^)]*\)', '', name)
+        # Then remove remaining special characters and spaces
+        prop_name = prop_name.replace(" ", "").replace("(", "").replace(")", "").replace("%", "").replace("-", "")
         return f'[Parameter("{name}", DefaultValue = {default_value}, MinValue = {min_val}, MaxValue = {max_val})]\n        public double {prop_name} {{ get; set; }}'
     
     @staticmethod
@@ -143,33 +147,45 @@ class CTraderAPISnippets:
     # ==================== TRADING ACTIONS ====================
     
     @staticmethod
-    def execute_market_order(
+    def execute_market_order_enhanced(
         trade_type: str,
         volume: str,
-        label: str,
         stop_loss_pips: Optional[str] = None,
         take_profit_pips: Optional[str] = None
     ) -> str:
-        """Execute market order with correct API signature"""
+        """Execute market order with enhanced result validation and dynamic label"""
         sl = stop_loss_pips if stop_loss_pips else "null"
         tp = take_profit_pips if take_profit_pips else "null"
         
-        return f"""            var result = ExecuteMarketOrder(
+        return f"""            // Execute order with dynamic label
+            var result = ExecuteMarketOrder(
                 TradeType.{trade_type},
                 SymbolName,
                 {volume},
-                "{label}",
+                dynamicLabel,  // Use dynamic label
                 {sl},
                 {tp}
             );
             
+            // Enhanced result validation
             if (result.IsSuccessful)
             {{
-                Print($"Order executed: {trade_type} {{result.Position.VolumeInUnits}} units @ {{Symbol.Bid}}");
+                Print($"✓ Order executed: {{result.Position.TradeType}} {{result.Position.VolumeInUnits}} units @ {{Symbol.Bid:F5}}");
+                Print($"  Label: {{dynamicLabel}}, SL: {{{sl}}}, TP: {{{tp}}}");
             }}
             else
             {{
-                Print($"Order FAILED: {{result.Error}}");
+                Print($"✗ Order FAILED: {{result.Error}}");
+                
+                // Log detailed error information
+                if (result.Error == ErrorCode.NoMoney)
+                    Print("  Reason: Insufficient funds");
+                else if (result.Error == ErrorCode.BadVolume)
+                    Print("  Reason: Invalid volume");
+                else if (result.Error == ErrorCode.MarketClosed)
+                    Print("  Reason: Market closed");
+                else
+                    Print($"  Error Code: {{result.Error}}");
             }}"""
     
     @staticmethod
@@ -262,6 +278,21 @@ class CTraderAPISnippets:
     # ==================== STATE MANAGEMENT ====================
     
     @staticmethod
+    def state_variables_with_dynamic_label() -> str:
+        """State tracking variables including dynamic label"""
+        return """private double dailyStartBalance;
+        private double peakBalance;
+        private DateTime lastResetDate;
+        private string dynamicLabel;"""
+    
+    @staticmethod
+    def initialize_dynamic_label() -> str:
+        """Initialize dynamic label in OnStart"""
+        return """            // Generate dynamic label: BotName_Symbol
+            dynamicLabel = $"{GetType().Name}_{SymbolName}";
+            Print($"Dynamic Label: {dynamicLabel}");"""
+    
+    @staticmethod
     def daily_reset_logic() -> str:
         """Reset daily tracking at start of new day"""
         return """            // Reset daily tracking at start of new day
@@ -293,38 +324,85 @@ class CTraderAPISnippets:
     # ==================== EXECUTION VALIDATION LAYER ====================
     
     @staticmethod
-    def position_control_check(label: str) -> str:
-        """Prevent overtrading: Check if position already exists for this label"""
-        return f"""            // EXECUTION VALIDATION: Position Control
-            // Prevent multiple positions with same label
-            var existingPositions = Positions.FindAll("{label}", SymbolName);
-            if (existingPositions.Length > 0)
-            {{
-                // Position already exists - prevent overtrading
-                return;
-            }}"""
+    def execution_validation_parameters() -> str:
+        """Parameters for execution validation layer"""
+        params = []
+        
+        # Max positions parameter
+        params.append('[Parameter("Max Positions", DefaultValue = 1, MinValue = 1, MaxValue = 10)]\n        public int MaxPositions { get; set; }')
+        
+        # Spread filter parameter
+        params.append('[Parameter("Max Spread (pips)", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0)]\n        public double MaxSpread { get; set; }')
+        
+        # Trading hours parameters
+        params.append('[Parameter("Start Hour", DefaultValue = 7, MinValue = 0, MaxValue = 23)]\n        public int StartHour { get; set; }')
+        
+        params.append('[Parameter("End Hour", DefaultValue = 20, MinValue = 0, MaxValue = 23)]\n        public int EndHour { get; set; }')
+        
+        # Enable/disable filters
+        params.append('[Parameter("Enable Spread Filter", DefaultValue = true)]\n        public bool EnableSpreadFilter { get; set; }')
+        
+        params.append('[Parameter("Enable Time Filter", DefaultValue = false)]\n        public bool EnableTimeFilter { get; set; }')
+        
+        return '\n'.join(params)
     
     @staticmethod
-    def spread_filter_check(max_spread_param: str = "MaxSpread") -> str:
-        """Spread filter: Reject trades if spread is too wide"""
-        return f"""            // EXECUTION VALIDATION: Spread Filter
+    def position_control_check_dynamic() -> str:
+        """Prevent overtrading: Check if max positions reached (uses dynamic label)"""
+        return """            // EXECUTION VALIDATION: Position Control
+            // Prevent overtrading - check max positions
+            var existingPositions = Positions.FindAll(dynamicLabel, SymbolName);
+            if (existingPositions.Length >= MaxPositions)
+            {
+                Print($"Max positions reached: {existingPositions.Length}/{MaxPositions} - No new entries");
+                return;
+            }"""
+    
+    @staticmethod
+    def spread_filter_check_improved() -> str:
+        """Spread filter with spike protection: Reject trades if spread is too wide or spiking"""
+        return """            // EXECUTION VALIDATION: Spread Filter with Spike Protection
             var currentSpreadPips = (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
-            if (currentSpreadPips > {max_spread_param})
-            {{
-                Print($"Spread too wide: {{currentSpreadPips:F2}} pips > {{{max_spread_param}:F2}} pips - Trade rejected");
+            
+            // Check max spread threshold
+            if (currentSpreadPips > MaxSpread)
+            {
+                Print($"Spread too wide: {currentSpreadPips:F2} pips > {MaxSpread:F2} pips - Trade rejected");
                 return;
-            }}"""
+            }
+            
+            // Optional: Spread spike protection (compare with typical spread)
+            // Typical forex spread is 1-2 pips, reject if 3x normal
+            double typicalSpread = 1.5;
+            if (currentSpreadPips > typicalSpread * 3.0)
+            {
+                Print($"Spread spike detected: {currentSpreadPips:F2} pips (typical: {typicalSpread} pips) - Trade rejected");
+                return;
+            }"""
     
     @staticmethod
-    def trading_time_filter_check(start_hour_param: str = "StartHour", end_hour_param: str = "EndHour") -> str:
-        """Trading time filter: Only trade during specified hours"""
-        return f"""            // EXECUTION VALIDATION: Trading Hours Filter
+    def trading_time_filter_check_improved() -> str:
+        """Trading time filter: Handles midnight crossing correctly"""
+        return """            // EXECUTION VALIDATION: Trading Hours Filter (handles midnight crossing)
             int currentHour = Server.Time.Hour;
-            if (currentHour < {start_hour_param} || currentHour > {end_hour_param})
-            {{
+            bool withinTradingHours;
+            
+            if (StartHour <= EndHour)
+            {
+                // Normal hours (e.g., 7:00 - 20:00)
+                withinTradingHours = currentHour >= StartHour && currentHour <= EndHour;
+            }
+            else
+            {
+                // Crosses midnight (e.g., 22:00 - 02:00)
+                withinTradingHours = currentHour >= StartHour || currentHour <= EndHour;
+            }
+            
+            if (!withinTradingHours)
+            {
                 // Outside trading hours
                 return;
-            }}"""
+            }"""
     
     @staticmethod
     def execution_validation_full(label: str, enable_spread_filter: bool = True, enable_time_filter: bool = False) -> str:
