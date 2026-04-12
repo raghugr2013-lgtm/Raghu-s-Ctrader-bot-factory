@@ -2629,11 +2629,65 @@ async def check_any_data_availability(symbol: str):
     """
     Check if ANY data is available for a symbol across all timeframes.
     Used for data status display - does NOT require specific timeframe.
+    
+    PRIORITY: Checks M1 SSOT first (market_candles_m1), then legacy collection.
     """
     try:
-        symbol_upper = symbol.upper()
+        # Normalize symbol: Remove "/" if present (EUR/USD -> EURUSD)
+        symbol_normalized = symbol.upper().replace("/", "").replace(" ", "")
         
-        # Check all timeframes
+        logging.info(f"[DATA CHECK] Symbol received: '{symbol}' → normalized: '{symbol_normalized}'")
+        
+        # ===========================================
+        # PRIORITY 1: Check M1 SSOT (market_candles_m1)
+        # ===========================================
+        m1_count = await db.market_candles_m1.count_documents({
+            "symbol": symbol_normalized
+        })
+        
+        logging.info(f"[DATA CHECK] M1 SSOT check: {m1_count:,} candles found")
+        
+        if m1_count > 0:
+            # Get date range from M1 SSOT
+            first = await db.market_candles_m1.find_one(
+                {"symbol": symbol_normalized},
+                sort=[("timestamp", 1)]
+            )
+            last = await db.market_candles_m1.find_one(
+                {"symbol": symbol_normalized},
+                sort=[("timestamp", -1)]
+            )
+            
+            date_range = None
+            if first and last:
+                date_range = {
+                    "start": first["timestamp"].isoformat() if hasattr(first["timestamp"], 'isoformat') else str(first["timestamp"]),
+                    "end": last["timestamp"].isoformat() if hasattr(last["timestamp"], 'isoformat') else str(last["timestamp"])
+                }
+            
+            # M1 SSOT data can be aggregated to any timeframe
+            available_timeframes = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+            
+            logging.info(f"[DATA CHECK] ✅ M1 SSOT data available: {m1_count:,} candles")
+            
+            return {
+                "success": True,
+                "available": True,
+                "symbol": symbol_normalized,
+                "available_timeframes": available_timeframes,
+                "best_timeframe": "M1",
+                "total_candles": m1_count,
+                "candle_count": m1_count,
+                "date_range": date_range,
+                "source": "M1_SSOT",
+                "message": f"M1 SSOT data available ({m1_count:,} candles) - all timeframes supported via aggregation"
+            }
+        
+        # ===========================================
+        # PRIORITY 2: Check legacy collection (market_candles)
+        # ===========================================
+        logging.info(f"[DATA CHECK] No M1 SSOT data, checking legacy collection...")
+        
         timeframes = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
         available_tfs = []
         total_candles = 0
@@ -2645,7 +2699,7 @@ async def check_any_data_availability(symbol: str):
             try:
                 tf_enum = DataTimeframe(tf)
                 count = await db.market_candles.count_documents({
-                    "symbol": symbol_upper,
+                    "symbol": symbol_normalized,
                     "timeframe": tf
                 })
                 
@@ -2659,11 +2713,11 @@ async def check_any_data_availability(symbol: str):
                         
                         # Get date range for best timeframe
                         first = await db.market_candles.find_one(
-                            {"symbol": symbol_upper, "timeframe": tf},
+                            {"symbol": symbol_normalized, "timeframe": tf},
                             sort=[("timestamp", 1)]
                         )
                         last = await db.market_candles.find_one(
-                            {"symbol": symbol_upper, "timeframe": tf},
+                            {"symbol": symbol_normalized, "timeframe": tf},
                             sort=[("timestamp", -1)]
                         )
                         if first and last:
@@ -2675,23 +2729,27 @@ async def check_any_data_availability(symbol: str):
                 continue
         
         if available_tfs:
+            logging.info(f"[DATA CHECK] ✅ Legacy data available: {total_candles:,} candles in {len(available_tfs)} timeframes")
             return {
                 "success": True,
                 "available": True,
-                "symbol": symbol_upper,
+                "symbol": symbol_normalized,
                 "available_timeframes": available_tfs,
                 "best_timeframe": best_tf,
                 "total_candles": total_candles,
                 "candle_count": best_count,
                 "date_range": date_range,
+                "source": "LEGACY",
                 "message": f"Data available in {len(available_tfs)} timeframe(s)"
             }
         else:
+            logging.warning(f"[DATA CHECK] ❌ No data found for '{symbol_normalized}'")
             return {
                 "success": True,
                 "available": False,
-                "symbol": symbol_upper,
+                "symbol": symbol_normalized,
                 "available_timeframes": [],
+                "source": "NONE",
                 "message": "No data available for this symbol"
             }
             
@@ -3209,15 +3267,59 @@ async def check_data_availability(symbol: str, timeframe: str):
     """
     Quick check if market data is available for symbol/timeframe.
     Returns availability status and date range if data exists.
+    
+    PRIORITY: Checks M1 SSOT first, then legacy collection.
     """
     try:
+        # Normalize symbol
+        symbol_normalized = symbol.upper().replace("/", "").replace(" ", "")
+        
+        logging.info(f"[DATA CHECK] Checking {symbol_normalized} @ {timeframe}")
+        
+        # Check M1 SSOT first
+        m1_count = await db.market_candles_m1.count_documents({
+            "symbol": symbol_normalized
+        })
+        
+        if m1_count > 0:
+            # M1 data available - can aggregate to any timeframe
+            first = await db.market_candles_m1.find_one(
+                {"symbol": symbol_normalized},
+                sort=[("timestamp", 1)]
+            )
+            last = await db.market_candles_m1.find_one(
+                {"symbol": symbol_normalized},
+                sort=[("timestamp", -1)]
+            )
+            
+            date_range = None
+            if first and last:
+                date_range = {
+                    "start": first["timestamp"],
+                    "end": last["timestamp"]
+                }
+            
+            logging.info(f"[DATA CHECK] ✅ M1 SSOT: {m1_count:,} candles")
+            
+            return {
+                "success": True,
+                "available": True,
+                "symbol": symbol_normalized,
+                "timeframe": timeframe,
+                "candle_count": m1_count,
+                "date_range": date_range,
+                "source": "M1_SSOT",
+                "message": f"M1 SSOT data available - {timeframe} will be aggregated"
+            }
+        
+        # Fallback to legacy check
         try:
             tf = DataTimeframe(timeframe)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
         
         # Get stats which includes date range
-        stats = await market_data_service.get_stats(symbol.upper(), tf)
+        stats = await market_data_service.get_stats(symbol_normalized, tf)
         
         if stats and stats.total_candles > 0:
             return {
