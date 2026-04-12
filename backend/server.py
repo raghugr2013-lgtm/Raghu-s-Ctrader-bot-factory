@@ -1786,7 +1786,7 @@ async def auto_generate_strategies(request: AutoGenerateRequest):
     """
     try:
         # Step 0: Validate local CSV data availability
-        # CRITICAL FIX: Always load M1 data (SSOT), aggregate to requested timeframe
+        # CRITICAL FIX: Use data_service_v2 (M1 SSOT) instead of legacy market_data_service
         
         # Normalize symbol (EUR/USD → EURUSD)
         normalized_symbol = request.symbol.replace("/", "").upper()
@@ -1800,10 +1800,10 @@ async def auto_generate_strategies(request: AutoGenerateRequest):
         logger.info(f"[DATA LOAD] Date range: {start_date.date()} to {end_date.date()}")
         logger.info(f"[DATA LOAD] Requested timeframe: {request.timeframe}")
         
-        # Get candles (M1 SSOT, aggregated to requested timeframe)
-        candles_result = await market_data_service.get_candles(
+        # Get candles using V2 service (M1 SSOT with aggregation)
+        candles_result = await data_service_v2.get_candles(
             symbol=normalized_symbol,
-            timeframe=request.timeframe,  # Will aggregate from M1 if needed
+            timeframe=request.timeframe,
             start_date=start_date,
             end_date=end_date,
             min_confidence="medium",
@@ -2000,7 +2000,7 @@ async def create_strategy_generation_job(request: StrategyJobRequest):
         if request.strategy_count < 10 or request.strategy_count > 1000:
             raise HTTPException(status_code=400, detail="Strategy count must be between 10 and 1000")
         
-        # CRITICAL FIX: Always load M1 data (SSOT), aggregate to requested timeframe
+        # CRITICAL FIX: Use data_service_v2 (M1 SSOT) instead of legacy market_data_service
         # Normalize symbol (EUR/USD → EURUSD)
         normalized_symbol = request.symbol.replace("/", "").upper()
         logger.info(f"[JOB DATA LOAD] Symbol normalized: {request.symbol} → {normalized_symbol}")
@@ -2013,8 +2013,8 @@ async def create_strategy_generation_job(request: StrategyJobRequest):
         logger.info(f"[JOB DATA LOAD] Date range: {start_date.date()} to {end_date.date()}")
         logger.info(f"[JOB DATA LOAD] Requested timeframe: {request.timeframe}")
         
-        # Get candles (M1 SSOT, aggregated to requested timeframe)
-        candles_result = await market_data_service.get_candles(
+        # Get candles using V2 service (M1 SSOT with aggregation)
+        candles_result = await data_service_v2.get_candles(
             symbol=normalized_symbol,
             timeframe=request.timeframe,
             start_date=start_date,
