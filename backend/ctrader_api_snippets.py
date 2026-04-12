@@ -25,6 +25,35 @@ class CTraderAPISnippets:
         prop_name = name.replace(" ", "").replace("(", "").replace(")", "").replace("%", "").replace("-", "")
         return f'[Parameter("{name}", DefaultValue = {default_value}, MinValue = {min_val}, MaxValue = {max_val})]\n        public double {prop_name} {{ get; set; }}'
     
+    @staticmethod
+    def parameter_bool(name: str, default_value: bool) -> str:
+        """Boolean parameter"""
+        prop_name = name.replace(" ", "").replace("(", "").replace(")", "").replace("%", "").replace("-", "")
+        value_str = "true" if default_value else "false"
+        return f'[Parameter("{name}", DefaultValue = {value_str})]\n        public bool {prop_name} {{ get; set; }}'
+    
+    # ==================== EXECUTION VALIDATION PARAMETERS ====================
+    
+    @staticmethod
+    def execution_validation_parameters() -> str:
+        """Parameters for execution validation layer"""
+        params = []
+        
+        # Spread filter parameter
+        params.append('[Parameter("Max Spread (pips)", DefaultValue = 2.0, MinValue = 0.5, MaxValue = 10.0)]\n        public double MaxSpread { get; set; }')
+        
+        # Trading hours parameters
+        params.append('[Parameter("Start Hour", DefaultValue = 7, MinValue = 0, MaxValue = 23)]\n        public int StartHour { get; set; }')
+        
+        params.append('[Parameter("End Hour", DefaultValue = 20, MinValue = 0, MaxValue = 23)]\n        public int EndHour { get; set; }')
+        
+        # Enable/disable filters
+        params.append('[Parameter("Enable Spread Filter", DefaultValue = true)]\n        public bool EnableSpreadFilter { get; set; }')
+        
+        params.append('[Parameter("Enable Time Filter", DefaultValue = false)]\n        public bool EnableTimeFilter { get; set; }')
+        
+        return '\n'.join(params)
+    
     # ==================== INDICATORS ====================
     
     @staticmethod
@@ -260,6 +289,60 @@ class CTraderAPISnippets:
                 Print("Symbol not available");
                 return;
             }"""
+    
+    # ==================== EXECUTION VALIDATION LAYER ====================
+    
+    @staticmethod
+    def position_control_check(label: str) -> str:
+        """Prevent overtrading: Check if position already exists for this label"""
+        return f"""            // EXECUTION VALIDATION: Position Control
+            // Prevent multiple positions with same label
+            var existingPositions = Positions.FindAll("{label}", SymbolName);
+            if (existingPositions.Length > 0)
+            {{
+                // Position already exists - prevent overtrading
+                return;
+            }}"""
+    
+    @staticmethod
+    def spread_filter_check(max_spread_param: str = "MaxSpread") -> str:
+        """Spread filter: Reject trades if spread is too wide"""
+        return f"""            // EXECUTION VALIDATION: Spread Filter
+            var currentSpreadPips = (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
+            if (currentSpreadPips > {max_spread_param})
+            {{
+                Print($"Spread too wide: {{currentSpreadPips:F2}} pips > {{{max_spread_param}:F2}} pips - Trade rejected");
+                return;
+            }}"""
+    
+    @staticmethod
+    def trading_time_filter_check(start_hour_param: str = "StartHour", end_hour_param: str = "EndHour") -> str:
+        """Trading time filter: Only trade during specified hours"""
+        return f"""            // EXECUTION VALIDATION: Trading Hours Filter
+            int currentHour = Server.Time.Hour;
+            if (currentHour < {start_hour_param} || currentHour > {end_hour_param})
+            {{
+                // Outside trading hours
+                return;
+            }}"""
+    
+    @staticmethod
+    def execution_validation_full(label: str, enable_spread_filter: bool = True, enable_time_filter: bool = False) -> str:
+        """Complete execution validation layer (combines all checks)"""
+        checks = []
+        
+        # Always include position control
+        checks.append(CTraderAPISnippets.position_control_check(label))
+        
+        # Optional: Spread filter
+        if enable_spread_filter:
+            checks.append(CTraderAPISnippets.spread_filter_check())
+        
+        # Optional: Time filter
+        if enable_time_filter:
+            checks.append(CTraderAPISnippets.trading_time_filter_check())
+        
+        return "\n".join(checks)
 
 
 # Verification test

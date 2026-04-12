@@ -43,6 +43,13 @@ class StrategyDefinition:
     max_daily_loss_percent: float = 5.0
     max_total_drawdown_percent: float = 10.0
     
+    # Execution validation (NEW)
+    max_spread_pips: float = 2.0
+    trading_start_hour: int = 7
+    trading_end_hour: int = 20
+    enable_spread_filter: bool = True
+    enable_time_filter: bool = False
+    
     # Position management
     allow_multiple_positions: bool = False
     position_label: str = "Strategy"
@@ -161,6 +168,38 @@ class StrategyToCodeMapper:
             max_val=30
         ))
         
+        # Execution Validation Parameters (NEW)
+        params.append(self.snippets.parameter_double(
+            "Max Spread (pips)",
+            strategy.max_spread_pips,
+            min_val=0.5,
+            max_val=10.0
+        ))
+        
+        params.append(self.snippets.parameter_int(
+            "Start Hour",
+            strategy.trading_start_hour,
+            min_val=0,
+            max_val=23
+        ))
+        
+        params.append(self.snippets.parameter_int(
+            "End Hour",
+            strategy.trading_end_hour,
+            min_val=0,
+            max_val=23
+        ))
+        
+        params.append(self.snippets.parameter_bool(
+            "Enable Spread Filter",
+            strategy.enable_spread_filter
+        ))
+        
+        params.append(self.snippets.parameter_bool(
+            "Enable Time Filter",
+            strategy.enable_time_filter
+        ))
+        
         return "\n".join(params)
     
     def _generate_indicator_declarations(self, strategy: StrategyDefinition) -> str:
@@ -226,6 +265,10 @@ class StrategyToCodeMapper:
         lines = [f'            Print("Strategy: {strategy.description}");']
         lines.append(f'            Print("Risk per trade: {{RiskPerTrade}}%");')
         lines.append(f'            Print("SL: {{StopLossPips}} pips, TP: {{TakeProfitPips}} pips");')
+        lines.append(f'            Print("Execution Validation:");')
+        lines.append(f'            Print("  - Spread Filter: {{EnableSpreadFilter}} (Max: {{MaxSpread}} pips)");')
+        lines.append(f'            Print("  - Time Filter: {{EnableTimeFilter}} ({{StartHour}}:00 - {{EndHour}}:00)");')
+        lines.append(f'            Print("  - Position Control: Enabled (Label: {strategy.position_label})");')
         return "\n".join(lines)
     
     def _generate_strategy_logic(self, strategy: StrategyDefinition) -> str:
@@ -234,6 +277,38 @@ class StrategyToCodeMapper:
         
         # Safety checks (always first)
         logic_parts.append(self.snippets.safety_checks())
+        
+        # EXECUTION VALIDATION LAYER (NEW)
+        logic_parts.append("\n            // === EXECUTION VALIDATION LAYER ===")
+        
+        # Position control (always enabled - no parameter control)
+        logic_parts.append(self.snippets.position_control_check(strategy.position_label))
+        
+        # Spread filter (controlled by EnableSpreadFilter parameter)
+        logic_parts.append("""            
+            // Spread Filter
+            if (EnableSpreadFilter)
+            {
+                var currentSpreadPips = (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
+                if (currentSpreadPips > MaxSpreadpips)
+                {
+                    Print($"Spread too wide: {currentSpreadPips:F2} pips > {MaxSpreadpips:F2} pips - Trade rejected");
+                    return;
+                }
+            }""")
+        
+        # Time filter (controlled by EnableTimeFilter parameter)
+        logic_parts.append("""            
+            // Trading Hours Filter
+            if (EnableTimeFilter)
+            {
+                int currentHour = Server.Time.Hour;
+                if (currentHour < StartHour || currentHour > EndHour)
+                {
+                    // Outside trading hours
+                    return;
+                }
+            }""")
         
         # Daily reset
         logic_parts.append(self.snippets.daily_reset_logic())
@@ -287,12 +362,10 @@ class StrategyToCodeMapper:
             else:
                 condition_var = "true"  # Default
         
-        # Check if position exists
-        logic.append(self.snippets.check_position_exists(strategy.position_label, trade_type, var_prefix))
-        
-        # Entry execution (use clean parameter names: StopLossPips, TakeProfitPips, RiskPerTrade)
+        # Entry execution (no position check needed - handled by validation layer)
         logic.append(f"""            
-            if ({condition_var} && !{var_prefix}positionExists)
+            // Execute entry if condition met (position control already validated)
+            if ({condition_var})
             {{
                 {self.snippets.calculate_position_size_fixed_risk("RiskPerTrade", "StopLossPips")}
                 
